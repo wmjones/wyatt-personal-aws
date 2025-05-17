@@ -9,11 +9,11 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
 
-#     # 2 — Python ecosystem
-#   - repo: https://github.com/PyCQA/isort
-#     rev: 6.0.1            # pin to the current stable tag
-#     hooks:
-#       - id: isort
+  #     # 2 — Python ecosystem
+  #   - repo: https://github.com/PyCQA/isort
+  #     rev: 6.0.1            # pin to the current stable tag
+  #     hooks:
+  #       - id: isort
 
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
@@ -22,7 +22,7 @@ repos:
         args: ["--keep-runtime-typing"]
 
   - repo: https://github.com/psf/black
-    rev: 25.1.0          # 2025-04-15
+    rev: 25.1.0 # 2025-04-15
     hooks:
       - id: black
 
@@ -33,7 +33,7 @@ repos:
 
   # 3 — Terraform / IaC
   - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.99.0         # tfsec 2.11, tflint 0.52
+    rev: v1.99.0 # tfsec 2.11, tflint 0.52
     hooks:
       - id: terraform_fmt
       - id: terraform_trivy
@@ -42,51 +42,59 @@ repos:
           - --args=--skip-dirs=.terraform
           - --args=--skip-dirs="**/.terraform/**"
           - --args=--tf-vars=/workspaces/wyatt-personal-aws/main/environments/dev.tfvars
-      - id: terraform_docs      # auto-fills README tables
-        stages: [pre-push]          # heavy ⟶ run only on push
+      - id: terraform_docs # auto-fills README tables
+        stages: [pre-push] # heavy ⟶ run only on push
 
-#   # 4 — Secret scanning
-#   - repo: https://github.com/Yelp/detect-secrets
-#     rev: v1.5.0
-#     hooks:
-#       - id: detect-secrets
-#         stages: [push]
+  #   # 4 — Secret scanning
+  #   - repo: https://github.com/Yelp/detect-secrets
+  #     rev: v1.5.0
+  #     hooks:
+  #       - id: detect-secrets
+  #         stages: [push]
 
-#   # 5 — Node / React / TypeScript
-#   - repo: https://github.com/pre-commit/mirrors-eslint
-#     rev: v9.25.1          # latest 8.x that mirrors ESLint core
-#     hooks:
-#       - id: eslint
-#         files: "\\.(js|jsx|ts|tsx)$"
-#         args: ["--cache"]            # speed up re-runs
-#         additional_dependencies:
-#           - eslint-config-standard-with-typescript@^38
-#           - eslint-plugin-react@^7
-#           - typescript@~5
-#           - "@typescript-eslint/parser@^7"
-#           - "@typescript-eslint/eslint-plugin@^7"
+  #   # 5 — Node / React / TypeScript
+  #   - repo: https://github.com/pre-commit/mirrors-eslint
+  #     rev: v9.25.1          # latest 8.x that mirrors ESLint core
+  #     hooks:
+  #       - id: eslint
+  #         files: "\\.(js|jsx|ts|tsx)$"
+  #         args: ["--cache"]            # speed up re-runs
+  #         additional_dependencies:
+  #           - eslint-config-standard-with-typescript@^38
+  #           - eslint-plugin-react@^7
+  #           - typescript@~5
+  #           - "@typescript-eslint/parser@^7"
+  #           - "@typescript-eslint/eslint-plugin@^7"
 
-  # 6 — Local heavy gates (push-stage only)
-#   - repo: local
-#     hooks:
-#       - id: pytest-check
-#         name: "pytest-check"
-#         entry: pytest
-#         language: system
-#         pass_filenames: false
-#         always_run: true
-#         stages: [push]
+  # 6 — Local heavy gates (push-stage only)
+  - repo: local
+    hooks:
+      - id: nextjs-lint
+        name: "Next.js ESLint"
+        entry: bash -c "cd src/frontend/nextjs-app && npm run lint"
+        language: system
+        pass_filenames: false
+        files: "src/frontend/nextjs-app/.*\\.(js|jsx|ts|tsx)$"
+        require_serial: true
 
-    #   - id: tsc-noEmit
-    #     name: "TypeScript type-check"
-    #     entry: npx tsc -p tsconfig.json --noEmit --incremental
-    #     language: system
-    #     pass_filenames: false
-    #     stages: [push]
+  #       - id: pytest-check
+  #         name: "pytest-check"
+  #         entry: pytest
+  #         language: system
+  #         pass_filenames: false
+  #         always_run: true
+  #         stages: [push]
 
-    #   - id: jest
-    #     name: "Jest unit tests"
-    #     entry: npx jest --bail
-    #     language: system
-    #     pass_filenames: false
-    #     stages: [push]
+  #   - id: tsc-noEmit
+  #     name: "TypeScript type-check"
+  #     entry: npx tsc -p tsconfig.json --noEmit --incremental
+  #     language: system
+  #     pass_filenames: false
+  #     stages: [push]
+
+  #   - id: jest
+  #     name: "Jest unit tests"
+  #     entry: npx jest --bail
+  #     language: system
+  #     pass_filenames: false
+  #     stages: [push]

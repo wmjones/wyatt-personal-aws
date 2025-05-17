@@ -55,8 +55,7 @@
     "dsznajder.es7-react-js-snippets",
     "burkeholland.simple-react-snippets",
     "jock.svg",
-    "styled-components.vscode-styled-components",
-    "WallabyJs.console-ninja"
+    "styled-components.vscode-styled-components"
   ],
   "runArgs": ["--ipc=host"]
 }
