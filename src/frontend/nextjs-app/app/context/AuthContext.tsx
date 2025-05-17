@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/auth';
 import { CognitoUser } from 'amazon-cognito-identity-js';
+import type { SignInResult, SignUpResult, ConfirmSignUpResult, ForgotPasswordResult, ForgotPasswordSubmitResult } from '../types/auth';
 
 interface AuthUser {
   username: string;
@@ -11,7 +12,7 @@ interface AuthUser {
     email: string;
     email_verified: boolean;
     sub: string;
-    [key: string]: any;
+    [key: string]: string | boolean;
   };
 }
 
@@ -19,12 +20,12 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (params: { email: string; password: string; name?: string }) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
+  signUp: (params: { email: string; password: string; name?: string }) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  confirmSignUp: (email: string, code: string) => Promise<any>;
-  forgotPassword: (email: string) => Promise<any>;
-  forgotPasswordSubmit: (email: string, code: string, newPassword: string) => Promise<any>;
+  confirmSignUp: (email: string, code: string) => Promise<ConfirmSignUpResult>;
+  forgotPassword: (email: string) => Promise<ForgotPasswordResult>;
+  forgotPasswordSubmit: (email: string, code: string, newPassword: string) => Promise<ForgotPasswordSubmitResult>;
   refreshToken: () => Promise<boolean>;
   getIdToken: () => Promise<string | null>;
 }
@@ -40,11 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   // Check for authenticated user on mount
-  useEffect(() => {
-    checkAuthState();
-  }, []);
-
-  const checkAuthState = async () => {
+  const checkAuthState = React.useCallback(async () => {
     try {
       const result = await authService.getCurrentUser();
       if (result.success && result.user) {
@@ -62,15 +59,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getUserAttributes = async (cognitoUser: CognitoUser): Promise<any> => {
+  useEffect(() => {
+    checkAuthState();
+  }, [checkAuthState]);
+
+  const getUserAttributes = async (cognitoUser: CognitoUser): Promise<Record<string, string>> => {
     return new Promise((resolve, reject) => {
       cognitoUser.getUserAttributes((err, attributes) => {
         if (err) {
           reject(err);
         } else {
-          const attrs: any = {};
+          const attrs: Record<string, string> = {};
           attributes?.forEach(attr => {
             attrs[attr.getName()] = attr.getValue();
           });

@@ -15,7 +15,7 @@ export default function SignUpPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  // const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,14 +29,14 @@ export default function SignUpPage() {
         if (result.userConfirmed) {
           router.push('/login');
         } else {
-          setNeedsConfirmation(true);
+          // setNeedsConfirmation(true);
           router.push(`/confirm-signup?email=${encodeURIComponent(email)}`);
         }
       } else {
         setError(result.error || 'Failed to sign up');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }

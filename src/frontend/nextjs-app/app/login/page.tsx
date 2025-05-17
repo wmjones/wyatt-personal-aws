@@ -28,8 +28,8 @@ export default function LoginPage() {
       } else {
         setError(result.error || 'Failed to sign in');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -101,7 +101,7 @@ export default function LoginPage() {
             </Link>
 
             <div>
-              <span className="text-muted-foreground">Don't have an account? </span>
+              <span className="text-muted-foreground">Don&apos;t have an account? </span>
               <Link
                 href="/signup"
                 className="text-primary hover:underline"

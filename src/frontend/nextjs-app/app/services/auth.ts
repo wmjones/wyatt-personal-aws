@@ -19,7 +19,10 @@ export interface SignUpParams {
 
 export interface SignInResult {
   isSignedIn: boolean;
-  nextStep?: any;
+  nextStep?: {
+    signInStep: string;
+    [key: string]: unknown;
+  };
 }
 
 export const authService = {
@@ -32,11 +35,11 @@ export const authService = {
         user,
         message: 'Successfully signed in',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error signing in:', error);
       return {
         success: false,
-        error: error.message || 'Failed to sign in',
+        error: (error as Error).message || 'Failed to sign in',
       };
     }
   },
@@ -61,11 +64,11 @@ export const authService = {
         userSub,
         message: 'Successfully signed up',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error signing up:', error);
       return {
         success: false,
-        error: error.message || 'Failed to sign up',
+        error: (error as Error).message || 'Failed to sign up',
       };
     }
   },
@@ -79,11 +82,11 @@ export const authService = {
         result,
         message: 'Email verified successfully',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error confirming sign up:', error);
       return {
         success: false,
-        error: error.message || 'Failed to confirm sign up',
+        error: (error as Error).message || 'Failed to confirm sign up',
       };
     }
   },
@@ -96,11 +99,11 @@ export const authService = {
         success: true,
         message: 'Successfully signed out',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error signing out:', error);
       return {
         success: false,
-        error: error.message || 'Failed to sign out',
+        error: (error as Error).message || 'Failed to sign out',
       };
     }
   },
@@ -118,7 +121,7 @@ export const authService = {
         idToken: session.getIdToken().getJwtToken(),
         accessToken: session.getAccessToken().getJwtToken(),
       };
-    } catch (error) {
+    } catch {
       // User is not authenticated
       return {
         success: false,
@@ -135,11 +138,11 @@ export const authService = {
         success: true,
         message: 'Confirmation code resent',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resending code:', error);
       return {
         success: false,
-        error: error.message || 'Failed to resend code',
+        error: (error as Error).message || 'Failed to resend code',
       };
     }
   },
@@ -153,11 +156,11 @@ export const authService = {
         result,
         message: 'Password reset code sent',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error initiating password reset:', error);
       return {
         success: false,
-        error: error.message || 'Failed to initiate password reset',
+        error: (error as Error).message || 'Failed to initiate password reset',
       };
     }
   },
@@ -171,11 +174,11 @@ export const authService = {
         result,
         message: 'Password reset successfully',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resetting password:', error);
       return {
         success: false,
-        error: error.message || 'Failed to reset password',
+        error: (error as Error).message || 'Failed to reset password',
       };
     }
   },
@@ -189,11 +192,11 @@ export const authService = {
         success: true,
         message: 'Password changed successfully',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error changing password:', error);
       return {
         success: false,
-        error: error.message || 'Failed to change password',
+        error: (error as Error).message || 'Failed to change password',
       };
     }
   },
@@ -231,11 +234,11 @@ export const authService = {
         success: true,
         session: refreshedSession,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error refreshing tokens:', error);
       return {
         success: false,
-        error: error.message || 'Failed to refresh tokens',
+        error: (error as Error).message || 'Failed to refresh tokens',
       };
     }
   },

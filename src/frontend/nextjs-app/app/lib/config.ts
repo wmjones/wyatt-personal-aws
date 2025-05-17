@@ -1,4 +1,4 @@
-import { env, validateEnv, getEnvVar } from './env';
+import { validateEnv, getEnvVar } from './env';
 
 // Validate environment on module load
 if (typeof window === 'undefined') {

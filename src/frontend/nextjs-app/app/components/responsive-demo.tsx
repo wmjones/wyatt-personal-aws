@@ -47,7 +47,7 @@ export default function ResponsiveDemo() {
         <div className="space-y-4">
           <div className="mobile-only bg-warning text-white p-4 rounded-lg">
             <p className="font-semibold">Mobile Only</p>
-            <p>This only shows on mobile screens (< 768px)</p>
+            <p>This only shows on mobile screens (&lt; 768px)</p>
           </div>
           <div className="tablet-up bg-success text-white p-4 rounded-lg">
             <p className="font-semibold">Tablet and Up</p>

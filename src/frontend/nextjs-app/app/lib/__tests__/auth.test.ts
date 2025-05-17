@@ -1,5 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { authService } from '../../services/auth';
+import { Auth } from 'aws-amplify';
 
 // Mock Amplify
 jest.mock('aws-amplify', () => ({
@@ -22,7 +23,7 @@ describe('Auth Service', () => {
 
   it('should handle successful sign in', async () => {
     const mockUser = { username: 'test@example.com' };
-    const { Auth } = require('aws-amplify');
+    // @ts-expect-error Mock is already set up
     Auth.signIn.mockResolvedValue(mockUser);
 
     const result = await authService.signIn('test@example.com', 'password');
@@ -33,7 +34,7 @@ describe('Auth Service', () => {
   });
 
   it('should handle sign in error', async () => {
-    const { Auth } = require('aws-amplify');
+    // @ts-expect-error Mock is already set up
     Auth.signIn.mockRejectedValue(new Error('Invalid credentials'));
 
     const result = await authService.signIn('test@example.com', 'wrong');
@@ -49,8 +50,9 @@ describe('Auth Service', () => {
       getAccessToken: () => ({ getJwtToken: () => 'mock-access-token' }),
     };
 
-    const { Auth } = require('aws-amplify');
+    // @ts-expect-error Mock is already set up
     Auth.currentAuthenticatedUser.mockResolvedValue(mockUser);
+    // @ts-expect-error Mock is already set up
     Auth.currentSession.mockResolvedValue(mockSession);
 
     const result = await authService.getCurrentUser();

@@ -1,5 +1,6 @@
 import { config } from '../lib/config';
 import { authService } from './auth';
+import type { Visualization, User, CreateVisualizationDto, UpdateVisualizationDto } from '../types/api';
 
 const API_BASE_URL = config.app.url.replace('http://localhost:3000', '') + '/api';
 
@@ -87,40 +88,40 @@ class ApiService {
 
   // Visualization endpoints
   async getVisualizations() {
-    return this.request<any[]>('/visualizations');
+    return this.request<Visualization[]>('/visualizations');
   }
 
   async getVisualization(id: string) {
-    return this.request<any>(`/visualizations/${id}`);
+    return this.request<Visualization>(`/visualizations/${id}`);
   }
 
-  async createVisualization(data: any) {
-    return this.request<any>('/visualizations', {
+  async createVisualization(data: CreateVisualizationDto) {
+    return this.request<Visualization>('/visualizations', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateVisualization(id: string, data: any) {
-    return this.request<any>(`/visualizations/${id}`, {
+  async updateVisualization(id: string, data: UpdateVisualizationDto) {
+    return this.request<Visualization>(`/visualizations/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteVisualization(id: string) {
-    return this.request<any>(`/visualizations/${id}`, {
+    return this.request<void>(`/visualizations/${id}`, {
       method: 'DELETE',
     });
   }
 
   // User profile endpoints
   async getUserProfile() {
-    return this.request<any>('/user/profile');
+    return this.request<User>('/user/profile');
   }
 
-  async updateUserProfile(data: any) {
-    return this.request<any>('/user/profile', {
+  async updateUserProfile(data: Partial<User>) {
+    return this.request<User>('/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     });

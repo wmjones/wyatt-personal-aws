@@ -29,8 +29,8 @@ export default function ForgotPasswordPage() {
       } else {
         setError(result.error || 'Failed to request password reset');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -49,8 +49,8 @@ export default function ForgotPasswordPage() {
       } else {
         setError(result.error || 'Failed to reset password');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }

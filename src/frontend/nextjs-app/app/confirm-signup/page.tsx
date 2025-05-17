@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { authService } from '../services/auth';
@@ -31,8 +31,8 @@ export default function ConfirmSignUpPage() {
       } else {
         setError(result.error || 'Failed to confirm email');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -50,8 +50,8 @@ export default function ConfirmSignUpPage() {
       } else {
         setError(result.error || 'Failed to resend code');
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function ConfirmSignUpPage() {
           <div className="text-center">
             <h1 className="text-3xl font-bold">Confirm Your Email</h1>
             <p className="text-muted-foreground mt-2">
-              We've sent a confirmation code to your email
+              We&apos;ve sent a confirmation code to your email
             </p>
           </div>
 
