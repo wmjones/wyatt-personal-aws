@@ -29,6 +29,9 @@ lambda_runtime = "python3.10"
 # WebSocket API Configuration
 websocket_api_name = "dashboard-websocket-prod"
 
+# Vercel Configuration
+vercel_app_url = "" # Will be populated during Vercel deployment
+
 # Step Function Configuration
 step_function_name = "todoist-workflow-prod"
 

@@ -4,10 +4,29 @@ module "api_gateway" {
   api_name        = "dashboard-api"
   api_description = "API for D3 Dashboard visualization data"
 
-  allowed_origins = ["https://${var.app_prefix}.${var.domain_name}", "http://localhost:3000"]
+  allowed_origins = concat(
+    [
+      "https://${var.app_prefix}.${var.domain_name}",
+      "http://localhost:3000",
+      "http://localhost:3001"
+    ],
+    var.vercel_app_url != "" ? [var.vercel_app_url] : [],
+    var.environment == "dev" ? ["https://*.vercel.app"] : []
+  )
 
   create_logs          = true
   create_custom_domain = false
+
+  # Configure JWT authorizer for Cognito
+  authorizers = {
+    cognito_jwt = {
+      authorizer_type  = "JWT"
+      identity_sources = ["$request.header.Authorization"]
+      name             = "cognito-jwt-authorizer"
+      audience         = [module.cognito.user_pool_client_id]
+      issuer           = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.cognito.user_pool_id}"
+    }
+  }
 
   # Integration with Lambda functions for API routes
   integrations = {
@@ -16,6 +35,8 @@ module "api_gateway" {
       integration_type       = "AWS_PROXY"
       payload_format_version = "2.0"
       timeout_milliseconds   = 10000
+      authorization_type     = "JWT"
+      authorizer_id          = "cognito_jwt"
     },
 
     "GET /api/visualizations/{id}" = {
@@ -23,6 +44,8 @@ module "api_gateway" {
       integration_type       = "AWS_PROXY"
       payload_format_version = "2.0"
       timeout_milliseconds   = 10000
+      authorization_type     = "JWT"
+      authorizer_id          = "cognito_jwt"
     },
 
     "POST /api/visualizations" = {
@@ -30,6 +53,8 @@ module "api_gateway" {
       integration_type       = "AWS_PROXY"
       payload_format_version = "2.0"
       timeout_milliseconds   = 10000
+      authorization_type     = "JWT"
+      authorizer_id          = "cognito_jwt"
     },
 
     "PUT /api/visualizations/{id}" = {
@@ -37,6 +62,8 @@ module "api_gateway" {
       integration_type       = "AWS_PROXY"
       payload_format_version = "2.0"
       timeout_milliseconds   = 10000
+      authorization_type     = "JWT"
+      authorizer_id          = "cognito_jwt"
     },
 
     "DELETE /api/visualizations/{id}" = {
@@ -44,6 +71,8 @@ module "api_gateway" {
       integration_type       = "AWS_PROXY"
       payload_format_version = "2.0"
       timeout_milliseconds   = 10000
+      authorization_type     = "JWT"
+      authorizer_id          = "cognito_jwt"
     }
   }
 

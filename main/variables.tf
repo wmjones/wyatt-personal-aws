@@ -48,6 +48,12 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+variable "vercel_app_url" {
+  description = "Vercel deployment URL for the frontend app"
+  type        = string
+  default     = ""
+}
+
 variable "one_nat_gateway_per_az" {
   description = "Should be true if you want only one NAT Gateway per availability zone"
   type        = bool

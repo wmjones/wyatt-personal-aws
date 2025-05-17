@@ -8,6 +8,24 @@
 # Local development and temporary files
 dev_output.txt
 precommit.log
+
+# MCP related
+.roo
+.taskmaster
+.stackframe-initialized
+
+# Dependencies
+node_modules/
+**/node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/src/frontend/react-app/coverage
+.pytest_cache
+
+# Environment variables
+.env
 .env.example
 .cursor/*
 .windsurfrules
@@ -76,4 +94,5 @@ node_modules/
 # Task files
 tasks.json
 tasks/
+tasks_old/
 **/.claude/settings.local.json

@@ -27,3 +27,8 @@ output "execution_arn" {
   description = "The execution ARN of the API Gateway (used for Lambda permissions)"
   value       = aws_apigatewayv2_api.this.execution_arn
 }
+
+output "authorizer_ids" {
+  description = "Map of authorizer names to their IDs"
+  value       = { for k, v in aws_apigatewayv2_authorizer.this : k => v.id }
+}

@@ -77,7 +77,26 @@ resource "aws_apigatewayv2_route" "this" {
   route_key          = each.key
   target             = "integrations/${aws_apigatewayv2_integration.this[each.key].id}"
   authorization_type = try(each.value.authorization_type, "NONE")
-  authorizer_id      = try(each.value.authorizer_id, null)
+  authorizer_id      = try(each.value.authorizer_id, null) != null ? aws_apigatewayv2_authorizer.this[each.value.authorizer_id].id : null
+}
+
+resource "aws_apigatewayv2_authorizer" "this" {
+  for_each = var.authorizers
+
+  api_id                            = aws_apigatewayv2_api.this.id
+  authorizer_type                   = try(each.value.authorizer_type, "JWT")
+  identity_sources                  = try(each.value.identity_sources, ["$request.header.Authorization"])
+  name                              = try(each.value.name, each.key)
+  authorizer_payload_format_version = try(each.value.payload_format_version, "2.0")
+
+  dynamic "jwt_configuration" {
+    for_each = each.value.authorizer_type == "JWT" ? [1] : []
+
+    content {
+      audience = try(each.value.audience, null)
+      issuer   = try(each.value.issuer, null)
+    }
+  }
 }
 
 resource "aws_apigatewayv2_domain_name" "this" {

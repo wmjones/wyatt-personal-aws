@@ -26,6 +26,12 @@ output "website_url" {
   value       = module.frontend.website_url
 }
 
+# API Gateway Outputs
+output "api_gateway_endpoint" {
+  description = "Endpoint URL of the API Gateway"
+  value       = module.api_gateway.api_endpoint
+}
+
 # Visualization Data Bucket
 output "visualization_data_bucket_name" {
   description = "Name of the S3 bucket for visualization data"
