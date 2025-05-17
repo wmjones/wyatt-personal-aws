@@ -193,7 +193,7 @@ fi
 
 # Configure Claude Code to exclude irrelevant directories
 echo "Configuring Claude Code exclude directories..."
-claude config add ignorePatterns "node_modules,venv,.git,__pycache__,build,dist,.venv,coverage,.pytest_cache,.terraform,terraform.tfstate,terraform.tfstate.backup,.terraform.lock.hcl,*.log,*.pyc,*.pyo,*.pyd,*.so,*.dylib,*.dll,*.exe,*.o,*.obj,.DS_Store,Thumbs.db,*.swp,*.swo,*~,.idea,*.iml,*.ipr,*.iws,*.egg-info,*.egg,.tox,.coverage,htmlcov,.cache,.mypy_cache,.ruff_cache,__MACOSX,.Spotlight-V100,.Trashes,ehthumbs.db,Desktop.ini,$RECYCLE.BIN,*.cab,*.msi,*.msm,*.msp,*.lnk,npm-debug.log*,yarn-debug.log*,yarn-error.log*,pnpm-debug.log*,lerna-debug.log*,.vercel,.next,out,.nuxt,.cache,.parcel-cache,.turbo,.docusaurus,.serverless,.fusebox,.dynamodb,.npm,.yarn,.pnpm-store,.eslintcache" || warning "Failed to configure Claude Code exclude directories"
+# claude config add ignorePatterns "node_modules,venv,.git,__pycache__,build,dist,.venv,coverage,.pytest_cache,.terraform,terraform.tfstate,terraform.tfstate.backup,.terraform.lock.hcl,*.log,*.pyc,*.pyo,*.pyd,*.so,*.dylib,*.dll,*.exe,*.o,*.obj,.DS_Store,Thumbs.db,*.swp,*.swo,*~,.idea,*.iml,*.ipr,*.iws,*.egg-info,*.egg,.tox,.coverage,htmlcov,.cache,.mypy_cache,.ruff_cache,__MACOSX,.Spotlight-V100,.Trashes,ehthumbs.db,Desktop.ini,$RECYCLE.BIN,*.cab,*.msi,*.msm,*.msp,*.lnk,npm-debug.log*,yarn-debug.log*,yarn-error.log*,pnpm-debug.log*,lerna-debug.log*,.vercel,.next,out,.nuxt,.cache,.parcel-cache,.turbo,.docusaurus,.serverless,.fusebox,.dynamodb,.npm,.yarn,.pnpm-store,.eslintcache" || warning "Failed to configure Claude Code exclude directories"
 status "Claude Code configuration updated"
 
 status "Post-create setup completed!"
