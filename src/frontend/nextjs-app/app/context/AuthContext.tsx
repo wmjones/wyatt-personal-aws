@@ -45,13 +45,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const result = await authService.getCurrentUser();
       if (result.success && result.user) {
-        const cognitoUser = result.user as CognitoUser;
+        // getCurrentUser returns CognitoUser, we'll handle it specifically
+        const cognitoUser = result.user;
         const attributes = await getUserAttributes(cognitoUser);
 
         setUser({
           username: cognitoUser.getUsername(),
           email: attributes.email || '',
-          attributes,
+          attributes: attributes,
         });
       }
     } catch (error) {
@@ -65,15 +66,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthState();
   }, [checkAuthState]);
 
-  const getUserAttributes = async (cognitoUser: CognitoUser): Promise<Record<string, string>> => {
+  const getUserAttributes = async (cognitoUser: CognitoUser): Promise<{
+    email: string;
+    email_verified: boolean;
+    sub: string;
+    [key: string]: string | boolean;
+  }> => {
     return new Promise((resolve, reject) => {
       cognitoUser.getUserAttributes((err, attributes) => {
         if (err) {
           reject(err);
         } else {
-          const attrs: Record<string, string> = {};
+          const attrs: {
+            email: string;
+            email_verified: boolean;
+            sub: string;
+            [key: string]: string | boolean;
+          } = {
+            email: '',
+            email_verified: false,
+            sub: '',
+          };
           attributes?.forEach(attr => {
-            attrs[attr.getName()] = attr.getValue();
+            const name = attr.getName();
+            const value = attr.getValue();
+            if (name === 'email_verified') {
+              attrs[name] = value === 'true';
+            } else {
+              attrs[name] = value;
+            }
           });
           resolve(attrs);
         }
@@ -85,13 +106,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const result = await authService.signIn(email, password);
 
     if (result.success && result.user) {
-      const cognitoUser = result.user as CognitoUser;
-      const attributes = await getUserAttributes(cognitoUser);
-
+      // For SignIn, we get the user data directly from the result
+      const userAttributes = result.user.attributes || {};
       setUser({
-        username: cognitoUser.getUsername(),
-        email: attributes.email || email,
-        attributes,
+        username: result.user.username,
+        email: userAttributes.email as string || email,
+        attributes: {
+          email: userAttributes.email as string || email,
+          email_verified: userAttributes.email_verified as boolean || false,
+          sub: userAttributes.sub as string || '',
+          ...userAttributes,
+        },
       });
     }
 

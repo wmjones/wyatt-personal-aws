@@ -85,12 +85,13 @@ repos:
   #         always_run: true
   #         stages: [push]
 
-  #   - id: tsc-noEmit
-  #     name: "TypeScript type-check"
-  #     entry: npx tsc -p tsconfig.json --noEmit --incremental
-  #     language: system
-  #     pass_filenames: false
-  #     stages: [push]
+      - id: tsc-noEmit
+        name: "TypeScript type-check"
+        entry: bash -c "cd src/frontend/nextjs-app && npx tsc --noEmit"
+        language: system
+        pass_filenames: false
+        files: "src/frontend/nextjs-app/.*\\.(ts|tsx)$"
+        require_serial: true
 
   #   - id: jest
   #     name: "Jest unit tests"

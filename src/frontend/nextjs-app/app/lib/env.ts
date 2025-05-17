@@ -72,8 +72,10 @@ export function validateEnv() {
 // Helper function to get typed environment variable
 export function getEnvVar<K extends keyof EnvSchema>(key: K): EnvSchema[K] {
   const value = envSchema[key];
+  const env = process.env.NODE_ENV as keyof typeof requiredVariables;
+  const required = requiredVariables[env] || requiredVariables.development;
 
-  if (value === undefined && requiredVariables[process.env.NODE_ENV as keyof typeof requiredVariables]?.includes(key)) {
+  if (value === undefined && (required as readonly string[]).includes(key)) {
     throw new Error(`Environment variable ${key} is required but not set`);
   }
 

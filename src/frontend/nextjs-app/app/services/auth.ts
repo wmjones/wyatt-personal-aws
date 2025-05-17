@@ -1,13 +1,11 @@
-import { Amplify, Auth } from 'aws-amplify';
+import { CognitoUserPool, CognitoUser, AuthenticationDetails, CognitoUserAttribute, CognitoUserSession } from 'amazon-cognito-identity-js';
 import { config } from '../lib/config';
+import type { SignInResult as TSignInResult, SignUpResult as TSignUpResult, ConfirmSignUpResult as TConfirmSignUpResult, ForgotPasswordResult as TForgotPasswordResult, ForgotPasswordSubmitResult as TForgotPasswordSubmitResult, AuthResult } from '../types/auth';
 
-// Configure Amplify
-Amplify.configure({
-  Auth: {
-    region: config.auth.aws.region,
-    userPoolId: config.auth.aws.userPoolId,
-    userPoolWebClientId: config.auth.aws.clientId,
-  },
+// Initialize Cognito User Pool
+const userPool = new CognitoUserPool({
+  UserPoolId: config.auth.aws.userPoolId!,
+  ClientId: config.auth.aws.clientId!,
 });
 
 export interface SignUpParams {
@@ -17,84 +15,178 @@ export interface SignUpParams {
   familyName?: string;
 }
 
-export interface SignInResult {
-  isSignedIn: boolean;
-  nextStep?: {
-    signInStep: string;
-    [key: string]: unknown;
+// Extended result types for internal use
+// We'll handle SignIn result directly without extending the imported type
+
+interface CurrentUserResult extends AuthResult {
+  user?: CognitoUser | null;
+  session?: CognitoUserSession;
+  idToken?: string;
+  accessToken?: string;
+}
+
+interface RefreshTokensResult extends AuthResult {
+  session?: CognitoUserSession;
+}
+
+interface AuthService {
+  signIn(email: string, password: string): Promise<TSignInResult>;
+  signUp(params: SignUpParams): Promise<TSignUpResult>;
+  confirmSignUp(email: string, code: string): Promise<TConfirmSignUpResult>;
+  signOut(): Promise<AuthResult>;
+  getCurrentUser(): Promise<CurrentUserResult>;
+  resendSignUp(email: string): Promise<AuthResult>;
+  forgotPassword(email: string): Promise<TForgotPasswordResult>;
+  forgotPasswordSubmit(email: string, code: string, newPassword: string): Promise<TForgotPasswordSubmitResult>;
+  changePassword(oldPassword: string, newPassword: string): Promise<AuthResult>;
+  getIdToken(): Promise<string | null>;
+  refreshTokens(): Promise<RefreshTokensResult>;
+}
+
+// Helper function to map CognitoUser to our User type
+function mapCognitoUser(cognitoUser: CognitoUser | null): import('../types/auth').User | null {
+  if (!cognitoUser) return null;
+  return {
+    username: cognitoUser.getUsername(),
+    attributes: {} // This will be populated by user attributes
   };
 }
 
-export const authService = {
+export const authService: AuthService = {
   // Sign in with email and password
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string): Promise<TSignInResult> {
     try {
-      const user = await Auth.signIn(email, password);
-      return {
-        success: true,
-        user,
-        message: 'Successfully signed in',
-      };
+      const authenticationDetails = new AuthenticationDetails({
+        Username: email,
+        Password: password,
+      });
+
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool,
+      });
+
+      return new Promise<TSignInResult>((resolve) => {
+        cognitoUser.authenticateUser(authenticationDetails, {
+          onSuccess: () => {
+            resolve({
+              success: true,
+              user: mapCognitoUser(cognitoUser),
+              message: 'Successfully signed in',
+            } as TSignInResult);
+          },
+          onFailure: (err) => {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to sign in',
+            } as TSignInResult);
+          },
+          newPasswordRequired: () => {
+            resolve({
+              success: false,
+              error: 'New password required',
+            } as TSignInResult);
+          },
+          mfaRequired: () => {
+            resolve({
+              success: false,
+              error: 'MFA required',
+            } as TSignInResult);
+          },
+        });
+      });
     } catch (error: unknown) {
       console.error('Error signing in:', error);
       return {
         success: false,
         error: (error as Error).message || 'Failed to sign in',
-      };
+      } as TSignInResult;
     }
   },
 
   // Sign up new user
-  async signUp({ email, password, name, familyName }: SignUpParams) {
+  async signUp({ email, password, name, familyName }: SignUpParams): Promise<TSignUpResult> {
     try {
-      const { user, userConfirmed, userSub } = await Auth.signUp({
-        username: email,
-        password,
-        attributes: {
-          email,
-          ...(name && { name }),
-          ...(familyName && { family_name: familyName }),
-        },
-      });
+      const attributes: CognitoUserAttribute[] = [
+        new CognitoUserAttribute({ Name: 'email', Value: email }),
+      ];
 
-      return {
-        success: true,
-        user,
-        userConfirmed,
-        userSub,
-        message: 'Successfully signed up',
-      };
+      if (name) {
+        attributes.push(new CognitoUserAttribute({ Name: 'name', Value: name }));
+      }
+
+      if (familyName) {
+        attributes.push(new CognitoUserAttribute({ Name: 'family_name', Value: familyName }));
+      }
+
+      return new Promise<TSignUpResult>((resolve) => {
+        userPool.signUp(email, password, attributes, [], (err, result) => {
+          if (err) {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to sign up',
+            } as TSignUpResult);
+          } else {
+            resolve({
+              success: true,
+              userConfirmed: result?.userConfirmed,
+              userSub: result?.userSub,
+              message: 'Successfully signed up',
+            } as TSignUpResult);
+          }
+        });
+      });
     } catch (error: unknown) {
       console.error('Error signing up:', error);
       return {
         success: false,
         error: (error as Error).message || 'Failed to sign up',
-      };
+      } as TSignUpResult;
     }
   },
 
   // Confirm sign up with verification code
-  async confirmSignUp(email: string, code: string) {
+  async confirmSignUp(email: string, code: string): Promise<TConfirmSignUpResult> {
     try {
-      const result = await Auth.confirmSignUp(email, code);
-      return {
-        success: true,
-        result,
-        message: 'Email verified successfully',
-      };
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool,
+      });
+
+      return new Promise<TConfirmSignUpResult>((resolve) => {
+        cognitoUser.confirmRegistration(code, true, (err) => {
+          if (err) {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to confirm sign up',
+            } as TConfirmSignUpResult);
+          } else {
+            resolve({
+              success: true,
+              confirmed: true,
+              message: 'Email verified successfully',
+            } as TConfirmSignUpResult);
+          }
+        });
+      });
     } catch (error: unknown) {
       console.error('Error confirming sign up:', error);
       return {
         success: false,
         error: (error as Error).message || 'Failed to confirm sign up',
-      };
+      } as TConfirmSignUpResult;
     }
   },
 
   // Sign out current user
-  async signOut() {
+  async signOut(): Promise<AuthResult> {
     try {
-      await Auth.signOut();
+      const cognitoUser = userPool.getCurrentUser();
+
+      if (cognitoUser) {
+        cognitoUser.signOut();
+      }
+
       return {
         success: true,
         message: 'Successfully signed out',
@@ -109,18 +201,35 @@ export const authService = {
   },
 
   // Get current authenticated user
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<CurrentUserResult> {
     try {
-      const user = await Auth.currentAuthenticatedUser();
-      const session = await Auth.currentSession();
+      const cognitoUser = userPool.getCurrentUser();
 
-      return {
-        success: true,
-        user,
-        session,
-        idToken: session.getIdToken().getJwtToken(),
-        accessToken: session.getAccessToken().getJwtToken(),
-      };
+      if (!cognitoUser) {
+        return {
+          success: false,
+          user: null,
+        };
+      }
+
+      return new Promise<CurrentUserResult>((resolve) => {
+        cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+          if (err || !session || !session.isValid()) {
+            resolve({
+              success: false,
+              user: null,
+            });
+          } else {
+            resolve({
+              success: true,
+              user: cognitoUser,
+              session: session,
+              idToken: session.getIdToken().getJwtToken(),
+              accessToken: session.getAccessToken().getJwtToken(),
+            });
+          }
+        });
+      });
     } catch {
       // User is not authenticated
       return {
@@ -131,13 +240,28 @@ export const authService = {
   },
 
   // Resend confirmation code
-  async resendSignUp(email: string) {
+  async resendSignUp(email: string): Promise<AuthResult> {
     try {
-      await Auth.resendSignUp(email);
-      return {
-        success: true,
-        message: 'Confirmation code resent',
-      };
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool,
+      });
+
+      return new Promise<AuthResult>((resolve) => {
+        cognitoUser.resendConfirmationCode((err) => {
+          if (err) {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to resend code',
+            });
+          } else {
+            resolve({
+              success: true,
+              message: 'Confirmation code resent',
+            });
+          }
+        });
+      });
     } catch (error: unknown) {
       console.error('Error resending code:', error);
       return {
@@ -148,32 +272,62 @@ export const authService = {
   },
 
   // Forgot password - initiate reset
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string): Promise<TForgotPasswordResult> {
     try {
-      const result = await Auth.forgotPassword(email);
-      return {
-        success: true,
-        result,
-        message: 'Password reset code sent',
-      };
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool,
+      });
+
+      return new Promise<TForgotPasswordResult>((resolve) => {
+        cognitoUser.forgotPassword({
+          onSuccess: () => {
+            resolve({
+              success: true,
+              message: 'Password reset code sent',
+            } as TForgotPasswordResult);
+          },
+          onFailure: (err) => {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to initiate password reset',
+            } as TForgotPasswordResult);
+          },
+        });
+      });
     } catch (error: unknown) {
       console.error('Error initiating password reset:', error);
       return {
         success: false,
         error: (error as Error).message || 'Failed to initiate password reset',
-      };
+      } as TForgotPasswordResult;
     }
   },
 
   // Forgot password - submit new password
-  async forgotPasswordSubmit(email: string, code: string, newPassword: string) {
+  async forgotPasswordSubmit(email: string, code: string, newPassword: string): Promise<TForgotPasswordSubmitResult> {
     try {
-      const result = await Auth.forgotPasswordSubmit(email, code, newPassword);
-      return {
-        success: true,
-        result,
-        message: 'Password reset successfully',
-      };
+      const cognitoUser = new CognitoUser({
+        Username: email,
+        Pool: userPool,
+      });
+
+      return new Promise<TForgotPasswordSubmitResult>((resolve) => {
+        cognitoUser.confirmPassword(code, newPassword, {
+          onSuccess: () => {
+            resolve({
+              success: true,
+              message: 'Password reset successfully',
+            });
+          },
+          onFailure: (err) => {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to reset password',
+            });
+          },
+        });
+      });
     } catch (error: unknown) {
       console.error('Error resetting password:', error);
       return {
@@ -184,14 +338,41 @@ export const authService = {
   },
 
   // Change password for authenticated user
-  async changePassword(oldPassword: string, newPassword: string) {
+  async changePassword(oldPassword: string, newPassword: string): Promise<AuthResult> {
     try {
-      const user = await Auth.currentAuthenticatedUser();
-      await Auth.changePassword(user, oldPassword, newPassword);
-      return {
-        success: true,
-        message: 'Password changed successfully',
-      };
+      const cognitoUser = userPool.getCurrentUser();
+
+      if (!cognitoUser) {
+        return {
+          success: false,
+          error: 'User not authenticated',
+        };
+      }
+
+      return new Promise<RefreshTokensResult>((resolve) => {
+        cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+          if (err || !session || !session.isValid()) {
+            resolve({
+              success: false,
+              error: 'Session invalid',
+            });
+          } else {
+            cognitoUser.changePassword(oldPassword, newPassword, (err) => {
+              if (err) {
+                resolve({
+                  success: false,
+                  error: err.message || 'Failed to change password',
+                });
+              } else {
+                resolve({
+                  success: true,
+                  message: 'Password changed successfully',
+                });
+              }
+            });
+          }
+        });
+      });
     } catch (error: unknown) {
       console.error('Error changing password:', error);
       return {
@@ -202,10 +383,23 @@ export const authService = {
   },
 
   // Get ID token for API requests
-  async getIdToken() {
+  async getIdToken(): Promise<string | null> {
     try {
-      const session = await Auth.currentSession();
-      return session.getIdToken().getJwtToken();
+      const cognitoUser = userPool.getCurrentUser();
+
+      if (!cognitoUser) {
+        return null;
+      }
+
+      return new Promise<string | null>((resolve) => {
+        cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+          if (err || !session || !session.isValid()) {
+            resolve(null);
+          } else {
+            resolve(session.getIdToken().getJwtToken());
+          }
+        });
+      });
     } catch (error) {
       console.error('Error getting ID token:', error);
       return null;
@@ -213,27 +407,53 @@ export const authService = {
   },
 
   // Refresh tokens
-  async refreshTokens() {
+  async refreshTokens(): Promise<RefreshTokensResult> {
     try {
-      const session = await Auth.currentSession();
-      if (session.isValid()) {
+      const cognitoUser = userPool.getCurrentUser();
+
+      if (!cognitoUser) {
         return {
-          success: true,
-          session,
+          success: false,
+          error: 'User not authenticated',
         };
       }
 
-      // Refresh the session
-      const user = await Auth.currentAuthenticatedUser();
-      const refreshedSession = await Auth.refreshSession(
-        user,
-        session.getRefreshToken()
-      );
-
-      return {
-        success: true,
-        session: refreshedSession,
-      };
+      return new Promise<RefreshTokensResult>((resolve) => {
+        cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+          if (err) {
+            resolve({
+              success: false,
+              error: err.message || 'Failed to get session',
+            });
+          } else if (session && session.isValid()) {
+            resolve({
+              success: true,
+              session,
+            });
+          } else if (session) {
+            // Need to refresh
+            const refreshToken = session.getRefreshToken();
+            cognitoUser.refreshSession(refreshToken, (err: Error | null, newSession: CognitoUserSession | null) => {
+              if (err) {
+                resolve({
+                  success: false,
+                  error: err.message || 'Failed to refresh tokens',
+                });
+              } else {
+                resolve({
+                  success: true,
+                  session: newSession!,
+                });
+              }
+            });
+          } else {
+            resolve({
+              success: false,
+              error: 'No session available',
+            });
+          }
+        });
+      });
     } catch (error: unknown) {
       console.error('Error refreshing tokens:', error);
       return {
