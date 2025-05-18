@@ -95,3 +95,14 @@ output "productivity_lambdas" {
     put_todoist = module.put_todoist_lambda.function_arn
   }
 }
+
+# SSM Parameters Outputs
+output "ssm_parameter_arns" {
+  description = "ARNs of the SSM parameters"
+  value       = module.ssm_parameters.parameter_arns
+}
+
+output "ssm_parameter_names" {
+  description = "Names of the SSM parameters"
+  value       = module.ssm_parameters.parameter_names
+}
