@@ -23,7 +23,7 @@ module "api_gateway" {
       authorizer_type  = "JWT"
       identity_sources = ["$request.header.Authorization"]
       name             = "cognito-jwt-authorizer"
-      audience         = [module.cognito.user_pool_client_id]
+      audience         = [module.cognito.client_ids["${var.project_name}-web-client-${var.environment}"]]
       issuer           = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.cognito.user_pool_id}"
     }
   }
