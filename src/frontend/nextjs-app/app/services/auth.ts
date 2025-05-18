@@ -2,11 +2,21 @@ import { CognitoUserPool, CognitoUser, AuthenticationDetails, CognitoUserAttribu
 import { config } from '../lib/config';
 import type { SignInResult as TSignInResult, SignUpResult as TSignUpResult, ConfirmSignUpResult as TConfirmSignUpResult, ForgotPasswordResult as TForgotPasswordResult, ForgotPasswordSubmitResult as TForgotPasswordSubmitResult, AuthResult } from '../types/auth';
 
-// Initialize Cognito User Pool
-const userPool = new CognitoUserPool({
-  UserPoolId: config.auth.aws.userPoolId!,
-  ClientId: config.auth.aws.clientId!,
-});
+// Initialize Cognito User Pool with error handling
+let userPool: CognitoUserPool | null = null;
+
+try {
+  if (config.auth.aws.userPoolId && config.auth.aws.clientId) {
+    userPool = new CognitoUserPool({
+      UserPoolId: config.auth.aws.userPoolId,
+      ClientId: config.auth.aws.clientId,
+    });
+  } else {
+    console.warn('Cognito configuration is missing. Authentication will not be available.');
+  }
+} catch (error) {
+  console.error('Failed to initialize Cognito User Pool:', error);
+}
 
 export interface SignUpParams {
   email: string;
@@ -56,6 +66,13 @@ export const authService: AuthService = {
   // Sign in with email and password
   async signIn(email: string, password: string): Promise<TSignInResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        } as TSignInResult;
+      }
+
       const authenticationDetails = new AuthenticationDetails({
         Username: email,
         Password: password,
@@ -107,6 +124,13 @@ export const authService: AuthService = {
   // Sign up new user
   async signUp({ email, password, name, familyName }: SignUpParams): Promise<TSignUpResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        } as TSignUpResult;
+      }
+
       const attributes: CognitoUserAttribute[] = [
         new CognitoUserAttribute({ Name: 'email', Value: email }),
       ];
@@ -148,6 +172,13 @@ export const authService: AuthService = {
   // Confirm sign up with verification code
   async confirmSignUp(email: string, code: string): Promise<TConfirmSignUpResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        } as TConfirmSignUpResult;
+      }
+
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
@@ -181,6 +212,13 @@ export const authService: AuthService = {
   // Sign out current user
   async signOut(): Promise<AuthResult> {
     try {
+      if (!userPool) {
+        return {
+          success: true,
+          message: 'No active session to sign out',
+        };
+      }
+
       const cognitoUser = userPool.getCurrentUser();
 
       if (cognitoUser) {
@@ -203,6 +241,13 @@ export const authService: AuthService = {
   // Get current authenticated user
   async getCurrentUser(): Promise<CurrentUserResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          user: null,
+        };
+      }
+
       const cognitoUser = userPool.getCurrentUser();
 
       if (!cognitoUser) {
@@ -242,6 +287,13 @@ export const authService: AuthService = {
   // Resend confirmation code
   async resendSignUp(email: string): Promise<AuthResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        };
+      }
+
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
@@ -274,6 +326,13 @@ export const authService: AuthService = {
   // Forgot password - initiate reset
   async forgotPassword(email: string): Promise<TForgotPasswordResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        } as TForgotPasswordResult;
+      }
+
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
@@ -307,6 +366,13 @@ export const authService: AuthService = {
   // Forgot password - submit new password
   async forgotPasswordSubmit(email: string, code: string, newPassword: string): Promise<TForgotPasswordSubmitResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        };
+      }
+
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
@@ -340,6 +406,13 @@ export const authService: AuthService = {
   // Change password for authenticated user
   async changePassword(oldPassword: string, newPassword: string): Promise<AuthResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        };
+      }
+
       const cognitoUser = userPool.getCurrentUser();
 
       if (!cognitoUser) {
@@ -385,6 +458,10 @@ export const authService: AuthService = {
   // Get ID token for API requests
   async getIdToken(): Promise<string | null> {
     try {
+      if (!userPool) {
+        return null;
+      }
+
       const cognitoUser = userPool.getCurrentUser();
 
       if (!cognitoUser) {
@@ -409,6 +486,13 @@ export const authService: AuthService = {
   // Refresh tokens
   async refreshTokens(): Promise<RefreshTokensResult> {
     try {
+      if (!userPool) {
+        return {
+          success: false,
+          error: 'Authentication service is not configured',
+        };
+      }
+
       const cognitoUser = userPool.getCurrentUser();
 
       if (!cognitoUser) {
