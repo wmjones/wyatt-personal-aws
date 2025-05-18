@@ -1,0 +1,145 @@
+name: Test SSM Sync Script
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/sync-terraform-outputs-to-ssm.sh'
+      - '.github/workflows/test-ssm-sync.yml'
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  test-dry-run:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.0
+        terraform_wrapper: false
+
+    - name: Test SSM sync script in dry-run mode
+      run: |
+        echo "Testing SSM sync script without AWS credentials..."
+
+        # Create mock Terraform outputs
+        mkdir -p test-terraform
+        cd test-terraform
+
+        cat > terraform.tfstate <<EOF
+        {
+          "version": 4,
+          "terraform_version": "1.6.0",
+          "outputs": {
+            "api_gateway_url": {
+              "value": "https://test-api.execute-api.us-east-2.amazonaws.com"
+            },
+            "cognito_user_pool_id": {
+              "value": "us-east-2_test123"
+            }
+          }
+        }
+        EOF
+
+        # Create simple outputs file
+        cat > outputs.tf <<EOF
+        output "api_gateway_url" {
+          value = "https://test-api.execute-api.us-east-2.amazonaws.com"
+        }
+
+        output "cognito_user_pool_id" {
+          value = "us-east-2_test123"
+        }
+        EOF
+
+        terraform init
+
+        cd ..
+
+        # Modify script to use test directory
+        cp scripts/sync-terraform-outputs-to-ssm.sh scripts/test-sync.sh
+        sed -i 's|TERRAFORM_DIR="main"|TERRAFORM_DIR="test-terraform"|g' scripts/test-sync.sh
+        chmod +x scripts/test-sync.sh
+
+        # Run in dry-run mode
+        ./scripts/test-sync.sh --dry-run --workspace test
+
+        echo "Dry-run test completed successfully!"
+
+  test-with-credentials:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: TestSSMSync
+        aws-region: ${{ env.AWS_REGION }}
+        audience: sts.amazonaws.com
+
+    - name: Verify AWS Identity
+      run: |
+        echo "Verifying AWS credentials..."
+        aws sts get-caller-identity
+
+    - name: Test SSM parameter operations
+      run: |
+        echo "Testing SSM parameter operations..."
+
+        # Test parameter listing
+        aws ssm get-parameters-by-path \
+          --path "/wyatt-personal-aws/test/" \
+          --query 'Parameters[*].[Name, Type]' \
+          --output table \
+          --region ${{ env.AWS_REGION }} || echo "No test parameters found"
+
+        # Test parameter creation (in test namespace)
+        TEST_VALUE="test-$(date +%s)"
+        aws ssm put-parameter \
+          --name "/wyatt-personal-aws/test/automated-test" \
+          --value "$TEST_VALUE" \
+          --type "String" \
+          --overwrite \
+          --region ${{ env.AWS_REGION }}
+
+        echo "Created test parameter with value: $TEST_VALUE"
+
+        # Verify parameter
+        RETRIEVED_VALUE=$(aws ssm get-parameter \
+          --name "/wyatt-personal-aws/test/automated-test" \
+          --query 'Parameter.Value' \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+
+        echo "Retrieved value: $RETRIEVED_VALUE"
+
+        if [ "$TEST_VALUE" = "$RETRIEVED_VALUE" ]; then
+          echo "✅ Parameter test successful!"
+        else
+          echo "❌ Parameter test failed!"
+          exit 1
+        fi
+
+        # Cleanup
+        aws ssm delete-parameter \
+          --name "/wyatt-personal-aws/test/automated-test" \
+          --region ${{ env.AWS_REGION }}
+
+        echo "Test parameter cleaned up"
