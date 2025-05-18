@@ -92,7 +92,14 @@ terraform workspace select "$WORKSPACE" || error_exit "Failed to select workspac
 
 # Get terraform outputs in JSON format
 print $BLUE "Getting Terraform outputs..."
+if [ "${DEBUG:-}" = "true" ]; then
+    print $BLUE "DEBUG: Running terraform output -json"
+    terraform output -json
+fi
 OUTPUTS=$(terraform output -json) || error_exit "Failed to get terraform outputs"
+if [ "${DEBUG:-}" = "true" ]; then
+    print $BLUE "DEBUG: OUTPUTS = $OUTPUTS"
+fi
 
 # Check if outputs are empty
 if [ -z "$OUTPUTS" ] || [ "$OUTPUTS" = "{}" ]; then
@@ -155,6 +162,10 @@ update_ssm_parameter() {
 
 # Process each terraform output
 print $BLUE "Processing Terraform outputs..."
+if [ "${DEBUG:-}" = "true" ]; then
+    print $BLUE "DEBUG: About to process with jq"
+    print $BLUE "DEBUG: Command: echo \"\$OUTPUTS\" | jq -r 'to_entries[] | \"\\(.key)=\\(.value.value)\"'"
+fi
 echo "$OUTPUTS" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' | while IFS='=' read -r key value; do
     # Clean up value (remove quotes if present)
     value=$(echo "$value" | jq -r '.')
