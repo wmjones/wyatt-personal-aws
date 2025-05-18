@@ -121,3 +121,19 @@ export class VisualizationService {
 
 // Export singleton instance
 export const visualizationService = new VisualizationService();
+
+// Export convenience functions
+export const listVisualizations = () => visualizationService.getAll();
+export const getVisualization = (id: string) => visualizationService.getById(id);
+export const createVisualization = (data: Partial<CreateVisualizationDto>) => {
+  // Default to normal distribution visualization
+  const fullData: CreateVisualizationDto = {
+    name: data.name || 'New Visualization',
+    type: data.type || 'normal-distribution',
+    data: data.data || { parameters: [{ mean: 0, stdDev: 1 }] },
+    parameters: data.parameters || {}
+  };
+  return visualizationService.create(fullData);
+};
+export const updateVisualization = (id: string, data: Partial<UpdateVisualizationDto>) => visualizationService.update(id, data);
+export const deleteVisualization = (id: string) => visualizationService.delete(id);

@@ -14,7 +14,10 @@ export default function Header() {
     { href: '/', label: 'Home' },
     { href: '/demo', label: 'Demo' },
     { href: '/about', label: 'About' },
-    ...(isAuthenticated ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
+    ...(isAuthenticated ? [
+      { href: '/dashboard', label: 'Dashboard' },
+      { href: '/visualizations', label: 'Visualizations' }
+    ] : []),
   ]
 
   const handleSignOut = async () => {

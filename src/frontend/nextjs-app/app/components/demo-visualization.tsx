@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import ResponsiveD3Chart from './visualizations/ResponsiveD3Chart'
 
 export default function DemoVisualization() {
   const [mean, setMean] = useState<number>(0)
   const [stdDev, setStdDev] = useState<number>(1)
+  const [parameters, setParameters] = useState([{ mean: 0, stdDev: 1 }])
   const [logs, setLogs] = useState<Array<{time: string, message: string, type: 'info' | 'error' | 'success'}>>([
     { time: new Date().toTimeString().split(' ')[0], message: 'Demo page loaded. Use the controls above to test functionality.', type: 'info' }
   ])
@@ -16,7 +18,15 @@ export default function DemoVisualization() {
   }
 
   const handleParameterUpdate = () => {
+    setParameters([{ mean, stdDev }])
     addLog(`Parameters updated: mean=${mean}, stdDev=${stdDev}`, 'success')
+  }
+
+  const handleParameterChange = (index: number, param: { mean: number; stdDev: number }) => {
+    setMean(param.mean)
+    setStdDev(param.stdDev)
+    setParameters([param])
+    addLog(`Parameters changed via visualization: mean=${param.mean.toFixed(2)}, stdDev=${param.stdDev.toFixed(2)}`, 'info')
   }
 
   return (
@@ -64,14 +74,11 @@ export default function DemoVisualization() {
       {/* Visualization Display */}
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold mb-4">Visualization</h2>
-        <div className="h-96 bg-muted rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-lg font-medium mb-2">Normal Distribution</p>
-            <p className="text-sm text-muted-foreground">μ = {mean}, σ = {stdDev}</p>
-            <p className="text-xs text-muted-foreground mt-4">
-              D3.js visualization will be implemented here
-            </p>
-          </div>
+        <div className="bg-muted rounded-lg p-4">
+          <ResponsiveD3Chart
+            parameters={parameters}
+            onParameterChange={handleParameterChange}
+          />
         </div>
       </div>
 

@@ -97,22 +97,31 @@ resource "aws_apigatewayv2_route" "this" {
 
 # Dynamic CORS OPTIONS routes
 resource "aws_apigatewayv2_route" "cors_options" {
-  for_each = var.enable_dynamic_cors ? toset([for key in keys(var.integrations) : replace(key, "GET|POST|PUT|DELETE|PATCH", "OPTIONS") if can(regex("^(GET|POST|PUT|DELETE|PATCH) ", key))]) : []
+  for_each = var.enable_dynamic_cors ? toset([
+    for key in keys(var.integrations) :
+    replace(key, "/^(GET|POST|PUT|DELETE|PATCH) /", "OPTIONS ")
+    if can(regex("^(GET|POST|PUT|DELETE|PATCH) ", key))
+  ]) : []
 
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = each.value
   target             = "integrations/${aws_apigatewayv2_integration.cors_options[0].id}"
   authorization_type = "NONE" # OPTIONS requests should not require authorization
+
+  depends_on = [
+    aws_apigatewayv2_route.this
+  ]
 }
 
 resource "aws_apigatewayv2_authorizer" "this" {
   for_each = var.authorizers
 
-  api_id                            = aws_apigatewayv2_api.this.id
-  authorizer_type                   = try(each.value.authorizer_type, "JWT")
-  identity_sources                  = try(each.value.identity_sources, ["$request.header.Authorization"])
-  name                              = try(each.value.name, each.key)
-  authorizer_payload_format_version = try(each.value.payload_format_version, "2.0")
+  api_id           = aws_apigatewayv2_api.this.id
+  authorizer_type  = try(each.value.authorizer_type, "JWT")
+  identity_sources = try(each.value.identity_sources, ["$request.header.Authorization"])
+  name             = try(each.value.name, each.key)
+  # Only set payload format version for REQUEST (Lambda) authorizers
+  authorizer_payload_format_version = each.value.authorizer_type == "REQUEST" ? try(each.value.payload_format_version, "2.0") : null
 
   dynamic "jwt_configuration" {
     for_each = each.value.authorizer_type == "JWT" ? [1] : []
