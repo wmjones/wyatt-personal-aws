@@ -76,8 +76,8 @@ RUN mkdir -p /home/vscode/pre-commit-cache && \
 ENV PRE_COMMIT_HOME=/home/vscode/pre-commit-cache
 
 # Create workspace and config directories and set permissions
-RUN mkdir -p /workspace /home/vscode/.claude /home/vscode/.cache /home/vscode/.config/gh && \
-  chown -R vscode:vscode /workspace /home/vscode/.claude /home/vscode/.cache /home/vscode/.config/gh
+RUN mkdir -p /workspace /home/vscode/.claude /home/vscode/.cache /home/vscode/.config && \
+  chown -R vscode:vscode /workspace /home/vscode/.claude /home/vscode/.cache /home/vscode/.config
 
 WORKDIR /workspaces
 
@@ -156,10 +156,11 @@ ENV SHELL /bin/zsh
 # ---------------------------------------------------------------------------
 # Claude Code CLI and MCP dependencies
 # ---------------------------------------------------------------------------
-RUN npm install -g @anthropic-ai/claude-code
+# Install with --force to avoid peer dependency warnings
+RUN npm install -g --force @anthropic-ai/claude-code
 
 # MCP server dependencies
-RUN npm install -g \
+RUN npm install -g --force \
         @modelcontextprotocol/server-filesystem \
         task-master-ai \
         @upstash/context7-mcp

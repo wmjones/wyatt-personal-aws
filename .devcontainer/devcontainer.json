@@ -9,8 +9,8 @@
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "vscode",
-  "postCreateCommand": "npm fund || true",
-  "forwardPorts": [5173, 8080],
+  "postCreateCommand": ".devcontainer/post-create.sh",
+  "forwardPorts": [3000, 5173, 8080],
   "settings": {
     "terminal.integrated.defaultProfile.linux": "bash"
   },
@@ -49,7 +49,13 @@
     "ms-python.python",
     "redhat.vscode-yaml",
     "eamodio.gitlens",
-    "github.vscode-github-actions"
+    "github.vscode-github-actions",
+    "bradlc.vscode-tailwindcss",
+    "prisma.prisma",
+    "dsznajder.es7-react-js-snippets",
+    "burkeholland.simple-react-snippets",
+    "jock.svg",
+    "styled-components.vscode-styled-components"
   ],
   "runArgs": ["--ipc=host"]
 }

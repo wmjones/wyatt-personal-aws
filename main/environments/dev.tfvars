@@ -4,7 +4,7 @@
 environment           = "dev"
 aws_region            = "us-east-2"
 project_name          = "wyatt-personal-aws"
-domain_name           = "example.com" # Replace with your actual domain name
+domain_name           = "example.com" # Replace with your actual domain name or use Vercel domain
 app_prefix            = "app-dev"
 cognito_domain_prefix = "wyatt-personal-dev"
 
@@ -18,6 +18,9 @@ create_interface_endpoints = false
 
 # Cognito Configuration
 cognito_deletion_protection = false
+
+# Vercel Configuration
+vercel_app_url = "" # Will be populated during Vercel deployment
 
 # DynamoDB Configuration
 dynamodb_billing_mode           = "PAY_PER_REQUEST"

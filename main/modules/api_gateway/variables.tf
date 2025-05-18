@@ -50,3 +50,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "authorizers" {
+  description = "Map of API Gateway authorizers"
+  type        = map(any)
+  default     = {}
+}

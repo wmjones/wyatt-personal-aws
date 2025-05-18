@@ -1,314 +1,412 @@
-# Overview
-The D3 Dashboard & Productivity System is a comprehensive serverless application that combines two powerful components:
+# Product Requirements Document: D3 Dashboard & Productivity System (Hybrid Architecture)
 
-1. An **Interactive D3 Visualization Dashboard** that allows users to create, view, and collaboratively edit data visualizations with real-time updates.
+## Executive Summary
 
-2. A **Productivity Workflow System** that automates the process of enriching Todoist tasks with AI-generated content from ChatGPT and organizing them in Notion.
+This PRD defines the implementation of a hybrid architecture for the D3 Dashboard & Productivity System. The solution leverages Vercel's modern frontend hosting platform while maintaining existing AWS backend infrastructure. This approach provides an optimal balance between developer experience, performance, and cost efficiency while avoiding the risks and expenses of a full platform migration.
 
-This solution addresses the challenges of creating interactive data visualizations and automating productivity workflows between popular tools. It helps data analysts, business intelligence teams, and project managers streamline their work through a modern, scalable platform built entirely on AWS serverless technologies.
+## Product Overview
 
-# Core Features
+### Vision
+Create a modern, performant web application that combines interactive data visualizations with automated productivity workflows, using a hybrid architecture that maximizes the strengths of both Vercel and AWS platforms.
 
-## Interactive D3 Visualization Dashboard
-- **Real-time Visualization Editing**: Create and modify D3.js visualizations with interactive controls that update parameters in real-time
-  - Importance: Enables data exploration and analysis through visual representation
-  - Implementation: React frontend with D3.js, WebSocket for real-time updates, DynamoDB for parameter storage
+### Goals
+1. Modernize frontend technology stack with Next.js 14
+2. Improve deployment velocity and developer experience
+3. Maintain existing AWS backend infrastructure
+4. Reduce operational complexity
+5. Optimize costs while preserving infrastructure investments
 
-- **Collaborative Editing**: Multiple users can see changes in real-time with user attribution
-  - Importance: Facilitates team collaboration and knowledge sharing
-  - Implementation: WebSocket API for broadcasting changes, Connection tracking in DynamoDB
-
-- **Parameter History**: Track all changes to visualization parameters with user attribution
-  - Importance: Provides audit trail and enables reverting to previous states
-  - Implementation: History table in DynamoDB with timestamp tracking
-
-- **Secure Authentication**: User registration, login, and secure access to visualizations
-  - Importance: Ensures data privacy and user-specific visualizations
-  - Implementation: Cognito user pools, JWT-based API authorization
-
-## Productivity Workflow System
-- **Todoist Integration**: Automatically fetch tasks from Todoist based on configurable criteria
-  - Importance: Eliminates manual task collection and organization
-  - Implementation: Lambda function with Todoist API, scheduled execution via EventBridge
-
-- **ChatGPT Processing**: Enrich tasks with AI-generated context, recommendations, and insights
-  - Importance: Adds value to tasks through intelligent analysis
-  - Implementation: Lambda function with OpenAI API integration
-
-- **Notion Integration**: Automatically save enriched tasks to Notion databases
-  - Importance: Centralizes task information in a knowledge management system
-  - Implementation: Lambda function with Notion API integration
-
-- **Automated Workflow**: Complete end-to-end process orchestration
-  - Importance: Eliminates manual steps and ensures consistent execution
-  - Implementation: Step Functions for workflow orchestration, EventBridge for scheduling
-
-# User Experience
+### Non-Goals
+1. Full migration away from AWS
+2. Database migration from DynamoDB to PostgreSQL
+3. Replacing AWS Cognito authentication
+4. Rewriting Lambda functions
 
 ## User Personas
 
-### Data Analyst
-- Needs to create and share interactive visualizations
-- Values real-time collaboration and parameter history
-- Wants intuitive controls for adjusting visualization parameters
-- Requires secure access to their visualizations
+### Primary Users
 
-### Project Manager
-- Needs to organize and enrich tasks across multiple tools
-- Values automation of repetitive workflow steps
-- Wants enriched task content without manual processing
-- Requires reliable execution of the productivity workflow
+#### Data Analyst - Sarah
+- **Background**: 5 years experience in data analysis
+- **Technical Skills**: Intermediate programming, expert in visualization tools
+- **Goals**: Create and modify interactive visualizations, collaborate with team
+- **Pain Points**: Slow page loads, limited real-time collaboration
+- **Needs**: Responsive interface, instant feedback, mobile access
 
-### Developer
-- Needs to deploy and maintain the infrastructure
-- Values infrastructure as code and modular design
-- Wants straightforward deployment across environments
-- Requires monitoring and logging capabilities
+#### Project Manager - Michael
+- **Background**: 10 years in project management
+- **Technical Skills**: Basic technical understanding
+- **Goals**: Monitor task progress, automate workflow tracking
+- **Pain Points**: Manual data entry, fragmented tool ecosystem
+- **Needs**: Unified dashboard, automated updates, clear reports
 
-## Key User Flows
+#### Developer - Alex
+- **Background**: 3 years full-stack development
+- **Technical Skills**: Expert in modern web technologies
+- **Goals**: Maintain and extend the platform
+- **Pain Points**: Complex deployment process, limited preview environments
+- **Needs**: Fast deployments, good developer tools, clear documentation
 
-### Visualization Dashboard Flow
-1. User registers/logs in using Cognito authentication
-2. User creates a new visualization or selects an existing one
-3. User adjusts parameters using interactive controls
-4. Visualization updates in real-time based on parameter changes
-5. Other users see the changes in real-time with attribution
-6. Parameter history is tracked for future reference
+## User Stories
 
-### Productivity Workflow Flow
-1. Tasks are automatically fetched from Todoist on schedule
-2. Tasks are processed and enriched by ChatGPT
-3. Enriched tasks are saved to Notion in structured format
-4. Task status is updated in Todoist
-5. The workflow executes automatically without user intervention
+### Authentication & Access
+1. As a user, I can sign up and log in using my email and password
+2. As a user, I can reset my password if forgotten
+3. As a user, I can maintain my session across browser refreshes
+4. As a user, I can securely log out from all devices
 
-## UI/UX Considerations
-- Clean, intuitive interface for visualization creation and editing
-- Real-time feedback when parameters are changed
-- Visual indication of other users' actions in collaborative mode
-- Clear attribution of changes in parameter history
-- Responsive design for cross-device compatibility
-- Performance optimization for smooth interaction
+### Visualization Management
+1. As a data analyst, I can create new visualizations
+2. As a data analyst, I can modify visualization parameters in real-time
+3. As a data analyst, I can save and name my visualizations
+4. As a data analyst, I can share visualizations with team members
+5. As a data analyst, I can see who else is viewing/editing
 
-# Technical Architecture
+### Collaboration Features
+1. As a team member, I can see real-time updates from others
+2. As a team member, I can see cursor positions of collaborators
+3. As a team member, I can comment on specific visualizations
+4. As a team member, I can track change history
 
-## System Components
+### Productivity Integration
+1. As a project manager, I can view task status from Todoist
+2. As a project manager, I can see AI-enriched task descriptions
+3. As a project manager, I can export reports to Notion
+4. As a project manager, I can schedule automated workflows
 
-### Frontend
-- **React SPA**: Single-page application built with React and TypeScript
-- **D3.js Integration**: Interactive data visualizations library
-- **AWS Amplify**: SDK for authentication and API integration
-- **WebSocket Client**: Real-time communication with backend
+## Functional Requirements
 
-### Backend
-- **Lambda Functions**: Serverless compute for application logic
-  - getVisualizationData.py: Retrieves current parameters
-  - updateVisualizationParams.py: Updates parameters and broadcasts changes
-  - wsConnect.py/wsDisconnect.py: Handles WebSocket connections
-  - getTodoist.py: Fetches tasks from Todoist
-  - putChatGPT.py: Processes tasks with ChatGPT
-  - putNotion.py: Saves tasks to Notion
+### Frontend Requirements (Vercel)
 
-- **API Gateway**: HTTP and WebSocket APIs for frontend communication
-- **DynamoDB**: NoSQL database for data storage
-  - Parameter Table: Stores visualization parameters
-  - History Table: Tracks parameter changes
-  - Connection Table: Manages WebSocket connections
-  - Task Table: Stores productivity workflow data
+#### Core Application
+- Next.js 14 with App Router architecture
+- TypeScript for type safety
+- React 18 with Server Components
+- Tailwind CSS for styling
+- Responsive design for mobile/tablet/desktop
 
-- **S3 & CloudFront**: Frontend hosting and content delivery
-- **Cognito**: User authentication and authorization
-- **Step Functions**: Workflow orchestration for productivity system
-- **EventBridge**: Scheduled execution of workflows
+#### Data Visualization
+- D3.js integration for interactive charts
+- Support for multiple visualization types:
+  - Normal distribution curves
+  - Scatter plots
+  - Histograms
+  - Time series
+- Real-time parameter adjustment
+- Smooth animations and transitions
 
-## Data Models
+#### User Interface
+- Dark mode support
+- Accessibility compliance (WCAG 2.1 AA)
+- Loading states and error handling
+- Progressive enhancement
+- Offline capability for viewing
 
-### Visualization Data
-- **Parameter Record**:
-  - paramId (String): Identifier for the parameter set
-  - timestamp (Number): Update timestamp
-  - mean (Number): Mean value for normal distribution
-  - stdDev (Number): Standard deviation value
-  - lastUpdatedBy (String): User email who last updated
-  - userId (String): Unique identifier for the user
-  - lastUpdatedAt (Number): Last update timestamp
+#### Performance
+- Core Web Vitals optimization
+- Code splitting and lazy loading
+- Image optimization
+- Edge caching
+- < 3s initial load time
 
-- **History Record**:
-  - userId (String): User who made the change
-  - timestamp (Number): When the change occurred
-  - paramName (String): Name of the parameter changed
-  - oldValue (Number): Previous parameter value
-  - newValue (Number): New parameter value
-  - userEmail (String): Email of the user who made the change
+### Backend Requirements (AWS)
 
-- **Connection Record**:
-  - connectionId (String): WebSocket connection identifier
-  - timestamp (Number): Connection establishment time
-  - ttl (Number): Time-to-live for connection cleanup
+#### API Gateway
+- RESTful API endpoints
+- WebSocket connections for real-time
+- CORS configuration for Vercel domains
+- Request validation
+- Rate limiting
 
-### Productivity Data
-- **Task Record**:
-  - taskId (String): Unique identifier from Todoist
-  - title (String): Task title
-  - content (String): Task description
-  - status (String): Current status
-  - enriched (Boolean): Whether task has been processed
-  - enrichmentData (Object): AI-generated content and recommendations
+#### Lambda Functions
+- Visualization CRUD operations
+- Parameter update handlers
+- History tracking
+- WebSocket message routing
+- External API integrations
 
-## APIs and Integrations
+#### Data Storage
+- DynamoDB for user data
+- S3 for file uploads
+- CloudWatch for logs
+- Parameter versioning
+- Automatic backups
 
-### Internal APIs
-- **HTTP API**:
-  - GET /api/normal-distribution: Retrieve current parameters
-  - POST /api/normal-distribution: Update parameters
-  - GET /api/tasks: Get processed tasks
-  - POST /api/tasks: Add a new task for processing
+#### Authentication
+- AWS Cognito user pools
+- JWT token management
+- Multi-factor authentication
+- Social login providers
+- Password policies
 
-- **WebSocket API**:
-  - $connect: Handle connection establishment
-  - $disconnect: Handle disconnection
-  - PARAMS_UPDATE: Broadcast parameter updates
+### Integration Requirements
 
-### External Integrations
-- **Todoist API**: Task management integration
-- **OpenAI API**: ChatGPT integration
-- **Notion API**: Knowledge management integration
+#### Frontend-Backend Communication
+- Secure API calls with JWT tokens
+- WebSocket connections for real-time updates
+- Error retry mechanisms
+- Connection state management
+- Optimistic UI updates
 
-## Infrastructure Requirements
-- **AWS Account** with appropriate permissions
-- **Domain Name** for application hosting
-- **API Keys** for external services (Todoist, OpenAI, Notion)
-- **SSL Certificate** for secure HTTPS communication
-- **Terraform** (v1.6.0+) for infrastructure provisioning
-- **Environment-specific Configurations** for dev/prod environments
+#### External Services
+- Todoist API for task management
+- OpenAI API for text enrichment
+- Notion API for documentation
+- Error handling for API failures
+- Rate limit management
 
-# Development Roadmap
+## Technical Architecture
 
-## Phase 1: Foundation (Completed)
-- Setup of core AWS infrastructure
-- Basic module structure for Terraform resources
-- Initial DynamoDB tables configuration
-- Lambda function scaffolding
-- API Gateway setup
+### System Design
 
-## Phase 2: D3 Dashboard Backend (In Progress)
-- Backend API endpoints for parameter management
-- DynamoDB tables for visualization data
-- WebSocket infrastructure for real-time updates
-- Parameter history tracking
-- Basic authentication flow with Cognito
-- Simple "Hello World" frontend test
+```
+┌─────────────────────────────────────────────────┐
+│                 User Browser                    │
+└─────────────────────────┬───────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────┐
+│             Vercel Edge Network                 │
+│  ┌─────────────────────────────────────────┐    │
+│  │        Next.js Application             │    │
+│  │  - React Components                    │    │
+│  │  - API Client                          │    │
+│  │  - WebSocket Client                    │    │
+│  └─────────────────────────────────────────┘    │
+└─────────────────────────┬───────────────────────┘
+                          │ HTTPS/WSS
+                          ↓
+┌─────────────────────────────────────────────────┐
+│              AWS Cloud Services                 │
+│  ┌─────────────────────────────────────────┐    │
+│  │          API Gateway                    │    │
+│  │  - REST endpoints                       │    │
+│  │  - WebSocket handler                    │    │
+│  └─────────────────────────────────────────┘    │
+│                    │                            │
+│  ┌─────────────────┴────────────────────┐       │
+│  │         Lambda Functions             │       │
+│  │  - Business logic                    │       │
+│  │  - Data operations                   │       │
+│  └─────────────────┬────────────────────┘       │
+│                    │                            │
+│  ┌─────────────────┴────────────────────┐       │
+│  │      DynamoDB    │    S3    │ Cognito│       │
+│  │  - User data     │ - Files  │ - Auth │       │
+│  └─────────────────────────────────────┘       │
+└─────────────────────────────────────────────────┘
+```
 
-## Phase 3: D3 Dashboard Frontend
-- D3.js visualization implementation
-- Integration with backend API endpoints
-- WebSocket client for real-time updates
-- Interactive parameter controls (sliders, input fields)
-- User interface for parameter history
-- Complete authentication flow
-- Responsive design implementation
+### Data Flow
 
-## Phase 4: Productivity Workflow System
-- Lambda functions for Todoist integration
-- Task processing with ChatGPT
-- Notion integration for processed tasks
-- Step Functions workflow orchestration
-- Error handling and retry mechanisms
-- Monitoring and logging
+1. **User Authentication**
+   - User enters credentials on Vercel frontend
+   - Frontend sends to AWS Cognito
+   - Cognito returns JWT token
+   - Token stored in browser
+   - Subsequent requests include token
 
-## Phase 5: Enhancement and Refinement
-- Additional visualization types
-- Advanced user interface features
-- Enhanced collaboration tools
-- Additional productivity integrations
-- Performance optimizations
-- Comprehensive documentation
+2. **Visualization Updates**
+   - User adjusts parameters
+   - Frontend sends update via API
+   - Lambda processes request
+   - Data saved to DynamoDB
+   - WebSocket broadcasts change
+   - All clients receive update
 
-# Logical Dependency Chain
+3. **Productivity Workflow**
+   - EventBridge triggers Step Function
+   - Lambda fetches from Todoist
+   - OpenAI enriches content
+   - Results saved to Notion
+   - Status displayed on dashboard
 
-## Foundation Requirements
-1. AWS infrastructure setup with VPC, IAM, and networking
-2. DynamoDB tables for data storage
-3. Authentication system with Cognito
-4. API Gateway configuration for endpoints
+## Non-Functional Requirements
 
-## Visualization Dashboard Path
-1. Parameter storage and retrieval (Lambda + DynamoDB)
-2. WebSocket connection management
-3. Parameter update broadcasting
-4. Frontend authentication integration
-5. D3.js visualization component
-6. Interactive controls for parameters
-7. Real-time update reception
-8. Parameter history display
+### Performance
+- Page Load: < 3 seconds
+- API Response: < 300ms (p95)
+- WebSocket Latency: < 100ms
+- Uptime: 99.9% availability
 
-## Productivity System Path
-1. Task fetching from Todoist
-2. Task enrichment with ChatGPT
-3. Task storage in Notion
-4. Workflow orchestration with Step Functions
-5. Scheduled execution with EventBridge
-6. Error handling and retry logic
+### Security
+- TLS encryption for all communications
+- JWT token expiration and refresh
+- Input validation and sanitization
+- OWASP compliance
+- Regular security audits
 
-## Quick Win Implementation Order
-1. Basic visualization backend with parameter storage
-2. Simple frontend with authentication
-3. D3.js visualization with hardcoded parameters
-4. Interactive controls for parameter adjustment
-5. WebSocket integration for real-time updates
-6. Basic Todoist integration for task fetching
-7. ChatGPT processing of simple tasks
-8. Notion integration for storing processed tasks
+### Scalability
+- Support 10,000 concurrent users
+- Handle 1M API requests/day
+- 100GB data storage capacity
+- Automatic scaling policies
 
-# Risks and Mitigations
+### Reliability
+- Automated error recovery
+- Graceful degradation
+- Data backup every 6 hours
+- Disaster recovery plan
+- Multi-region failover
 
-## Technical Challenges
-- **Risk**: Real-time updates may face latency issues with many concurrent users
-  - **Mitigation**: Implement connection pooling, message batching, and optimization of WebSocket communication
+### Compliance
+- GDPR compliance for EU users
+- SOC 2 Type II certification
+- Data residency requirements
+- Privacy policy adherence
+- Cookie consent management
 
-- **Risk**: External API rate limits may constrain productivity workflow
-  - **Mitigation**: Implement throttling, queuing, and backoff strategies for API calls
+## Implementation Plan
 
-- **Risk**: D3.js integration complexity may slow development
-  - **Mitigation**: Start with simple visualization types, use existing libraries where possible, create reusable components
+### Phase 1: Foundation (Weeks 1-2)
+- Set up Next.js project on Vercel
+- Configure AWS CORS settings
+- Create API client service
+- Implement basic routing
 
-## MVP Scoping
-- **Risk**: Trying to implement too many features may delay initial release
-  - **Mitigation**: Focus on core visualization functionality first, prioritize features based on user value
+### Phase 2: Authentication (Weeks 3-4)
+- Integrate AWS Cognito
+- Build login/signup flows
+- Implement JWT management
+- Create protected routes
 
-- **Risk**: Complexity of full productivity workflow may be overwhelming
-  - **Mitigation**: Start with simple Todoist-to-Notion integration, add ChatGPT processing later
+### Phase 3: Core UI (Weeks 5-6)
+- Migrate React components
+- Implement responsive design
+- Add dark mode support
+- Create component library
 
-## Resource Constraints
-- **Risk**: AWS costs may escalate with heavy usage
-  - **Mitigation**: Implement proper IAM policies, cost monitoring, and alerting; optimize Lambda functions for performance
+### Phase 4: Data Integration (Weeks 7-8)
+- Connect to AWS APIs
+- Implement data fetching
+- Add caching layer
+- Create error handling
 
-- **Risk**: Limited development resources may slow progress
-  - **Mitigation**: Modular design to allow parallel development, leverage community modules, focus on high-value features first
+### Phase 5: Visualizations (Weeks 9-10)
+- Migrate D3.js components
+- Add interactivity
+- Implement real-time updates
+- Optimize performance
 
-# Appendix
+### Phase 6: Real-time Features (Weeks 11-12)
+- WebSocket integration
+- Collaboration features
+- Presence indicators
+- Conflict resolution
 
-## AWS Services Details
-- **Lambda**: Python 3.12 runtime for all functions
-- **DynamoDB**: On-demand capacity mode for cost optimization
-- **API Gateway**: HTTP API (v2) for better performance and lower cost
-- **Cognito**: User pool with email verification
-- **CloudFront**: Distribution with S3 origin for frontend assets
-- **Step Functions**: Standard workflow for productivity system
-- **EventBridge**: Scheduled rules for automated execution
+### Phase 7: Productivity (Week 13)
+- External API integration
+- Workflow monitoring
+- Dashboard creation
+- Notification system
 
-## Security Considerations
-- All API endpoints secured with JWT authentication
-- Least privilege IAM policies for all components
-- Encryption at rest for all data stores
-- Encryption in transit for all communications
-- Secure management of external API credentials
-- Input validation on all endpoints
-- Protection against common web vulnerabilities
+### Phase 8: Optimization (Week 14)
+- Performance tuning
+- Bundle optimization
+- Monitoring setup
+- Security audit
 
-## Development Best Practices
-- Infrastructure as Code with Terraform modules
-- Comprehensive testing (unit, integration, end-to-end)
-- CI/CD pipeline for automated deployment
-- Documentation for all components
-- Monitoring and logging across all services
+### Phase 9: Launch (Week 15)
+- Production deployment
+- User migration
+- Documentation
+- Training materials
+
+## Success Metrics
+
+### Business Metrics
+- User adoption rate > 80%
+- Task completion time reduction > 30%
+- Support ticket reduction > 25%
+- User satisfaction score > 4.5/5
+
+### Technical Metrics
+- Core Web Vitals in green
+- Error rate < 1%
+- API latency < 300ms
+- Deployment frequency > 5/week
+
+### User Experience Metrics
+- Time to first interaction < 3s
+- Task success rate > 95%
+- Mobile usage > 40%
+- Feature utilization > 60%
+
+## Risk Analysis
+
+### Technical Risks
+
+1. **CORS Configuration Complexity**
+   - Impact: High
+   - Probability: Medium
+   - Mitigation: Thorough testing, fallback proxy
+
+2. **WebSocket Connection Stability**
+   - Impact: Medium
+   - Probability: Low
+   - Mitigation: Reconnection logic, polling fallback
+
+3. **Authentication Edge Cases**
+   - Impact: High
+   - Probability: Low
+   - Mitigation: Comprehensive testing, session management
+
+### Business Risks
+
+1. **User Adoption Resistance**
+   - Impact: Medium
+   - Probability: Low
+   - Mitigation: Gradual rollout, training program
+
+2. **Cost Overruns**
+   - Impact: Low
+   - Probability: Low
+   - Mitigation: Usage monitoring, alerts
+
+## Budget Estimation
+
+### Monthly Costs
+- Vercel Pro: $20
+- AWS Services: $200-400
+  - API Gateway: $25-50
+  - Lambda: $10-30
+  - DynamoDB: $150-300
+  - Cognito: $0-15
+- External APIs: $50-100
+- **Total**: $270-520/month
+
+### Development Costs
+- Frontend Developer: 15 weeks
+- Backend Developer: 8 weeks
+- DevOps Engineer: 4 weeks
+- UI/UX Designer: 3 weeks
+
+## Conclusion
+
+The hybrid architecture approach provides an optimal solution for modernizing the D3 Dashboard & Productivity System. By leveraging Vercel's frontend capabilities while maintaining AWS backend services, we achieve improved performance, developer experience, and cost efficiency without the risks of a full platform migration.
+
+## Appendices
+
+### A. Technical Specifications
+- Detailed API documentation
+- Database schemas
+- Security protocols
+- Deployment procedures
+
+### B. User Research
+- Interview summaries
+- Usability test results
+- Feature prioritization
+- Feedback analysis
+
+### C. Competitive Analysis
+- Market alternatives
+- Feature comparison
+- Pricing analysis
+- Differentiation strategy
+
+### D. Future Roadmap
+- Mobile application
+- Advanced analytics
+- Machine learning features
+- Enterprise features</content>
