@@ -103,8 +103,8 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        role-session-name: GitHubActions
-        aws-region: us-east-1
+        role-session-name: GitHubActionsDeployment
+        aws-region: us-east-2
         audience: sts.amazonaws.com
 ```
 
