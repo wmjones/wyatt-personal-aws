@@ -1,7 +1,8 @@
 import json
-from notion_client import Client
-from utils import get_secret, SuperTask, tasks_to_json, markdown_to_notion_blocks
 from datetime import datetime, timedelta
+
+from notion_client import Client
+from utils import SuperTask, get_secret, markdown_to_notion_blocks, tasks_to_json
 
 
 def lambda_handler(event, context):
@@ -31,7 +32,7 @@ def lambda_handler(event, context):
                         "Deadline": {
                             "date": {
                                 "start": str(datetime.now()),
-                                "end": str((datetime.now() + timedelta(minutes=30))),
+                                "end": str(datetime.now() + timedelta(minutes=30)),
                             }
                         },
                     },
@@ -48,7 +49,7 @@ def lambda_handler(event, context):
                         "Deadline": {
                             "date": {
                                 "start": str(datetime.now()),
-                                "end": str((datetime.now() + timedelta(minutes=30))),
+                                "end": str(datetime.now() + timedelta(minutes=30)),
                             }
                         },
                     },

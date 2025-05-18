@@ -1,6 +1,7 @@
-from todoist_api_python.api import TodoistAPI
-from utils import get_secret, SuperTask
 import json
+
+from todoist_api_python.api import TodoistAPI
+from utils import SuperTask, get_secret
 
 
 def lambda_handler(event, context):

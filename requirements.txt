@@ -1,4 +1,4 @@
 urllib3==1.26.6
 todoist-api-python==2.1.5
-openai==1.33.0
+openai==1.76.0
 notion-client==2.2.1

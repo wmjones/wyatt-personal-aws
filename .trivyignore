@@ -1,0 +1,39 @@
+# .trivyignore ─── Trivy will skip any finding whose ID appears here
+# Syntax: <ID> [exp:<YYYY-MM-DD>]   ── comments (# …) are ignored
+# Full ID list: https://github.com/aquasecurity/tfsec/blob/master/internal/pkg/legacy/map.go
+
+# ────────── S3 static-site buckets ────────────────────────────────────────────
+# Public read is required for the SPA docs bucket; CloudFront/OAC provides
+# edge-auth, so these ACL/BlockPublicAccess findings are acceptable.
+AWS001   # S3 no public access with ACL
+AWS073   # S3 IgnorePublicAcls
+AWS074   # S3 BlockPublicAcls
+AWS075   # S3 No public buckets
+AWS076   # S3 BlockPublicPolicy
+
+# Bucket uses AWS-managed SSE-S3; we’re ok without a customer KMS key or logs
+AWS017   # S3 enable bucket encryption (CMK)
+AWS002   # S3 enable bucket logging
+
+# ────────── Lambda + API Gateway glue ─────────────────────────────────────────
+# terraform-aws-lambda module creates a wildcard invoke permission that
+# tfsec/Trivy flags, but it is required for API Gateway authorisation.
+AWS058   # Lambda restrict source-arn
+
+# ────────── DynamoDB tables ──────────────────────────────────────────────────
+# Encryption at rest is enabled by default with AWS-managed KMS; CMK optional
+AWS092   # DynamoDB table customer-managed key
+
+# ────────── IAM password policy (managed outside this repo) ──────────────────
+AWS037   # No password reuse
+AWS039   # Set minimum password length
+AWS040   # Require symbols
+AWS041   # Require numbers
+AWS042   # Require lowercase
+AWS043   # Require uppercase
+
+# ────────── Generic “secrets in code” false-positives in examples ────────────
+GEN002   # Generic plaintext secret
+GEN003   # Generic base64 secret
+
+# ────────── End of file ──────────────────────────────────────────────────────

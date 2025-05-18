@@ -1,0 +1,150 @@
+name: Deploy Frontend React App
+# This workflow always deploys the React app after a successful Terraform apply
+# or when manually triggered, ensuring the latest build is always deployed
+
+on:
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types:
+      - completed
+    branches:
+      - dev
+      - main
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: read   # Required for actions/checkout
+
+env:
+  AWS_REGION: 'us-east-2'  # Update to match your S3 bucket region
+  NODE_VERSION: '18'
+  NPM_VERSION: '8.19.3'  # Use a specific npm version for better compatibility
+  ENVIRONMENT: >-
+    ${{
+      github.event.workflow_run.head_branch == 'main' && 'prod' ||
+      'dev'
+    }}
+
+jobs:
+  deploy:
+    name: Build and Deploy React App
+    runs-on: ubuntu-latest
+    # Only run on manual dispatch or successful terraform apply on dev/main branch
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.head_branch == 'dev' || github.event.workflow_run.head_branch == 'main'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comparing changes
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+
+      - name: Always deploy React app after Terraform apply
+        id: check_changes
+        run: |
+          # For both workflow_dispatch and workflow_run from Terraform Apply, always deploy
+          echo "Always deploying React app after Terraform apply or manual workflow dispatch"
+          echo "changes_detected=true" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS resources info
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        id: get-resources
+        run: |
+          # Get S3 bucket name
+          BUCKET_NAME=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ env.ENVIRONMENT }}/frontend_bucket_name" --query "Parameter.Value" --output text)
+          echo "s3_bucket=${BUCKET_NAME}" >> $GITHUB_OUTPUT
+
+          # Get CloudFront distribution ID
+          CF_ID=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ env.ENVIRONMENT }}/cloudfront_id" --query "Parameter.Value" --output text || echo '')
+          if [ -n "$CF_ID" ]; then
+            echo "cloudfront_id=${CF_ID}" >> $GITHUB_OUTPUT
+          fi
+
+          # Get Cognito User Pool ID (using SSM parameter or direct from Terraform outputs)
+          USER_POOL_ID=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ env.ENVIRONMENT }}/cognito_user_pool_id" --query "Parameter.Value" --output text 2>/dev/null || echo 'us-east-2_xxxxxxxx')
+          echo "cognito_user_pool_id=${USER_POOL_ID}" >> $GITHUB_OUTPUT
+
+          # Get Cognito Client ID
+          CLIENT_ID=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ env.ENVIRONMENT }}/cognito_client_id" --query "Parameter.Value" --output text 2>/dev/null || echo 'xxxxxxxxxxxxxxxxxxxxxxxxxx')
+          echo "cognito_client_id=${CLIENT_ID}" >> $GITHUB_OUTPUT
+
+          # Get API endpoint
+          API_ENDPOINT=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ env.ENVIRONMENT }}/api_endpoint" --query "Parameter.Value" --output text 2>/dev/null || echo 'https://api.example.com')
+          echo "api_endpoint=${API_ENDPOINT}" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # Don't use npm cache since package-lock.json is gitignored
+
+      - name: Install specific npm version
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: npm install -g npm@${{ env.NPM_VERSION }}
+
+      - name: Install dependencies
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        working-directory: src/frontend/react-app
+        run: |
+          npm install --no-save ajv@8.12.0 ajv-keywords@5.1.0
+          npm install
+
+      - name: Set environment variables for build
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          echo "REACT_APP_STAGE=${{ env.ENVIRONMENT }}" >> src/frontend/react-app/.env.production.local
+          echo "REACT_APP_REGION=${{ env.AWS_REGION }}" >> src/frontend/react-app/.env.production.local
+          echo "REACT_APP_USER_POOL_ID=${{ steps.get-resources.outputs.cognito_user_pool_id }}" >> src/frontend/react-app/.env.production.local
+          echo "REACT_APP_USER_POOL_CLIENT_ID=${{ steps.get-resources.outputs.cognito_client_id }}" >> src/frontend/react-app/.env.production.local
+          echo "REACT_APP_API_ENDPOINT=${{ steps.get-resources.outputs.api_endpoint }}" >> src/frontend/react-app/.env.production.local
+
+      - name: Build React app
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        working-directory: src/frontend/react-app
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        run: CI=false npm run build
+
+      - name: Deploy static assets to S3 with cache headers
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          echo "Deploying static assets to bucket: ${{ steps.get-resources.outputs.s3_bucket }}"
+          aws s3 sync src/frontend/react-app/build/ s3://${{ steps.get-resources.outputs.s3_bucket }}/ \
+            --delete \
+            --cache-control "max-age=31536000,public" \
+            --exclude "*.html" \
+            --exclude "*.json" \
+            --exclude "*.txt" \
+            --exclude "asset-manifest.json"
+
+      - name: Deploy HTML, JSON, and config files with no-cache headers
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          echo "Deploying HTML and JSON files to bucket: ${{ steps.get-resources.outputs.s3_bucket }}"
+          aws s3 sync src/frontend/react-app/build/ s3://${{ steps.get-resources.outputs.s3_bucket }}/ \
+            --cache-control "max-age=0,no-cache,no-store,must-revalidate" \
+            --include "*.html" \
+            --include "*.json" \
+            --include "*.txt" \
+            --exclude "static/**/*"
+
+      - name: Invalidate CloudFront cache
+        if: steps.check_changes.outputs.changes_detected == 'true' && steps.get-resources.outputs.cloudfront_id != ''
+        run: |
+          echo "Invalidating CloudFront distribution: ${{ steps.get-resources.outputs.cloudfront_id }}"
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.get-resources.outputs.cloudfront_id }} \
+            --paths "/*"
+
+      # Deployment is never skipped now, so this step is not needed anymore

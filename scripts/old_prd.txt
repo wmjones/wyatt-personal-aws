@@ -1,0 +1,274 @@
+<context>
+# Overview
+The D3 Visualization Dashboard is a modern web application that allows users to create, view, and modify interactive data visualizations using D3.js. Built on a serverless AWS architecture, the application features real-time updates through WebSockets, secure user authentication via Cognito, and collaborative editing capabilities.
+
+This solution addresses the challenges data analysts and business intelligence teams face when trying to create, share, and collaborate on interactive data visualizations. By providing a platform for real-time collaborative visualization editing, users can explore data together, make instant adjustments to parameters, and track the history of all changes.
+
+# Core Features
+
+## Interactive Visualization Editing
+- **What it does**: Allows users to create and modify D3.js visualizations with interactive controls that update parameters in real-time
+- **Why it's important**: Enables data exploration and analysis through visual representation without requiring coding knowledge
+- **How it works**: React frontend with D3.js integration sends parameter updates through API Gateway to Lambda functions, which store the data in DynamoDB and broadcast changes via WebSockets
+
+## Collaborative Editing
+- **What it does**: Multiple users can view and edit the same visualization simultaneously with real-time updates and user attribution
+- **Why it's important**: Facilitates team collaboration, improves decision-making, and enables knowledge sharing
+- **How it works**: WebSocket API broadcasts parameter changes to all connected clients, with DynamoDB tracking connection information and user attribution
+
+## Parameter History Tracking
+- **What it does**: Records all changes to visualization parameters with timestamps and user attribution
+- **Why it's important**: Provides an audit trail, enables reverting to previous states, and shows progression of analysis
+- **How it works**: History table in DynamoDB stores each parameter change with metadata about who made the change and when
+
+## Secure Authentication
+- **What it does**: Provides user registration, login, and secure access to visualizations with proper access controls
+- **Why it's important**: Ensures data privacy, user-specific visualizations, and appropriate permission management
+- **How it works**: AWS Cognito handles user management, with JWT tokens used for API authorization
+
+# User Experience
+
+## User Personas
+
+### Data Analyst
+- Creates and shares interactive visualizations
+- Values real-time collaboration and parameter history
+- Requires intuitive controls for adjusting visualization parameters
+- Needs secure access to their visualizations
+
+### Business Intelligence Team Member
+- Collaborates on shared visualizations for business insights
+- Requires attribution of changes for accountability
+- Values historical view of parameter adjustments
+- Needs to export or share visualizations with stakeholders
+
+### Project Manager
+- Reviews visualizations created by team members
+- Wants clear view of who made what changes and when
+- Requires minimal technical knowledge to interact with visualizations
+- Values ease of use and intuitive interface
+
+## Key User Flows
+
+### Visualization Creation and Editing
+1. User logs in using Cognito authentication
+2. User creates a new visualization or selects an existing one
+3. User adjusts parameters using interactive controls (sliders, input fields)
+4. Visualization updates in real-time based on parameter changes
+5. Changes are saved automatically and broadcast to other users
+
+### Collaborative Session
+1. Multiple users access the same visualization
+2. Each user's parameter changes are broadcast in real-time to all other users
+3. User attribution shows who made each change
+4. All users see a consistent view of the current visualization state
+
+### Parameter History Review
+1. User accesses the history view for a visualization
+2. User browses through previous parameter states with timestamps and user attribution
+3. User can select a previous state to view how the visualization looked at that point
+4. User can revert to a previous state if desired
+
+## UI/UX Considerations
+- Clean, intuitive interface with focus on the visualization itself
+- Interactive controls (sliders, input fields) for easy parameter adjustment
+- Real-time feedback when parameters change
+- Visual indication of other users' presence and actions
+- Clear attribution of who made which changes
+- Responsive design for use on different devices and screen sizes
+- Performance optimization for smooth interaction with complex visualizations
+</context>
+<PRD>
+# Technical Architecture
+
+## System Components
+
+### Frontend
+- **React SPA**: Single-page application built with React and TypeScript
+- **D3.js Integration**: Interactive data visualizations with parameter-driven rendering
+- **AWS Amplify**: SDK for authentication and API integration
+- **WebSocket Client**: Handles real-time communication with backend
+
+### Backend
+- **Lambda Functions**:
+  - getVisualizationData.py: Retrieves current visualization parameters
+  - updateVisualizationParams.py: Updates parameters and broadcasts changes
+  - wsConnect.py and wsDisconnect.py: Handle WebSocket connections
+
+- **API Gateway**:
+  - HTTP API with routes for getting and updating visualization data
+  - WebSocket API for real-time updates
+
+- **DynamoDB Tables**:
+  - Parameter table: Stores visualization configuration
+  - History table: Tracks parameter changes with user attribution
+  - Connection table: Manages WebSocket connections
+
+- **S3 & CloudFront**: Host and deliver frontend assets globally
+  - Properly configured Origin Access Control (OAC)
+  - KMS encryption for data at rest
+  - Secure bucket policies
+
+- **Cognito**: Handles user authentication and authorization
+
+## Data Models
+
+### Parameter Record
+- paramId (String): Identifier for the parameter set
+- timestamp (Number): Update timestamp
+- mean (Number): Mean value for normal distribution
+- stdDev (Number): Standard deviation value
+- lastUpdatedBy (String): User identifier who last updated
+- userId (String): User who owns the visualization
+- lastUpdatedAt (Number): Last update timestamp
+
+### History Record
+- userId (String): User who made the change
+- timestamp (Number): When the change occurred
+- paramName (String): Name of the parameter changed
+- oldValue (Number): Previous parameter value
+- newValue (Number): New parameter value
+- userEmail (String): Email of the user for display purposes
+
+### Connection Record
+- connectionId (String): WebSocket connection identifier
+- timestamp (Number): Connection establishment time
+- ttl (Number): Time-to-live for connection cleanup
+
+## APIs and Integrations
+
+### HTTP API
+- GET /api/normal-distribution: Retrieve current parameters
+- POST /api/normal-distribution: Update parameters
+- GET /api/history: Retrieve parameter change history
+
+### WebSocket API
+- $connect: Handle connection establishment
+- $disconnect: Handle disconnection
+- PARAMS_UPDATE: Message type for parameter updates
+
+## Infrastructure Requirements
+- AWS Account with appropriate permissions
+- Domain name for application (optional for initial deployment)
+- SSL Certificate for secure HTTPS communication
+- Terraform (v1.6.0+) for infrastructure provisioning
+- Environment-specific configurations for dev/prod environments
+
+# Development Roadmap
+
+## Phase 1: Foundation (Completed)
+- Basic infrastructure setup with Terraform
+- Core module structure
+- DynamoDB tables configuration
+- Lambda function scaffolding
+- API Gateway setup
+
+## Phase 2: Backend Development
+- Implement Parameter CRUD operations
+- Set up WebSocket connection handling
+- Create API routes for data retrieval and updates
+- Implement parameter history tracking
+- Configure Cognito user pools and authentication
+- Fix S3/CloudFront configuration with proper OAC and KMS settings
+
+## Phase 3: Frontend MVP
+- Basic React application setup
+- Authentication flow integration
+- Simple D3.js visualization of normal distribution
+- Parameter controls implementation
+- WebSocket client for real-time updates
+- Styling and responsive design
+
+## Phase 4: Collaborative Features
+- User presence indication
+- Real-time updates from other users
+- User attribution for changes
+- Parameter history view
+- Ability to revert to previous states
+
+## Phase 5: Enhancement and Refinement
+- Additional visualization types beyond normal distribution
+- Customizable visualization options
+- Export and sharing capabilities
+- Performance optimizations
+- Enhanced user interface and experience
+
+# Logical Dependency Chain
+
+## Foundation Requirements
+1. AWS infrastructure setup (VPC, IAM, networking)
+2. DynamoDB tables for data storage
+3. Authentication system with Cognito
+4. API Gateway configuration
+5. Properly configured S3/CloudFront with correct encryption and access control
+
+## Visualization Pipeline
+1. Parameter storage and retrieval (Lambda + DynamoDB)
+2. WebSocket connection management
+3. Parameter update broadcasting
+4. Frontend authentication integration
+5. D3.js visualization component
+6. Interactive controls for parameters
+7. Real-time update reception
+8. Parameter history display
+
+## Quick Win Implementation Order
+1. Fix S3/CloudFront configuration issues with proper OAC and KMS key permissions
+2. Backend API for parameter storage and retrieval
+3. Basic frontend with authentication
+4. Simple D3.js visualization with hardcoded parameters
+5. Parameter controls for visualization adjustment
+6. Real-time updates via WebSocket
+7. History tracking and display
+8. Collaborative editing features
+
+# Risks and Mitigations
+
+## Technical Challenges
+- **Risk**: Real-time updates may face latency issues with many concurrent users
+  - **Mitigation**: Implement connection pooling, message batching, and WebSocket optimization
+
+- **Risk**: D3.js integration complexity may slow development
+  - **Mitigation**: Start with simple visualization types, use existing libraries, create reusable components
+
+- **Risk**: S3 and CloudFront configuration issues may affect frontend delivery
+  - **Mitigation**: Follow AWS best practices for S3 website hosting, implement secure bucket policies, use proper OAC setup, ensure KMS key policies allow CloudFront service principal access
+
+## MVP Scoping
+- **Risk**: Trying to implement too many visualization types may delay initial release
+  - **Mitigation**: Focus on normal distribution visualization first, then add others incrementally
+
+- **Risk**: Complex collaboration features may overcomplicate initial implementation
+  - **Mitigation**: Start with basic real-time updates, then add user attribution and history features
+
+## Resource Constraints
+- **Risk**: AWS costs may escalate with heavy usage
+  - **Mitigation**: Implement proper IAM policies, use on-demand DynamoDB capacity, set up cost alerts
+
+- **Risk**: Limited development resources may slow progress
+  - **Mitigation**: Use modular design for parallel development, leverage community libraries, focus on high-value features first
+
+# Appendix
+
+## AWS Services Details
+- **Lambda**: Python 3.x runtime for backend functions
+- **DynamoDB**: On-demand capacity mode for cost optimization
+- **API Gateway**: HTTP API (v2) and WebSocket API
+- **Cognito**: User pool with email verification
+- **CloudFront**: Distribution with S3 origin for frontend assets
+  - Origin Access Control (OAC) with proper configuration
+  - CloudFront Functions for request handling if needed
+- **S3**: Static website hosting with proper encryption configuration
+  - Server-side encryption with KMS
+  - Bucket policy allowing only CloudFront access
+  - Proper key policies for CloudFront service principal
+
+## Security Considerations
+- JWT token validation for API access
+- HTTPS for all communications
+- Proper bucket policies for S3
+- Origin Access Control for CloudFront to S3 access
+- KMS encryption for data at rest with appropriate key policies
+- Least privilege IAM policies
+- Input validation for all API endpoints
+</PRD>

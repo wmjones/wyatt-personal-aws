@@ -1,0 +1,175 @@
+name: Configure SSM Parameters for Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to configure (dev or prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  contents: read   # Required for actions/checkout
+
+env:
+  AWS_REGION: 'us-east-2'  # Update to match your AWS region
+
+jobs:
+  set-ssm-parameters:
+    name: Set SSM Parameters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+          terraform_wrapper: false
+
+      - name: Get Terraform outputs
+        id: terraform-outputs
+        run: |
+          cd main
+
+          # Initialize Terraform to access state
+          terraform init
+
+          # Check if we can get Cognito User Pool ID directly from Terraform
+          USER_POOL_ID=$(terraform output -raw cognito_user_pool_id 2>/dev/null || echo "")
+          CLIENT_ID=$(terraform output -raw cognito_client_id 2>/dev/null || echo "")
+          API_ENDPOINT=$(terraform output -raw api_endpoint 2>/dev/null || echo "")
+          FRONTEND_BUCKET=$(terraform output -raw website_bucket_name 2>/dev/null || echo "")
+          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+
+          # Store the values
+          echo "user_pool_id=${USER_POOL_ID}" >> $GITHUB_OUTPUT
+          echo "client_id=${CLIENT_ID}" >> $GITHUB_OUTPUT
+          echo "api_endpoint=${API_ENDPOINT}" >> $GITHUB_OUTPUT
+          echo "frontend_bucket=${FRONTEND_BUCKET}" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=${CLOUDFRONT_ID}" >> $GITHUB_OUTPUT
+
+      - name: Set up S3 bucket parameter
+        run: |
+          # Use Terraform output if available, otherwise do lookup
+          if [ -n "${{ steps.terraform-outputs.outputs.frontend_bucket }}" ]; then
+            BUCKET_NAME="${{ steps.terraform-outputs.outputs.frontend_bucket }}"
+          else
+            BUCKET_NAME=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'wyatt-personal-aws-${{ github.event.inputs.environment }}-app')].Name | [0]" --output text)
+          fi
+
+          echo "Found bucket: $BUCKET_NAME"
+
+          # Store bucket name in SSM Parameter Store
+          aws ssm put-parameter \
+            --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/frontend_bucket_name" \
+            --value "$BUCKET_NAME" \
+            --type "String" \
+            --overwrite
+
+          echo "S3 bucket parameter set successfully"
+
+      - name: Set up CloudFront distribution parameter
+        run: |
+          # Use Terraform output if available, otherwise do lookup
+          if [ -n "${{ steps.terraform-outputs.outputs.cloudfront_id }}" ]; then
+            CF_ID="${{ steps.terraform-outputs.outputs.cloudfront_id }}"
+          else
+            # Get bucket name for lookup
+            BUCKET_NAME=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/frontend_bucket_name" --query "Parameter.Value" --output text)
+
+            # Find CloudFront distribution that has our bucket as origin
+            BUCKET_DOMAIN=$(aws s3api get-bucket-location --bucket "$BUCKET_NAME" --query "join('.', ['s3', LocationConstraint])" --output text)
+            if [ "$BUCKET_DOMAIN" = "s3.null" ]; then
+              BUCKET_DOMAIN="s3.us-east-1.amazonaws.com"
+            fi
+
+            BUCKET_ORIGIN="${BUCKET_NAME}.${BUCKET_DOMAIN}"
+            echo "Looking for CloudFront distribution with origin containing: $BUCKET_ORIGIN"
+
+            CF_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?Origins.Items[?contains(DomainName, '$BUCKET_NAME')]].Id | [0]" \
+              --output text)
+          fi
+
+          if [ "$CF_ID" != "None" ] && [ -n "$CF_ID" ]; then
+            echo "Found CloudFront distribution: $CF_ID"
+
+            # Store CloudFront ID in SSM Parameter Store
+            aws ssm put-parameter \
+              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cloudfront_id" \
+              --value "$CF_ID" \
+              --type "String" \
+              --overwrite
+
+            echo "CloudFront ID parameter set successfully"
+          else
+            echo "No CloudFront distribution found for bucket"
+          fi
+
+      - name: Set up Cognito User Pool parameters
+        run: |
+          # Use Terraform output if available
+          if [ -n "${{ steps.terraform-outputs.outputs.user_pool_id }}" ]; then
+            USER_POOL_ID="${{ steps.terraform-outputs.outputs.user_pool_id }}"
+            echo "Found User Pool ID: $USER_POOL_ID"
+
+            # Store User Pool ID in SSM Parameter Store
+            aws ssm put-parameter \
+              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cognito_user_pool_id" \
+              --value "$USER_POOL_ID" \
+              --type "String" \
+              --overwrite
+
+            echo "Cognito User Pool ID parameter set successfully"
+          else
+            echo "No User Pool ID found from Terraform outputs"
+          fi
+
+          # Use Terraform output if available
+          if [ -n "${{ steps.terraform-outputs.outputs.client_id }}" ]; then
+            CLIENT_ID="${{ steps.terraform-outputs.outputs.client_id }}"
+            echo "Found Client ID: $CLIENT_ID"
+
+            # Store Client ID in SSM Parameter Store
+            aws ssm put-parameter \
+              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cognito_client_id" \
+              --value "$CLIENT_ID" \
+              --type "String" \
+              --overwrite
+
+            echo "Cognito Client ID parameter set successfully"
+          else
+            echo "No Client ID found from Terraform outputs"
+          fi
+
+      - name: Set up API Gateway endpoint parameter
+        run: |
+          # Use Terraform output if available
+          if [ -n "${{ steps.terraform-outputs.outputs.api_endpoint }}" ]; then
+            API_ENDPOINT="${{ steps.terraform-outputs.outputs.api_endpoint }}"
+            echo "Found API Endpoint: $API_ENDPOINT"
+
+            # Store API Endpoint in SSM Parameter Store
+            aws ssm put-parameter \
+              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/api_endpoint" \
+              --value "$API_ENDPOINT" \
+              --type "String" \
+              --overwrite
+
+            echo "API Endpoint parameter set successfully"
+          else
+            echo "No API Endpoint found from Terraform outputs"
+          fi

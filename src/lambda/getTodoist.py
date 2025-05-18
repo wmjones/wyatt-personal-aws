@@ -1,20 +1,19 @@
 import json
-from todoist_api_python.api import TodoistAPI
 import re
-
 from dataclasses import asdict
 from typing import List
 
-from utils import get_secret, Task
+from todoist_api_python.api import TodoistAPI
+from utils import Task, get_secret
 
 
 def strip_rich_text(text: str) -> str:
     emoji_pattern = re.compile(
         "["
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F680-\U0001F6FF"  # transport & map symbols
-        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U0001f600-\U0001f64f"  # emoticons
+        "\U0001f300-\U0001f5ff"  # symbols & pictographs
+        "\U0001f680-\U0001f6ff"  # transport & map symbols
+        "\U0001f1e0-\U0001f1ff"  # flags (iOS)
         "\U00010000-\U0010ffff"  # emoticons
         "]+",
         flags=re.UNICODE,
@@ -49,10 +48,10 @@ def lambda_handler(event, context):
     todoist_api_key = secret_dict["TODOIST_API_KEY"]
     api = TodoistAPI(todoist_api_key)
     # read in config.json
-    with open("config.json", "r") as file:
+    with open("config.json") as file:
         config = json.load(file)
     n_project_ids = len(config["projects"])
-    project_id_list = [config['projects'][i]['project_id'] for i in range(n_project_ids)]
+    project_id_list = [config["projects"][i]["project_id"] for i in range(n_project_ids)]
     print(f"project_id_list: {project_id_list}")
 
     try:

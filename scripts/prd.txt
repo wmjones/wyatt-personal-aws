@@ -1,0 +1,402 @@
+<context>
+# Overview
+This project implements a hybrid deployment strategy for the D3 Dashboard & Productivity System, leveraging Vercel for frontend hosting while maintaining AWS infrastructure for backend services. This approach combines Vercel's excellent frontend developer experience with the control and flexibility of AWS backend services, achieving cost optimization while preserving existing infrastructure investments. The system serves data analysts and project managers who need interactive visualizations and automated productivity workflows.
+
+# Core Features
+## Hybrid Architecture
+- Vercel hosts Next.js frontend application with automatic deployments
+- AWS backend services remain Terraform-managed
+- API Gateway provides secure endpoint for frontend-backend communication
+- DynamoDB continues as primary database with optimized read patterns
+- Lambda functions maintain business logic and API endpoints
+
+## Next.js Frontend on Vercel
+- Converts React CRA application to Next.js 14 with App Router
+- Enables server-side rendering and static generation for better performance
+- Implements file-based routing to simplify navigation structure
+- Leverages Vercel's edge network for global content delivery
+- Utilizes environment variables for AWS endpoint configuration
+
+## AWS Backend Infrastructure
+- Maintains existing DynamoDB tables with proven data models
+- Preserves Lambda functions for business logic and API operations
+- Continues using API Gateway for HTTP and WebSocket connections
+- Keeps Cognito for authentication with JWT token validation
+- Retains Terraform management for infrastructure as code
+
+## Integration Strategy
+- Secure API communication between Vercel and AWS services
+- CORS configuration for cross-origin requests
+- Environment-based endpoint configuration
+- Automated deployment pipeline for both platforms
+- Comprehensive monitoring across hybrid stack
+
+# User Experience
+## User Personas
+### Data Analyst
+- Creates and modifies D3.js visualizations
+- Collaborates with team members in real-time
+- Requires responsive interface and fast data updates
+
+### Project Manager
+- Monitors task progress across tools
+- Benefits from automated workflow integration
+- Needs reliable data synchronization
+
+### Developer
+- Deploys and maintains hybrid infrastructure
+- Values clear separation of concerns
+- Requires comprehensive monitoring tools
+
+## Key User Flows
+### Visualization Creation
+1. User authenticates with Cognito through Next.js
+2. Navigates to visualization dashboard on Vercel
+3. Frontend makes API calls to AWS backend
+4. Lambda functions process data operations
+5. Real-time updates via WebSocket API
+
+### Productivity Automation
+1. Step Functions orchestrate workflow in AWS
+2. Lambda functions fetch tasks from Todoist
+3. Tasks processed through ChatGPT for enrichment
+4. Enriched data saved to Notion
+5. Frontend displays consolidated information
+
+## UI/UX Considerations
+- Maintain visual consistency across platforms
+- Optimize API calls for performance
+- Implement proper loading states
+- Handle cross-origin errors gracefully
+- Ensure mobile responsiveness
+</context>
+<PRD>
+# Technical Architecture
+## System Components
+### Frontend Layer (Vercel)
+- Next.js 14 with TypeScript
+- React Server Components for performance
+- Client components for interactivity
+- D3.js for data visualizations
+- Tailwind CSS for styling
+- Environment configuration for API endpoints
+
+### Backend Layer (AWS)
+- Lambda functions for API logic
+- API Gateway for HTTP/WebSocket endpoints
+- DynamoDB for data persistence
+- Cognito for authentication services
+- Step Functions for workflow orchestration
+- S3 for static asset storage
+
+### Integration Layer
+- CORS-enabled API endpoints
+- JWT token validation
+- Environment-specific configurations
+- Secure API key management
+- Request/response logging
+
+## Data Models (Unchanged)
+### User Model
+```typescript
+interface User {
+  id: string
+  email: string
+  cognitoId: string
+  createdAt: Date
+}
+```
+
+### Visualization Model
+```typescript
+interface Visualization {
+  id: string
+  userId: string
+  name: string
+  parameters: Parameter[]
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+### Parameter Model
+```typescript
+interface Parameter {
+  id: string
+  visualizationId: string
+  mean: number
+  stdDev: number
+  updatedBy: string
+  history: ParameterHistory[]
+}
+```
+
+## APIs and Integrations
+### AWS API Endpoints
+- GET /api/visualizations - List user visualizations
+- GET /api/visualizations/{id} - Get specific visualization
+- POST /api/visualizations/{id}/parameters - Update parameters
+- GET /api/history - Get parameter change history
+- WebSocket endpoint for real-time updates
+
+### External Integrations
+- Todoist API for task management
+- OpenAI API for task enrichment
+- Notion API for data storage
+- AWS Cognito for authentication
+
+### Frontend Configuration
+```javascript
+// Environment variables in Vercel
+const API_CONFIG = {
+  baseUrl: process.env.NEXT_PUBLIC_AWS_API_ENDPOINT,
+  region: process.env.NEXT_PUBLIC_AWS_REGION,
+  userPoolId: process.env.NEXT_PUBLIC_USER_POOL_ID,
+  clientId: process.env.NEXT_PUBLIC_USER_POOL_CLIENT_ID
+}
+```
+
+## Infrastructure Requirements
+### Development Environment
+- Node.js 18+ for Next.js frontend
+- AWS CLI for backend management
+- Terraform 1.6+ for infrastructure
+- Git for version control
+- Vercel CLI for frontend deployment
+
+### Production Environment
+- Vercel hosting for Next.js
+- AWS account with existing infrastructure
+- Terraform Cloud/state management
+- Environment variables configuration
+- Domain configuration for both platforms
+
+# Development Roadmap
+## Phase 1: Foundation Setup
+- Create Next.js project structure
+- Configure TypeScript and Tailwind
+- Set up Vercel deployment
+- Update Terraform for CORS configuration
+- Create environment configuration service
+
+## Phase 2: Frontend Migration
+- Migrate React components to Next.js
+- Implement client-side routing
+- Set up global styles with Tailwind
+- Create reusable UI components
+- Configure build optimization
+
+## Phase 3: API Integration
+- Configure AWS API endpoints in frontend
+- Implement API client with error handling
+- Set up authentication flow with Cognito
+- Create request/response interceptors
+- Add comprehensive error logging
+
+## Phase 4: Authentication Integration
+- Integrate Cognito with Next.js
+- Implement JWT token management
+- Create protected route middleware
+- Add login/signup pages
+- Handle token refresh logic
+
+## Phase 5: Core Features Implementation
+- Migrate D3.js visualizations
+- Implement parameter controls
+- Add state management (Context/Redux)
+- Create loading and error states
+- Optimize API call patterns
+
+## Phase 6: Real-time Features
+- Set up WebSocket client
+- Implement connection management
+- Add reconnection logic
+- Create real-time parameter updates
+- Test multi-user collaboration
+
+## Phase 7: Productivity Features
+- Integrate Todoist API calls
+- Implement ChatGPT processing
+- Add Notion synchronization
+- Create scheduled job monitoring
+- Build productivity dashboard
+
+## Phase 8: Performance Optimization
+- Implement caching strategies
+- Optimize bundle sizes
+- Add lazy loading
+- Configure CDN settings
+- Monitor performance metrics
+
+## Phase 9: Production Deployment
+- Configure production environment
+- Set up monitoring and alerting
+- Implement error tracking
+- Create deployment documentation
+- Plan maintenance procedures
+
+## Phase 10: Infrastructure Optimization
+- Review AWS resource usage
+- Optimize Lambda functions
+- Fine-tune DynamoDB capacity
+- Update Terraform configurations
+- Document best practices
+
+# Logical Dependency Chain
+## Foundation Requirements
+1. Vercel account and project setup required first
+2. AWS infrastructure must be CORS-enabled
+3. Environment variables configured before API calls
+4. Authentication flow established for protected routes
+
+## Integration Sequence
+1. Frontend deployment enables API testing
+2. CORS configuration allows cross-origin requests
+3. Authentication validates user access
+4. API integration completes functionality
+5. Real-time features enhance experience
+
+## Testing Checkpoints
+- Frontend deployable independently
+- API endpoints testable separately
+- Authentication flow verifiable
+- Performance metrics measurable
+- User acceptance testing required
+
+# Risks and Mitigations
+## Technical Challenges
+### Cross-Origin Resource Sharing
+- Risk: CORS configuration complexity
+- Mitigation: Comprehensive testing, proper headers, documentation
+
+### Network Latency
+- Risk: Increased latency between platforms
+- Mitigation: Edge caching, optimized API calls, regional deployment
+
+### Authentication Complexity
+- Risk: Token management across platforms
+- Mitigation: Robust refresh logic, proper error handling
+
+## Security Considerations
+### API Security
+- Implement rate limiting
+- Use API keys for external services
+- Validate all inputs
+- Log security events
+
+### Data Protection
+- Encrypt sensitive data
+- Use HTTPS everywhere
+- Implement least privilege
+- Regular security audits
+
+## Resource Constraints
+### Development Complexity
+- Mitigation: Clear documentation
+- Automated testing
+- Incremental deployment
+- Regular code reviews
+
+### Monitoring Requirements
+- Mitigation: Unified logging
+- Cross-platform dashboards
+- Alert configuration
+- Performance tracking
+
+# Implementation Details
+## Vercel Configuration
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next"
+}
+```
+
+## AWS API Gateway CORS
+```json
+{
+  "AllowOrigins": ["https://your-app.vercel.app"],
+  "AllowMethods": ["GET", "POST", "PUT", "DELETE"],
+  "AllowHeaders": ["Content-Type", "Authorization"],
+  "ExposeHeaders": ["x-request-id"],
+  "MaxAge": 86400
+}
+```
+
+## Environment Variables
+```bash
+# Vercel Environment
+NEXT_PUBLIC_AWS_API_ENDPOINT=https://api.your-domain.com
+NEXT_PUBLIC_AWS_REGION=us-east-1
+NEXT_PUBLIC_USER_POOL_ID=us-east-1_xxxxx
+NEXT_PUBLIC_USER_POOL_CLIENT_ID=xxxxx
+
+# AWS Lambda Environment
+ALLOWED_ORIGINS=https://your-app.vercel.app
+CORS_MAX_AGE=86400
+```
+
+# Cost Analysis
+## Hybrid Approach Benefits
+- Frontend: Leverages Vercel's free/low-cost tiers
+- Backend: Maintains existing AWS infrastructure
+- Reduced CloudFront costs via Vercel CDN
+- Optimized Lambda invocations
+- No data migration costs
+
+## Estimated Monthly Costs
+- Vercel: $0-20 (depending on usage)
+- AWS API Gateway: $25-50
+- Lambda Functions: $10-30
+- DynamoDB: $150-300
+- Cognito: $0-15
+- Total: $185-415/month
+
+# Security Requirements
+## Frontend Security
+- Content Security Policy headers
+- XSS protection
+- Input sanitization
+- Secure cookie handling
+
+## Backend Security
+- API authentication required
+- Request validation
+- Rate limiting
+- Audit logging
+
+## Data Security
+- Encryption in transit (TLS)
+- Encryption at rest (DynamoDB)
+- Access control (IAM)
+- Regular backups
+
+# Appendix
+## Migration Benefits
+### Developer Experience
+- Improved frontend tooling
+- Faster deployment cycles
+- Better preview environments
+- Simplified debugging
+
+### Operational Benefits
+- Reduced complexity
+- Clear separation of concerns
+- Independent scaling
+- Flexible deployment
+
+## Technical Specifications
+### Browser Support
+- Chrome, Firefox, Safari, Edge (latest 2 versions)
+- Mobile responsive design
+- Progressive enhancement
+
+### Performance Targets
+- Time to First Byte: <200ms
+- First Contentful Paint: <1.5s
+- API Response: <300ms
+- WebSocket Latency: <100ms
+</PRD></content>

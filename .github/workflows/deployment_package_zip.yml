@@ -17,13 +17,22 @@ jobs:
                   python-version: 3.12
 
             - name: Create target directory
-              run: mkdir -p deploy
+              run: mkdir -p deploy/visualization
 
-            - name: Include lambda
-              run: cp src/lambda/* ./deploy
+            - name: Include lambda files
+              run: |
+                # First copy the Python files from the root lambda directory
+                find src/lambda -maxdepth 1 -name "*.py" -exec cp {} ./deploy/ \;
+
+                # Then copy the visualization Python files
+                find src/lambda/visualization -name "*.py" -exec cp {} ./deploy/visualization/ \;
 
             - name: Include system_prompts
-              run: cp src/system_prompts/* ./deploy
+              run: |
+                # Handle system_prompts directory which may contain files
+                if [ -d "src/system_prompts" ]; then
+                  find src/system_prompts -type f -exec cp {} ./deploy/ \;
+                fi
 
             - name: Install dependencies
               run: pip install -r requirements.txt -t ./deploy
