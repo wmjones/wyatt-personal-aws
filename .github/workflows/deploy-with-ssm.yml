@@ -43,6 +43,14 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         role-session-name: GitHubActions
         aws-region: ${{ env.AWS_REGION }}
+        # Add audience explicitly for China regions or other non-default partitions
+        audience: sts.amazonaws.com
+
+    - name: Verify AWS Identity
+      run: |
+        echo "Verifying AWS credentials..."
+        aws sts get-caller-identity
+        echo "AWS credentials configured successfully"
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
