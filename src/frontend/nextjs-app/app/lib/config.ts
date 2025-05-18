@@ -15,14 +15,14 @@ export const config = {
     name: 'D3 Dashboard',
     description: 'Interactive visualizations and productivity workflows',
     url: getEnvVar('NEXT_PUBLIC_API_URL') || 'http://localhost:3000',
-    env: getEnvVar('NODE_ENV'),
+    env: getEnvVar('NODE_ENV') || 'development',
   },
 
   auth: {
     aws: {
-      region: getEnvVar('NEXT_PUBLIC_AWS_REGION'),
-      userPoolId: getEnvVar('NEXT_PUBLIC_USER_POOL_ID'),
-      clientId: getEnvVar('NEXT_PUBLIC_USER_POOL_CLIENT_ID'),
+      region: getEnvVar('NEXT_PUBLIC_AWS_REGION') || 'us-east-1',
+      userPoolId: getEnvVar('NEXT_PUBLIC_USER_POOL_ID') || '',
+      clientId: getEnvVar('NEXT_PUBLIC_USER_POOL_CLIENT_ID') || '',
     },
   },
 

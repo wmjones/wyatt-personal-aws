@@ -72,6 +72,18 @@ export function validateEnv() {
 // Helper function to get typed environment variable
 export function getEnvVar<K extends keyof EnvSchema>(key: K): EnvSchema[K] {
   const value = envSchema[key];
+
+  // On client-side, only validate public variables
+  if (typeof window !== 'undefined') {
+    // Only throw errors for missing public variables on client-side if in production
+    if (value === undefined && key.startsWith('NEXT_PUBLIC_') && process.env.NODE_ENV === 'production') {
+      console.error(`Environment variable ${key} is required but not set`);
+      return undefined as EnvSchema[K];
+    }
+    return value as EnvSchema[K];
+  }
+
+  // Server-side validation
   const env = process.env.NODE_ENV as keyof typeof requiredVariables;
   const required = requiredVariables[env] || requiredVariables.development;
 
