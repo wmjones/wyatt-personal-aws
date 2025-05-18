@@ -4,16 +4,6 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
-  "env": {
-    "NEXT_PUBLIC_AWS_REGION": "@aws_region",
-    "NEXT_PUBLIC_USER_POOL_ID": "@user_pool_id",
-    "NEXT_PUBLIC_USER_POOL_CLIENT_ID": "@user_pool_client_id",
-    "DATABASE_URL": "@database_url",
-    "DATABASE_URL_UNPOOLED": "@database_url_unpooled",
-    "TODOIST_API_KEY": "@todoist_api_key",
-    "OPENAI_API_KEY": "@openai_api_key",
-    "NOTION_API_KEY": "@notion_api_key"
-  },
   "functions": {
     "app/api/**/*.{js,ts}": {
       "maxDuration": 30
