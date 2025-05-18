@@ -1,7 +1,32 @@
 {
-  "installCommand": "cd src/frontend/nextjs-app && npm install",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "cd src/frontend/nextjs-app && npm run build",
-  "outputDirectory": "src/frontend/nextjs-app/.next",
+  "installCommand": "cd src/frontend/nextjs-app && npm install",
   "framework": "nextjs",
-  "rootDirectory": "src/frontend/nextjs-app"
+  "outputDirectory": "src/frontend/nextjs-app/.next",
+  "rootDirectory": "src/frontend/nextjs-app",
+  "regions": ["iad1"],
+  "functions": {
+    "src/frontend/nextjs-app/app/api/**/*.{js,ts}": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "s-maxage=1, stale-while-revalidate"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/dashboard",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }
