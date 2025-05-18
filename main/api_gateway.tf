@@ -1,7 +1,7 @@
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  api_name        = "dashboard-api"
+  api_name        = "${var.project_name}-dashboard-api-${var.environment}"
   api_description = "API for D3 Dashboard visualization data"
 
   # For production, use static CORS. For dev, use dynamic CORS to handle Vercel previews
