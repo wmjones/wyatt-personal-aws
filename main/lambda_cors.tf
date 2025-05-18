@@ -24,10 +24,10 @@ module "cors_handler" {
     }
   }
 
-  tags = merge(var.tags, {
+  tags = {
     Component = "API CORS Handler"
     Name      = "CORS Handler Lambda"
-  })
+  }
 }
 
 # IAM role for CORS Lambda
@@ -47,7 +47,10 @@ resource "aws_iam_role" "cors_lambda_role" {
     ]
   })
 
-  tags = var.tags
+  tags = {
+    Component = "API CORS Handler"
+    Name      = "CORS Lambda Role"
+  }
 }
 
 # Attach basic execution role
