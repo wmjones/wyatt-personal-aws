@@ -45,27 +45,40 @@ mkdir -p test-terraform
 cd test-terraform
 
 # Create mock terraform.tfstate with sample outputs
-cat > terraform.tfstate <<EOF
+cat > terraform.tfstate <<'EOF'
 {
   "version": 4,
   "terraform_version": "1.6.0",
+  "serial": 1,
+  "lineage": "mock-lineage",
   "outputs": {
     "api_gateway_url": {
-      "value": "https://mockapi.execute-api.us-east-2.amazonaws.com/prod"
+      "value": "https://mockapi.execute-api.us-east-2.amazonaws.com/prod",
+      "type": "string",
+      "sensitive": false
     },
     "cognito_user_pool_id": {
-      "value": "us-east-2_mock123456"
+      "value": "us-east-2_mock123456",
+      "type": "string",
+      "sensitive": false
     },
     "cognito_client_id": {
-      "value": "mockclientid123456789"
+      "value": "mockclientid123456789",
+      "type": "string",
+      "sensitive": false
     },
     "s3_static_bucket": {
-      "value": "mock-static-bucket-dev"
+      "value": "mock-static-bucket-dev",
+      "type": "string",
+      "sensitive": false
     },
     "cloudfront_url": {
-      "value": "https://d1234567890.cloudfront.net"
+      "value": "https://d1234567890.cloudfront.net",
+      "type": "string",
+      "sensitive": false
     }
-  }
+  },
+  "resources": []
 }
 EOF
 

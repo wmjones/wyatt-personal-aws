@@ -35,18 +35,25 @@ jobs:
         mkdir -p test-terraform
         cd test-terraform
 
-        cat > terraform.tfstate <<EOF
+        cat > terraform.tfstate <<'EOF'
         {
           "version": 4,
           "terraform_version": "1.6.0",
+          "serial": 1,
+          "lineage": "test-lineage",
           "outputs": {
             "api_gateway_url": {
-              "value": "https://test-api.execute-api.us-east-2.amazonaws.com"
+              "value": "https://test-api.execute-api.us-east-2.amazonaws.com",
+              "type": "string",
+              "sensitive": false
             },
             "cognito_user_pool_id": {
-              "value": "us-east-2_test123"
+              "value": "us-east-2_test123",
+              "type": "string",
+              "sensitive": false
             }
-          }
+          },
+          "resources": []
         }
         EOF
 
