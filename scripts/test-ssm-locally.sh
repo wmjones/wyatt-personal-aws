@@ -109,9 +109,10 @@ print $BLUE "\n3. Testing with mock outputs (dry-run)..."
 # Temporarily modify the script to use our test directory
 cp ../scripts/sync-terraform-outputs-to-ssm.sh ./test-sync-script.sh
 sed -i 's|TERRAFORM_DIR="main"|TERRAFORM_DIR="test-terraform"|g' ./test-sync-script.sh
+chmod +x ./test-sync-script.sh
 
-# Run the test
-./test-sync-script.sh --dry-run --workspace dev
+# Run the test with default workspace
+./test-sync-script.sh --dry-run
 
 # Method 3: Test parameter validation
 print $BLUE "\n4. Testing AWS SSM parameter operations..."

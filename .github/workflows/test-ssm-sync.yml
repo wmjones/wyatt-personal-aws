@@ -75,10 +75,12 @@ jobs:
         # Modify script to use test directory
         cp scripts/sync-terraform-outputs-to-ssm.sh scripts/test-sync.sh
         sed -i 's|TERRAFORM_DIR="main"|TERRAFORM_DIR="test-terraform"|g' scripts/test-sync.sh
+        # Comment out workspace selection for test
+        sed -i 's|terraform workspace select|# terraform workspace select|g' scripts/test-sync.sh
         chmod +x scripts/test-sync.sh
 
-        # Run in dry-run mode
-        ./scripts/test-sync.sh --dry-run --workspace test
+        # Run in dry-run mode without workspace parameter (will use default)
+        ./scripts/test-sync.sh --dry-run
 
         echo "Dry-run test completed successfully!"
 
