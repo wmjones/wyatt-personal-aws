@@ -13,7 +13,6 @@ locals {
 module "get_visualization_lambda" {
   source = "./modules/lambda_function"
 
-  environment   = var.environment
   function_name = "${local.function_prefix}-get-${local.env_suffix}"
   description   = "Lambda function to get normal distribution parameters"
   handler       = "visualization/getVisualizationData.lambda_handler"
@@ -51,7 +50,6 @@ module "get_visualization_lambda" {
 module "update_visualization_lambda" {
   source = "./modules/lambda_function"
 
-  environment   = var.environment
   function_name = "${local.function_prefix}-update-${local.env_suffix}"
   description   = "Lambda function to update normal distribution parameters"
   handler       = "visualization/updateVisualizationParams.lambda_handler"
@@ -99,7 +97,6 @@ module "update_visualization_lambda" {
 module "ws_connect_lambda" {
   source = "./modules/lambda_function"
 
-  environment   = var.environment
   function_name = "${local.function_prefix}-ws-connect-${local.env_suffix}"
   description   = "Lambda function to handle WebSocket connections"
   handler       = "visualization/wsConnect.lambda_handler"
@@ -137,7 +134,6 @@ module "ws_connect_lambda" {
 module "ws_disconnect_lambda" {
   source = "./modules/lambda_function"
 
-  environment   = var.environment
   function_name = "${local.function_prefix}-ws-disconnect-${local.env_suffix}"
   description   = "Lambda function to handle WebSocket disconnections"
   handler       = "visualization/wsDisconnect.lambda_handler"

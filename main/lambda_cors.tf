@@ -3,16 +3,25 @@ module "cors_handler" {
   source = "./modules/lambda_function"
   count  = var.environment == "dev" ? 1 : 0
 
-  lambda_name     = "cors-handler-${var.environment}"
-  runtime         = var.lambda_runtime
-  handler         = "cors_handler.lambda_handler"
-  source_file     = "../src/lambda/cors_handler.py"
-  lambda_role_arn = aws_iam_role.cors_lambda_role.arn
+  function_name    = "cors-handler-${var.environment}"
+  description      = "Handles CORS preflight requests dynamically"
+  runtime          = var.lambda_runtime
+  handler          = "cors_handler.lambda_handler"
+  zip_file         = local.lambda_zip_path
+  create_log_group = false
 
   environment_variables = {
     ENVIRONMENT       = var.environment
     PROJECT_NAME      = var.project_name
     PRODUCTION_DOMAIN = "${var.app_prefix}.${var.domain_name}"
+  }
+
+  policy_statements = {
+    logs = {
+      effect    = "Allow"
+      actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+      resources = ["arn:aws:logs:*:*:*"]
+    }
   }
 
   tags = merge(var.tags, {
