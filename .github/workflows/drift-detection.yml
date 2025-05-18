@@ -1,0 +1,164 @@
+name: Terraform Drift Detection
+
+on:
+  schedule:
+    # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to check (dev/prod/all)'
+        required: false
+        default: 'all'
+      fix_drift:
+        description: 'Attempt to fix detected drift'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
+  TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+
+jobs:
+  drift-detection:
+    name: Check State Drift
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Check Development Workspace
+        if: ${{ github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'all' || github.event_name == 'schedule' }}
+        env:
+          TF_WORKSPACE: "wyatt-personal-aws-dev"
+        run: |
+          cd main
+          terraform init
+          terraform workspace select $TF_WORKSPACE
+
+          # Run drift detection
+          if terraform plan -var-file=environments/dev.tfvars -detailed-exitcode -no-color > /tmp/drift-dev.txt 2>&1; then
+            echo "No drift detected in development"
+          else
+            if [ $? -eq 2 ]; then
+              echo "Drift detected in development!"
+              cat /tmp/drift-dev.txt
+              echo "drift_detected_dev=true" >> $GITHUB_ENV
+            else
+              echo "Error checking development workspace"
+              cat /tmp/drift-dev.txt
+              exit 1
+            fi
+          fi
+
+      - name: Check Production Workspace
+        if: ${{ github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'all' || github.event_name == 'schedule' }}
+        env:
+          TF_WORKSPACE: "wyatt-personal-aws-prod"
+        run: |
+          cd main
+          terraform init
+          terraform workspace select $TF_WORKSPACE
+
+          # Run drift detection
+          if terraform plan -var-file=environments/prod.tfvars -detailed-exitcode -no-color > /tmp/drift-prod.txt 2>&1; then
+            echo "No drift detected in production"
+          else
+            if [ $? -eq 2 ]; then
+              echo "Drift detected in production!"
+              cat /tmp/drift-prod.txt
+              echo "drift_detected_prod=true" >> $GITHUB_ENV
+            else
+              echo "Error checking production workspace"
+              cat /tmp/drift-prod.txt
+              exit 1
+            fi
+          fi
+
+      - name: Create Drift Report Issue
+        if: env.drift_detected_dev == 'true' || env.drift_detected_prod == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Terraform State Drift Detected - ${new Date().toISOString().split('T')[0]}`;
+
+            let body = '## Terraform State Drift Report\n\n';
+            body += `**Date**: ${new Date().toISOString()}\n\n`;
+
+            if (process.env.drift_detected_dev === 'true') {
+              body += '### Development Environment\n';
+              body += 'State drift detected in the development workspace.\n';
+              body += 'Please review the workflow logs for details.\n\n';
+            }
+
+            if (process.env.drift_detected_prod === 'true') {
+              body += '### Production Environment\n';
+              body += '⚠️ **CRITICAL**: State drift detected in the production workspace.\n';
+              body += 'Please review the workflow logs for details and take immediate action.\n\n';
+            }
+
+            body += '## Action Required\n';
+            body += '1. Review the drift details in the workflow logs\n';
+            body += '2. Run `./scripts/detect-drift.sh <environment>` locally to see full details\n';
+            body += '3. Use `./scripts/reconcile-state.sh <environment>` to fix the drift\n';
+            body += '4. Verify the fixes with `terraform plan`\n\n';
+
+            body += '## Workflow Run\n';
+            body += `[View Workflow Run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+            // Create or update the drift issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['terraform-drift', 'infrastructure'],
+              state: 'open'
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: body
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['terraform-drift', 'infrastructure', 'automated']
+              });
+            }
+
+      - name: Slack Notification (if configured)
+        if: (env.drift_detected_dev == 'true' || env.drift_detected_prod == 'true') && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          MESSAGE="Terraform state drift detected!"
+          if [ "$drift_detected_prod" = "true" ]; then
+            MESSAGE="🚨 CRITICAL: Production state drift detected! 🚨"
+          fi
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\nCheck GitHub Issues for details.\"}" \
+            $SLACK_WEBHOOK_URL || true
