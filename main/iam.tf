@@ -21,7 +21,7 @@ resource "aws_iam_role" "eventbridge_role" {
 }
 
 resource "aws_iam_role_policy" "eventbridge_policy" {
-  name = "eventbridge_policy"
+  name = "eventbridge_policy_${var.environment}"
   role = aws_iam_role.eventbridge_role.id
   policy = jsonencode({
     Version = "2012-10-17"
@@ -66,7 +66,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_role_policy" "lambda_policy" {
-  name = "lambda_policy"
+  name = "lambda_policy_${var.environment}"
   role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
@@ -143,7 +143,7 @@ resource "aws_iam_role" "sfn_role" {
 }
 
 resource "aws_iam_role_policy" "sfn_policy" {
-  name = "sfn_policy"
+  name = "sfn_policy_${var.environment}"
   role = aws_iam_role.sfn_role.id
   policy = jsonencode({
     Version = "2012-10-17"
