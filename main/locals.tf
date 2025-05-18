@@ -19,12 +19,12 @@ locals {
 
   # Common tags that apply to all resources
   common_tags = merge(
-    var.default_tags,
     local.workspace_tags,
     {
       Project     = var.project_name
       Environment = var.environment
       CreatedDate = formatdate("YYYY-MM-DD", timestamp())
+      ManagedBy   = "Terraform"
     }
   )
 
