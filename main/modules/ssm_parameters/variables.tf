@@ -20,6 +20,12 @@ variable "secure_parameters" {
   sensitive   = true
 }
 
+variable "secure_parameter_names" {
+  description = "List of secure parameter names for for_each iteration"
+  type        = set(string)
+  default     = []
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
