@@ -19,7 +19,7 @@ locals {
 module "todoist_lambda" {
   source = "./modules/lambda_function"
 
-  function_name    = "todoist_lambda"
+  function_name    = "todoist_lambda_${var.environment}"
   description      = "Lambda function to get incomplete tasks from Todoist"
   handler          = "getTodoist.lambda_handler"
   runtime          = "python3.12"
@@ -51,7 +51,7 @@ module "todoist_lambda" {
 module "chatgpt_lambda" {
   source = "./modules/lambda_function"
 
-  function_name    = "ChatGPT_lambda"
+  function_name    = "ChatGPT_lambda_${var.environment}"
   description      = "Lambda function to process tasks with ChatGPT"
   handler          = "putChatGPT.lambda_handler"
   runtime          = "python3.12"
@@ -83,7 +83,7 @@ module "chatgpt_lambda" {
 module "notion_lambda" {
   source = "./modules/lambda_function"
 
-  function_name    = "notion_lambda"
+  function_name    = "notion_lambda_${var.environment}"
   description      = "Lambda function to create pages in Notion"
   handler          = "putNotion.lambda_handler"
   runtime          = "python3.12"
@@ -115,7 +115,7 @@ module "notion_lambda" {
 module "put_todoist_lambda" {
   source = "./modules/lambda_function"
 
-  function_name    = "put_todoist_lambda"
+  function_name    = "put_todoist_lambda_${var.environment}"
   description      = "Lambda function to update tasks in Todoist"
   handler          = "putTodoist.lambda_handler"
   runtime          = "python3.12"
@@ -148,7 +148,7 @@ module "put_todoist_lambda" {
 module "get_visualization_data" {
   source = "./modules/lambda_function"
 
-  function_name    = "get_visualization_data"
+  function_name    = "get_visualization_data_${var.environment}"
   description      = "Lambda function to retrieve visualization data from S3"
   handler          = "getVisualizationData.lambda_handler"
   runtime          = "python3.12"
@@ -185,7 +185,7 @@ module "get_visualization_data" {
 module "put_visualization_data" {
   source = "./modules/lambda_function"
 
-  function_name    = "put_visualization_data"
+  function_name    = "put_visualization_data_${var.environment}"
   description      = "Lambda function to store visualization data in S3"
   handler          = "putVisualizationData.lambda_handler"
   runtime          = "python3.12"
