@@ -18,12 +18,13 @@ resource "aws_ssm_parameter" "parameter" {
 }
 
 resource "aws_ssm_parameter" "secure_parameter" {
-  for_each = var.secure_parameters
+  # Use keys() to avoid the sensitive value issue
+  for_each = toset(keys(var.secure_parameters))
 
   name        = "/${var.project}/${var.environment}/${each.key}"
   description = "Terraform-managed secure parameter for ${var.project} ${var.environment} environment"
   type        = "SecureString"
-  value       = each.value
+  value       = sensitive(var.secure_parameters[each.key])
 
   tags = merge(
     var.tags,

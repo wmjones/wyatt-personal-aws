@@ -27,7 +27,7 @@ module "ssm_parameters" {
 
   parameters = {
     api_gateway_url            = module.api_gateway.api_endpoint
-    websocket_api_url          = aws_apigatewayv2_api.websocket_api.api_endpoint
+    websocket_api_url          = aws_apigatewayv2_api.websocket.api_endpoint
     cognito_user_pool_id       = module.cognito.user_pool_id
     cognito_client_id          = module.cognito.client_ids["${var.project_name}-web-client-${var.environment}"]
     cognito_region             = var.aws_region
