@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "wyatt-datalake-35315550" {
-  bucket = "step-function-bucket-35315550"
+  bucket = "${var.project_name}-datalake-${var.environment}-35315550"
 
   # Block public access
 }
@@ -61,7 +61,7 @@ resource "aws_kms_key" "s3_key" {
 
 # Add a human-readable alias for the KMS key
 resource "aws_kms_alias" "s3_key_alias" {
-  name          = "alias/${var.project_name}-s3-key"
+  name          = "alias/${var.project_name}-s3-key-${var.environment}"
   target_key_id = aws_kms_key.s3_key.key_id
 }
 
@@ -86,7 +86,7 @@ module "visualization_data_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 3.0"
 
-  bucket = "wyatt-visualization-data-${random_id.bucket_suffix.hex}"
+  bucket = "${var.project_name}-visualization-data-${var.environment}-${random_id.bucket_suffix.hex}"
 
   # Block public access when using Cognito + API Gateway
   block_public_acls       = true
