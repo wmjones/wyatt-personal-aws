@@ -17,7 +17,7 @@ on:
         - prod
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-2
 
 jobs:
   deploy:
@@ -41,7 +41,7 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        role-session-name: GitHubActions
+        role-session-name: GitHubActionsDeployment
         aws-region: ${{ env.AWS_REGION }}
         # Add audience explicitly for China regions or other non-default partitions
         audience: sts.amazonaws.com
