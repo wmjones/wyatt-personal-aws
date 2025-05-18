@@ -56,3 +56,15 @@ variable "authorizers" {
   type        = map(any)
   default     = {}
 }
+
+variable "enable_dynamic_cors" {
+  description = "Enable dynamic CORS handling via Lambda"
+  type        = bool
+  default     = false
+}
+
+variable "cors_lambda_arn" {
+  description = "ARN of the Lambda function to handle CORS preflight requests"
+  type        = string
+  default     = ""
+}
