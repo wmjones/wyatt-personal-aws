@@ -4,15 +4,15 @@ module "api_gateway" {
   api_name        = "dashboard-api"
   api_description = "API for D3 Dashboard visualization data"
 
-  allowed_origins = concat(
-    [
-      "https://${var.app_prefix}.${var.domain_name}",
-      "http://localhost:3000",
-      "http://localhost:3001"
-    ],
-    var.vercel_app_url != "" ? [var.vercel_app_url] : [],
-    var.environment == "dev" ? ["https://*.vercel.app"] : []
-  )
+  # For production, use static CORS. For dev, use dynamic CORS to handle Vercel previews
+  enable_dynamic_cors = var.environment == "dev"
+  cors_lambda_arn     = var.environment == "dev" ? module.cors_handler[0].function_invoke_arn : ""
+
+  allowed_origins = var.environment == "prod" ? [
+    "https://${var.app_prefix}.${var.domain_name}",
+    "http://localhost:3000",
+    "http://localhost:3001"
+  ] : []
 
   create_logs          = true
   create_custom_domain = false

@@ -15,10 +15,14 @@ resource "aws_apigatewayv2_api" "this" {
   description   = var.api_description
   protocol_type = "HTTP"
 
-  cors_configuration {
-    allow_origins = var.allowed_origins
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    allow_headers = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"]
+  # Only configure built-in CORS if not using dynamic CORS
+  dynamic "cors_configuration" {
+    for_each = var.enable_dynamic_cors ? [] : [1]
+    content {
+      allow_origins = var.allowed_origins
+      allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+      allow_headers = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"]
+    }
   }
 
   tags = var.tags
@@ -70,6 +74,17 @@ resource "aws_apigatewayv2_integration" "this" {
   payload_format_version = try(each.value.payload_format_version, "2.0")
 }
 
+# Dynamic CORS OPTIONS integration
+resource "aws_apigatewayv2_integration" "cors_options" {
+  count = var.enable_dynamic_cors ? 1 : 0
+
+  api_id                 = aws_apigatewayv2_api.this.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = var.cors_lambda_arn
+  integration_method     = "POST"
+  payload_format_version = "1.0" # Use 1.0 for custom CORS handling
+}
+
 resource "aws_apigatewayv2_route" "this" {
   for_each = var.integrations
 
@@ -78,6 +93,16 @@ resource "aws_apigatewayv2_route" "this" {
   target             = "integrations/${aws_apigatewayv2_integration.this[each.key].id}"
   authorization_type = try(each.value.authorization_type, "NONE")
   authorizer_id      = try(each.value.authorizer_id, null) != null ? aws_apigatewayv2_authorizer.this[each.value.authorizer_id].id : null
+}
+
+# Dynamic CORS OPTIONS routes
+resource "aws_apigatewayv2_route" "cors_options" {
+  for_each = var.enable_dynamic_cors ? toset([for key in keys(var.integrations) : replace(key, "GET|POST|PUT|DELETE|PATCH", "OPTIONS") if can(regex("^(GET|POST|PUT|DELETE|PATCH) ", key))]) : []
+
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.cors_options[0].id}"
+  authorization_type = "NONE" # OPTIONS requests should not require authorization
 }
 
 resource "aws_apigatewayv2_authorizer" "this" {

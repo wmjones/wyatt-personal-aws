@@ -1,143 +1,71 @@
-import { config } from '../lib/config';
-import { authService } from './auth';
+import { apiClient } from './api/client';
+import { installLoggingInterceptor } from './api/interceptors/logging';
 import type { Visualization, User, CreateVisualizationDto, UpdateVisualizationDto } from '../types/api';
 
-const API_BASE_URL = config.app.url.replace('http://localhost:3000', '') + '/api';
+// Install logging interceptor
+installLoggingInterceptor(apiClient);
 
-interface RequestOptions extends RequestInit {
-  authenticated?: boolean;
-}
-
+// API service wrapper for specific endpoints
 class ApiService {
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
-  private async getAuthHeaders() {
-    const token = await authService.getIdToken();
-    if (token) {
-      return {
-        'Authorization': `Bearer ${token}`,
-      };
-    }
-    return {};
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestOptions = {}
-  ): Promise<T> {
-    const { authenticated = true, ...fetchOptions } = options;
-
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...fetchOptions.headers,
-    };
-
-    if (authenticated) {
-      const authHeaders = await this.getAuthHeaders();
-      Object.assign(headers, authHeaders);
-    }
-
-    const url = `${this.baseUrl}${endpoint}`;
-
-    try {
-      const response = await fetch(url, {
-        ...fetchOptions,
-        headers,
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token might be expired, try to refresh
-          const refreshResult = await authService.refreshTokens();
-
-          if (refreshResult.success) {
-            // Retry the request with new token
-            const newAuthHeaders = await this.getAuthHeaders();
-            Object.assign(headers, newAuthHeaders);
-
-            const retryResponse = await fetch(url, {
-              ...fetchOptions,
-              headers,
-            });
-
-            if (!retryResponse.ok) {
-              throw new Error(`API Error: ${retryResponse.status} ${retryResponse.statusText}`);
-            }
-
-            return await retryResponse.json();
-          } else {
-            // Refresh failed, redirect to login
-            window.location.href = '/login';
-            throw new Error('Authentication failed');
-          }
-        }
-
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
-  }
-
   // Visualization endpoints
   async getVisualizations() {
-    return this.request<Visualization[]>('/visualizations');
+    return apiClient.get<Visualization[]>('/visualizations');
   }
 
   async getVisualization(id: string) {
-    return this.request<Visualization>(`/visualizations/${id}`);
+    return apiClient.get<Visualization>(`/visualizations/${id}`);
   }
 
   async createVisualization(data: CreateVisualizationDto) {
-    return this.request<Visualization>('/visualizations', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return apiClient.post<Visualization>('/visualizations', data);
   }
 
   async updateVisualization(id: string, data: UpdateVisualizationDto) {
-    return this.request<Visualization>(`/visualizations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    return apiClient.put<Visualization>(`/visualizations/${id}`, data);
   }
 
   async deleteVisualization(id: string) {
-    return this.request<void>(`/visualizations/${id}`, {
-      method: 'DELETE',
-    });
+    return apiClient.delete<void>(`/visualizations/${id}`);
   }
 
   // User profile endpoints
   async getUserProfile() {
-    return this.request<User>('/user/profile');
+    return apiClient.get<User>('/user/profile');
   }
 
   async updateUserProfile(data: Partial<User>) {
-    return this.request<User>('/user/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    return apiClient.put<User>('/user/profile', data);
   }
 
   // WebSocket connection for real-time updates
-  getWebSocketUrl() {
-    // This will be configured based on your AWS WebSocket API Gateway
-    return config.app.url.replace('http', 'ws') + '/ws';
+  getWebSocketUrl(token?: string) {
+    const baseWsUrl = apiClient['baseUrl'].replace('http', 'ws').replace('/api', '');
+    const wsUrl = `${baseWsUrl}/ws`;
+
+    if (token) {
+      return `${wsUrl}?token=${token}`;
+    }
+
+    return wsUrl;
+  }
+
+  // Export the raw client for custom requests
+  get client() {
+    return apiClient;
   }
 }
 
 // Create and export a singleton instance
-export const apiService = new ApiService(API_BASE_URL);
+export const apiService = new ApiService();
 
 // Export a hook for using the API in components
 export function useApi() {
   return apiService;
 }
+
+// Export error utilities
+export * from './api/errors';
+
+// Export types and classes
+export type { RequestOptions } from './api/client';
+export { ApiError } from './api/client';
