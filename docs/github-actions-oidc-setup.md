@@ -45,7 +45,7 @@ This will output something like:
 5. Set the value to the role ARN from step 2
 6. Click "Add secret"
 
-### 4. Verify the GitHub Actions Workflow 
+### 4. Verify the GitHub Actions Workflow
 
 The workflow at `.github/workflows/ssm_params.yml` has been updated to use OIDC authentication. The key changes are:
 
