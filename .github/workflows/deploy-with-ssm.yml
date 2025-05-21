@@ -1,10 +1,9 @@
-name: Deploy with SSM Parameters
+name: Deploy with SSM Parameters (DISABLED - Use Terraform Apply + SSM Params workflows)
 
 on:
-  push:
-    branches:
-      - main
-      - dev
+  # DISABLED: This workflow has been replaced with separate Terraform Apply and SSM Params workflows
+  # to prevent timing conflicts. Use the "Terraform Apply" workflow followed by automatic
+  # "Configure SSM Parameters for Deployment" workflow instead.
   workflow_dispatch:
     inputs:
       environment:
