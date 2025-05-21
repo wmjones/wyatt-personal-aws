@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ForecastSeries,
   ForecastDataPoint,
@@ -28,14 +28,9 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
     { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
   ], []);
 
-  // Fetch forecast data based on selections
-  useEffect(() => {
-    console.log("useForecast effect triggered with:", {
-      hierarchySelections,
-      timePeriodIds,
-      selectionCount: hierarchySelections.length,
-      periodCount: timePeriodIds.length
-    });
+  // Create a memoized fetch function to avoid dependency issues
+  const fetchForecast = useCallback(async () => {
+    console.log("useForecast: fetchForecast callback triggered");
 
     // Skip if no selections are made
     if (hierarchySelections.length === 0 || timePeriodIds.length === 0) {
@@ -44,67 +39,75 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       return;
     }
 
-    const fetchForecast = async () => {
-      console.log("useForecast: Starting data fetch");
-      setIsLoading(true);
-      setError(null);
+    console.log("useForecast: Starting data fetch");
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        // Simulate API call
-        console.log("useForecast: Simulating API call delay");
-        await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      // Simulate API call
+      console.log("useForecast: Simulating API call delay");
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Generate mock data based on selections
-        const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
-        console.log("useForecast: Filtered periods:", periods);
+      // Generate mock data based on selections
+      const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
+      console.log("useForecast: Filtered periods:", periods);
 
-        // Base value depends on the number of selected hierarchies to simulate different values
-        const baseValue = 10000 * (1 + (hierarchySelections.reduce(
-          (acc, curr) => acc + curr.selectedNodes.length, 0
-        ) / 10));
-        console.log("useForecast: Calculated base value:", baseValue);
+      // Base value depends on the number of selected hierarchies to simulate different values
+      const baseValue = 10000 * (1 + (hierarchySelections.reduce(
+        (acc, curr) => acc + curr.selectedNodes.length, 0
+      ) / 10));
+      console.log("useForecast: Calculated base value:", baseValue);
 
-        // Generate random baseline data
-        const baseline: ForecastDataPoint[] = periods.map((period, index) => {
-          // Simulate growth over time
-          const growth = 1 + (index * 0.05);
-          // Add some randomness
-          const randomFactor = 0.9 + (Math.random() * 0.2);
+      // Generate random baseline data
+      const baseline: ForecastDataPoint[] = periods.map((period, index) => {
+        // Simulate growth over time
+        const growth = 1 + (index * 0.05);
+        // Add some randomness
+        const randomFactor = 0.9 + (Math.random() * 0.2);
 
-          return {
-            periodId: period.id,
-            value: Math.round(baseValue * growth * randomFactor),
-          };
-        });
-        console.log("useForecast: Generated baseline data points:", baseline.length);
-
-        // Create the forecast series without adjustments initially
-        const mockForecast: ForecastSeries = {
-          id: `forecast-${Date.now()}`,
-          hierarchySelections,
-          timePeriods: periods,
-          baseline,
-          lastUpdated: new Date().toISOString(),
+        return {
+          periodId: period.id,
+          value: Math.round(baseValue * growth * randomFactor),
         };
-        console.log("useForecast: Created mock forecast data", {
-          id: mockForecast.id,
-          hierarchyCount: mockForecast.hierarchySelections.length,
-          periodCount: mockForecast.timePeriods.length,
-          dataPointCount: mockForecast.baseline.length
-        });
+      });
+      console.log("useForecast: Generated baseline data points:", baseline.length);
 
-        setForecastData(mockForecast);
-      } catch (error) {
-        console.error('Error fetching forecast data:', error);
-        setError('Failed to fetch forecast data. Please try again.');
-      } finally {
-        console.log("useForecast: Completed fetch, setting isLoading to false");
-        setIsLoading(false);
-      }
-    };
+      // Create the forecast series without adjustments initially
+      const mockForecast: ForecastSeries = {
+        id: `forecast-${Date.now()}`,
+        hierarchySelections,
+        timePeriods: periods,
+        baseline,
+        lastUpdated: new Date().toISOString(),
+      };
+      console.log("useForecast: Created mock forecast data", {
+        id: mockForecast.id,
+        hierarchyCount: mockForecast.hierarchySelections.length,
+        periodCount: mockForecast.timePeriods.length,
+        dataPointCount: mockForecast.baseline.length
+      });
+
+      setForecastData(mockForecast);
+    } catch (error) {
+      console.error('Error fetching forecast data:', error);
+      setError('Failed to fetch forecast data. Please try again.');
+    } finally {
+      console.log("useForecast: Completed fetch, setting isLoading to false");
+      setIsLoading(false);
+    }
+  }, [hierarchySelections, timePeriodIds, mockTimePeriods]);
+
+  // Trigger the fetch operation when inputs change
+  useEffect(() => {
+    console.log("useForecast effect triggered with:", {
+      hierarchySelections,
+      timePeriodIds,
+      selectionCount: hierarchySelections.length,
+      periodCount: timePeriodIds.length
+    });
 
     fetchForecast();
-  }, [hierarchySelections, timePeriodIds, mockTimePeriods]);
+  }, [fetchForecast]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {

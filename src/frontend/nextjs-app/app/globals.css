@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Base styles for light and dark themes */
 :root {
   /* Light mode colors */
   --background: #ffffff;

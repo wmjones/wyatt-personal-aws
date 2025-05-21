@@ -57,9 +57,11 @@ export class UserService {
   }
 
   // Listen for auth state changes
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onAuthStateChange(_callback: (user: User | null) => void) {
+  onAuthStateChange(callback: (user: User | null) => void) {
     // This would integrate with auth service
+    // For demonstration, immediately call with current user
+    setTimeout(() => callback(this.currentUser), 0);
+
     // For now, return a cleanup function
     return () => {
       // Cleanup logic

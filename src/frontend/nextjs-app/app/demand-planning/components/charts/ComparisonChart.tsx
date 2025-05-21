@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { ForecastDataPoint, TimePeriod } from '@/app/types/demand-planning';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BaseChartProps } from './BaseChart';
 import {
   createChartDataset,

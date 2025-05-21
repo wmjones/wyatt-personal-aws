@@ -109,12 +109,25 @@ export class VisualizationService {
   }
 
   // Real-time updates
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  subscribeToUpdates(_onUpdate: (visualization: Visualization) => void) {
+  subscribeToUpdates(onUpdate: (visualization: Visualization) => void) {
     // This would integrate with WebSocket for real-time updates
-    // For now, return a cleanup function
+    // For demonstration, set up a mock update after 5 seconds if we have cached visualizations
+    const firstKey = this.cache.keys().next().value;
+    if (firstKey && firstKey !== 'all') {
+      const cached = this.cache.get(firstKey);
+      if (cached) {
+        const timeoutId = setTimeout(() => {
+          onUpdate(cached.data);
+        }, 5000);
+
+        // Return cleanup function
+        return () => clearTimeout(timeoutId);
+      }
+    }
+
+    // Default cleanup function
     return () => {
-      // Cleanup logic
+      // No cleanup needed
     };
   }
 }
