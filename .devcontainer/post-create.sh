@@ -33,11 +33,29 @@ if ! command -v git-lfs &> /dev/null; then
   echo "Installing Git LFS..."
   curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
   sudo apt-get install -y git-lfs
-  git lfs install
+
+  # Initial Git LFS installation without installing hooks
+  # We'll let pre-commit manage the hooks instead
+  git lfs install --skip-smudge --skip-repo
+
   status "Git LFS installed successfully"
 else
   status "Git LFS already installed"
 fi
+
+# Ensure pre-commit is installed to manage our hooks
+if ! command -v pre-commit &> /dev/null; then
+  echo "Installing pre-commit..."
+  pip install pre-commit
+  status "pre-commit installed successfully"
+else
+  status "pre-commit already installed"
+fi
+
+# Install hooks managed by pre-commit
+echo "Installing pre-commit hooks..."
+pre-commit install --install-hooks
+status "pre-commit hooks installed"
 
 # Check if we can find the actual workspace directory
 if [ -d "$WORKSPACE_DIR" ]; then
