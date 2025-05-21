@@ -147,7 +147,6 @@ export default function DemandPlanningPage() {
               <div className="p-4">
                 <ForecastCharts
                   forecastData={forecastData}
-                  onRevertEdits={resetAdjustments}
                 />
               </div>
             ) : (

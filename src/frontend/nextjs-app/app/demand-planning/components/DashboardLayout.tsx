@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import HierarchySidebar from './HierarchySidebar';
-import TabNavigation from './TabNavigation';
 import { DashboardView, HierarchyType } from '@/app/types/demand-planning';
 
 interface DashboardLayoutProps {
@@ -44,7 +43,11 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-dp-background-primary">
-      <Header refreshData={refreshData} />
+      <Header
+        refreshData={refreshData}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+      />
 
       <div className="flex flex-1">
         {/* Mobile sidebar toggle */}
@@ -99,8 +102,6 @@ export default function DashboardLayout({
 
         {/* Main content */}
         <div className={`flex-1 flex flex-col ${sidebarOpen ? 'md:ml-[var(--dp-sidebar-width)]' : ''}`}>
-          <TabNavigation activeTab={activeTab} onTabChange={onTabChange} />
-
           <main className="flex-1 px-6 py-5 overflow-auto bg-dp-background-primary">
             {children}
           </main>

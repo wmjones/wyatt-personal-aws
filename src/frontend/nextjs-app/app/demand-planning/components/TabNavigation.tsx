@@ -25,7 +25,7 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
               key={tab.id}
               className={`px-8 text-sm font-medium relative flex items-center justify-center ${
                 activeTab === tab.id
-                  ? 'text-dp-cfa-red'
+                  ? 'text-primary'
                   : 'text-dp-text-secondary hover:text-dp-text-primary'
               }`}
               onClick={() => onTabChange(tab.id)}
@@ -34,7 +34,7 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
 
               {/* Red underline indicator exactly matching reference image */}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 w-full h-[3px] bg-dp-cfa-red"></div>
+                <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary"></div>
               )}
             </button>
           ))}

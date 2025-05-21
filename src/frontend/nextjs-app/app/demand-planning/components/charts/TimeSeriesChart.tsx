@@ -87,7 +87,7 @@ export default function TimeSeriesChart({
       .range([innerHeight, 0])
       .nice();
 
-    // Add smooth grid lines matching reference exactly
+    // Add smooth grid lines with updated colors
     g.append('g')
       .attr('class', 'grid-lines')
       .selectAll('line')
@@ -98,43 +98,65 @@ export default function TimeSeriesChart({
       .attr('x2', innerWidth)
       .attr('y1', d => yScale(d))
       .attr('y2', d => yScale(d))
-      .attr('stroke', 'var(--dp-chart-grid)')
-      .attr('stroke-opacity', 1)
+      .attr('stroke', 'var(--dp-chart-grid)') // Light gray grid lines from variables
+      .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Find "today" in the data - for demo purposes using May 20 as "today"
-    const today = new Date(2025, 4, 21); // May 21, 2025
+    // Find "today" in the data - May 20, 2025 to match screenshot
+    const today = new Date(2025, 4, 20); // May 20, 2025
     const todayXPosition = xScale(today);
 
-    // Add today vertical line - matching reference
+    // Add today vertical line - pinkish red with Today pill
     if (todayXPosition) {
+      // Add vertical line
       g.append('line')
         .attr('x1', todayXPosition)
         .attr('x2', todayXPosition)
         .attr('y1', 0)
         .attr('y2', innerHeight)
-        .attr('stroke', 'var(--dp-chart-today-line)')
+        .attr('stroke', 'var(--dp-chart-today-line)') // Light red color from updated variables
         .attr('stroke-width', 1);
+
+      // Add "Today" label pill at the top
+      g.append('rect')
+        .attr('x', todayXPosition - 22)
+        .attr('y', -5)
+        .attr('width', 44)
+        .attr('height', 20)
+        .attr('rx', 10)
+        .attr('ry', 10)
+        .attr('fill', 'var(--dp-chart-today-pill-bg)');
+
+      g.append('text')
+        .attr('x', todayXPosition)
+        .attr('y', 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '10px')
+        .attr('fill', 'var(--primary)') // Primary red from our palette
+        .attr('font-weight', '500')
+        .text('Today');
     }
 
-    // Create axes - styling to match reference
+    // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
       .ticks(width > 600 ? 6 : 5)
       .tickSize(0) // Remove tick marks
-      .tickFormat(() => ''); // Empty labels since we handle them separately
+      .tickFormat(() => ''); // Empty labels since we handle them separately with custom weekday display
 
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
       .tickSize(-5) // Short ticks
       .tickFormat(d => `$${formatNumber(d as number)}k`); // Dollar format with k suffix
 
-    // Add axes with styling matching reference
+    // Add x-axis (horizontal) with styling using variables
     g.append('g')
       .attr('class', 'x-axis')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(xAxis)
-      .call(g => g.select(".domain").attr("stroke", "var(--dp-chart-grid)"));
+      .call(g => g.select(".domain").attr("stroke", "var(--dp-chart-grid)"))
+      .call(g => g.selectAll(".tick line").remove()); // Remove x-axis tick lines
 
+    // Add y-axis (vertical) with styling using variables
     g.append('g')
       .attr('class', 'y-axis')
       .call(yAxis)
@@ -142,19 +164,20 @@ export default function TimeSeriesChart({
       .call(g => g.selectAll(".tick line").attr("stroke", "var(--dp-chart-grid)"))
       .call(g => g.selectAll(".tick text")
         .attr("font-size", "10px")
-        .attr("fill", "var(--dp-chart-axis-text)")
+        .attr("fill", "var(--dp-chart-axis-text)") // Using variable for text color
         .attr("dy", "0.3em")
         .attr("x", -10));
 
-    // Add Y-axis label - "Sales ($)" to match reference
+    // Add Y-axis label - "Sales ($)" using variables
     g.append('text')
       .attr('class', 'y-axis-label')
       .attr('transform', 'rotate(-90)')
-      .attr('y', -margin.left + 15)
+      .attr('y', -margin.left + 16)
       .attr('x', -innerHeight / 2)
       .attr('text-anchor', 'middle')
       .attr('font-size', '11px')
-      .attr('fill', 'var(--dp-text-secondary)')
+      .attr('font-weight', '500')
+      .attr('fill', "var(--dp-chart-axis-text)") // Using variable for text color
       .text('Sales ($)');
 
     // Create line generators with monotone curves matching reference
@@ -163,7 +186,7 @@ export default function TimeSeriesChart({
       .y(d => yScale(d.value))
       .curve(d3.curveMonotoneX);
 
-    // Display data series based on toggle status
+    // Display data series based on toggle status - exactly matching screenshot
 
     // 1. 2023 Actual (green line) - if enabled
     if (showActual2023) {
@@ -177,7 +200,7 @@ export default function TimeSeriesChart({
         .attr('class', '2023-actual-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual-2023)')
+        .attr('stroke', 'var(--dp-chart-actual-2023)') // Green line from variables
         .attr('stroke-width', 2);
     }
 
@@ -193,7 +216,7 @@ export default function TimeSeriesChart({
         .attr('class', '2024-actual-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual-2024)')
+        .attr('stroke', 'var(--dp-chart-actual-2024)') // Amber/orange line from variables
         .attr('stroke-width', 2);
     }
 
@@ -204,8 +227,21 @@ export default function TimeSeriesChart({
         .attr('class', 'actual-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)')
-        .attr('stroke-width', 2);
+        .attr('stroke', 'var(--dp-chart-actual)') // Blue line from variables
+        .attr('stroke-width', 2.5);
+
+      // Add data points for actual (blue circles)
+      g.selectAll('.actual-point')
+        .data(baselineDataset)
+        .enter()
+        .append('circle')
+        .attr('class', 'actual-point')
+        .attr('cx', d => xScale(d.date))
+        .attr('cy', d => yScale(d.value))
+        .attr('r', 3)
+        .attr('fill', 'var(--dp-chart-actual)')
+        .attr('stroke', '#FFFFFF')
+        .attr('stroke-width', 1.5);
     }
 
     // 4. Edited data (gold/yellow line) - if enabled and available
@@ -215,11 +251,11 @@ export default function TimeSeriesChart({
         .attr('class', 'edited-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-edited)')
+        .attr('stroke', 'var(--dp-chart-edited)') // Yellow line from variables
         .attr('stroke-width', 2.5);
     }
 
-    // 5. Forecasted data (red dotted line) - if enabled
+    // 5. Forecasted data (red dotted line) - if enabled - MUST BE DRAWN LAST TO BE ON TOP
     if (showForecasted) {
       // Create forecast data with a slightly upward trend
       const forecastData = baselineDataset.map(d => ({
@@ -227,49 +263,42 @@ export default function TimeSeriesChart({
         value: d.value * 1.1
       }));
 
+      // Draw dashed line
       g.append('path')
         .datum(forecastData)
         .attr('class', 'forecast-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)')
-        .attr('stroke-width', 2.5)
-        .attr('stroke-dasharray', '3,3'); // Dotted line
-    }
+        .attr('stroke', 'var(--dp-chart-forecasted)') // Red line from updated colors
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4,4'); // Dashed line
 
-    // Add data points to match reference
-    if (showForecasted) {
       // Add forecast data points (red circles)
-      const forecastPoints = baselineDataset.map(d => ({
-        ...d,
-        value: d.value * 1.1
-      }));
-
       g.selectAll('.forecast-point')
-        .data(forecastPoints)
+        .data(forecastData)
         .enter()
         .append('circle')
         .attr('class', 'forecast-point')
         .attr('cx', d => xScale(d.date))
         .attr('cy', d => yScale(d.value))
         .attr('r', 4)
-        .attr('fill', 'var(--dp-chart-forecasted)')
-        .attr('stroke', 'var(--dp-surface-primary)')
-        .attr('stroke-width', 2)
+        .attr('fill', 'var(--dp-chart-forecasted)') // Red dots from updated colors
+        .attr('stroke', '#FFFFFF') // White border
+        .attr('stroke-width', 1.5)
         .style('cursor', 'pointer')
         .on('mouseover', function(event, d) {
           d3.select(this).attr('r', 6);
 
-          // Show tooltip
-          setTooltipContent(`<div class="p-2">
-            <div class="font-medium text-dp-text-primary">Forecasted</div>
-            <div class="text-dp-text-secondary mt-1">${formatDate(d.date as Date, periodType)}</div>
-            <div class="text-lg mt-1">$${d.value.toLocaleString()}</div>
+          // Show tooltip exactly matching screenshot style
+          setTooltipContent(`<div class="p-3">
+            <div class="font-medium text-gray-900 text-sm">Forecasted</div>
+            <div class="text-gray-500 text-xs mt-1">${formatDate(d.date as Date, periodType)}</div>
+            <div class="text-base font-semibold mt-1 text-gray-900">$${formatNumber(d.value)}k</div>
           </div>`);
 
           setTooltipPosition({
             x: xScale(d.date) + margin.left,
-            y: yScale(d.value) + margin.top - 10
+            y: yScale(d.value) + margin.top - 15
           });
 
           setTooltipVisible(true);
@@ -300,14 +329,14 @@ export default function TimeSeriesChart({
         ref={svgRef}
         width={width}
         height={height}
-        className="max-w-full bg-dp-surface-primary rounded-lg border border-dp-border-light"
+        className="max-w-full bg-dp-chart-background rounded-lg border border-dp-frame-border"
       />
 
-      {/* Tooltip */}
+      {/* Tooltip - styled exactly like screenshot */}
       {tooltipVisible && (
         <div
           ref={tooltipRef}
-          className="absolute z-10 bg-dp-surface-secondary backdrop-blur-sm border border-dp-border-light rounded-md shadow-dp-medium pointer-events-none transform -translate-x-1/2 -translate-y-full"
+          className="absolute z-10 bg-white border border-gray-200 rounded-md shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y - 10}px`,

@@ -1,65 +1,48 @@
 @import "tailwindcss";
 
-/* Base styles for light and dark themes */
+/* Single theme mode - using colors from colors.md */
 :root {
-  /* Light mode colors */
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --primary: #0070f3;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f0f0;
-  --secondary-foreground: #0a0a0a;
-  --muted: #f6f6f6;
-  --muted-foreground: #666666;
-  --accent: #7928ca;
-  --accent-foreground: #ffffff;
-  --border: #e1e1e1;
-  --input: #e1e1e1;
-  --ring: #0070f3;
+  /* Base colors from colors.md */
+  --background: #FFFFFF;
+  --foreground: #333333;
+  --card: #FFFFFF;
+  --card-foreground: #333333;
+  --primary: #DD0033;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEEDEB;
+  --secondary-foreground: #333333;
+  --muted: #F7F7F6;
+  --muted-foreground: #5b6770;
+  --accent: #004F71;
+  --accent-foreground: #FFFFFF;
+  --border: #EEEDEB;
+  --input: #EEEDEB;
+  --ring: #DD0033;
   --radius: 0.5rem;
   --warning: #f5a623;
-  --error: #e00;
+  --error: #940929;
   --success: #00a050;
-}
 
-.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #1a1a1a;
-  --card-foreground: #ededed;
-  --primary: #0098ff;
-  --primary-foreground: #000000;
-  --secondary: #2a2a2a;
-  --secondary-foreground: #ededed;
-  --muted: #2a2a2a;
-  --muted-foreground: #999999;
-  --accent: #ff0080;
-  --accent-foreground: #ffffff;
-  --border: #2a2a2a;
-  --input: #2a2a2a;
-  --ring: #0098ff;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #1a1a1a;
-    --card-foreground: #ededed;
-    --primary: #0098ff;
-    --primary-foreground: #000000;
-    --secondary: #2a2a2a;
-    --secondary-foreground: #ededed;
-    --muted: #2a2a2a;
-    --muted-foreground: #999999;
-    --accent: #ff0080;
-    --accent-foreground: #ffffff;
-    --border: #2a2a2a;
-    --input: #2a2a2a;
-    --ring: #0098ff;
-  }
+  /* Demand planning specific variables */
+  --dp-chart-forecasted: #DD0033;
+  --dp-chart-edited: #EAB308;
+  --dp-chart-actual: #3B82F6;
+  --dp-chart-actual-2024: #F59E0B;
+  --dp-chart-actual-2023: #65A30D;
+  --dp-chart-grid: #E5E7EB;
+  --dp-chart-axis-text: #5b6770;
+  --dp-chart-today-line: #FEE2E2;
+  --dp-chart-today-pill-bg: #FEE2E2;
+  --dp-border-light: #EEEDEB;
+  --dp-border-medium: #D1D5DB;
+  --dp-surface-primary: #FFFFFF;
+  --dp-surface-secondary: #FFFFFF;
+  --dp-chart-background: #FFFFFF;
+  --dp-frame-border: #EEEDEB;
+  --dp-header-height: 100px;
+  --dp-tab-height: 48px;
+  --dp-sidebar-width: 280px;
+  --dp-footer-height: 60px;
 }
 
 @theme inline {

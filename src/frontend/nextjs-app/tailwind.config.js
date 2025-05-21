@@ -5,30 +5,40 @@ export default {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: false, // Disable dark mode completely
   theme: {
     extend: {
       colors: {
-        // Demand Planning Dashboard - Chick-fil-A colors
-        'dp-cfa-red': '#E51636',
+        // Demand Planning Dashboard - Primary palette from colors.md
+        'dp-cfa-red': '#DD0033',
+        'dp-cfa-dark-red': '#940929',
         'dp-cfa-blue': '#004F71',
-        'dp-cfa-red-bright': '#E4002B',
+        'dp-cfa-white': '#FFFFFF',
 
-        // Background colors
-        'dp-bg-primary': '#F5F5F7',
-        'dp-bg-secondary': '#FFFFFF',
-        'dp-bg-tertiary': '#E8E8ED',
+        // Secondary palette from colors.md
+        'dp-cfa-gray': '#EEEDEB',
+        'dp-cfa-dark-gray': '#5b6770',
 
-        // Text colors
-        'dp-text-primary': '#1D1D1F',
-        'dp-text-secondary': '#86868B',
+        // Background colors - updated with new palette colors
+        'dp-bg-primary': '#FFFFFF',
+        'dp-bg-secondary': '#EEEDEB',
+        'dp-bg-tertiary': '#F7F7F6',
+
+        // Text colors - updated with clean modern style
+        'dp-text-primary': '#333333',
+        'dp-text-secondary': '#5b6770',
         'dp-text-tertiary': '#6E6E73',
         'dp-text-disabled': '#AEAEB2',
 
-        // UI colors
+        // UI colors - updated with new primary red
         'dp-ui-positive': '#34C759',
-        'dp-ui-negative': '#FF3B30',
-        'dp-ui-neutral': '#9CA3AF',
-        'dp-ui-highlight': '#007AFF',
+        'dp-ui-negative': '#DD0033',
+        'dp-ui-neutral': '#5b6770',
+        'dp-ui-highlight': '#DD0033',
+
+        // Chart specific colors from CSS variables
+        'dp-chart-background': 'var(--dp-chart-background)',
+        'dp-frame-border': 'var(--dp-frame-border)',
       },
       boxShadow: {
         'dp-light': '0 2px 8px rgba(0, 0, 0, 0.05)',

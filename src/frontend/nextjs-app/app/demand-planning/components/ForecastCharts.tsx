@@ -10,13 +10,11 @@ import ResponsiveChartWrapper from './charts/ResponsiveChartWrapper';
 interface ForecastChartsProps {
   forecastData: ForecastSeries;
   className?: string;
-  onRevertEdits?: () => void;
 }
 
 export default function ForecastCharts({
   forecastData,
-  className = '',
-  onRevertEdits
+  className = ''
 }: ForecastChartsProps) {
   // Time period selection state based on reference image
   const [selectedTimeRange, setSelectedTimeRange] = useState<'day' | 'week' | 'threeWeeks'>('week');
@@ -31,7 +29,6 @@ export default function ForecastCharts({
     actual2023: false
   });
 
-  const hasAdjustedData = !!forecastData.adjusted && forecastData.adjusted.length > 0;
 
   // Toggle data series display
   const handleToggle = (series: keyof typeof toggles) => {
@@ -53,46 +50,48 @@ export default function ForecastCharts({
   };
 
   return (
-    <div className={`bg-dp-surface-primary border border-dp-border-light rounded-lg shadow-dp-medium ${className}`}>
-      {/* Top bar with time period selection and revert button */}
-      <div className="p-4 border-b border-dp-border-light">
+    <div className={`bg-dp-surface-primary border border-dp-frame-border rounded-lg shadow-dp-medium ${className}`}>
+      <div className="p-4 border-b border-dp-frame-border">
+        {/* Main control container */}
         <div className="flex justify-between items-center">
-          {/* Time period selector - Day/Week/Three Weeks exactly matching reference */}
-          <div className="flex items-center space-x-1 bg-dp-background-tertiary rounded-lg p-1">
-            <button
-              className={`px-5 py-2 text-sm rounded-md transition-colors ${
-                selectedTimeRange === 'day'
-                  ? 'bg-white shadow-sm text-dp-text-primary'
-                  : 'text-dp-text-secondary hover:text-dp-text-primary'
-              }`}
-              onClick={() => setSelectedTimeRange('day')}
-            >
-              Day
-            </button>
-            <button
-              className={`px-5 py-2 text-sm rounded-md transition-colors ${
-                selectedTimeRange === 'week'
-                  ? 'bg-white shadow-sm text-dp-text-primary'
-                  : 'text-dp-text-secondary hover:text-dp-text-primary'
-              }`}
-              onClick={() => setSelectedTimeRange('week')}
-            >
-              Week
-            </button>
-            <button
-              className={`px-5 py-2 text-sm rounded-md transition-colors ${
-                selectedTimeRange === 'threeWeeks'
-                  ? 'bg-white shadow-sm text-dp-text-primary'
-                  : 'text-dp-text-secondary hover:text-dp-text-primary'
-              }`}
-              onClick={() => setSelectedTimeRange('threeWeeks')}
-            >
-              Three Weeks
-            </button>
+          {/* LEFT AREA: Time period selector - Day/Week/Three Weeks formatted exactly like screenshot */}
+          <div className="flex items-center space-x-4">
+            <div className="flex rounded-lg overflow-hidden border border-dp-frame-border">
+              <button
+                className={`px-5 py-2 text-sm transition-colors ${
+                  selectedTimeRange === 'day'
+                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
+                }`}
+                onClick={() => setSelectedTimeRange('day')}
+              >
+                Day
+              </button>
+              <button
+                className={`px-5 py-2 text-sm transition-colors border-l border-r border-dp-frame-border ${
+                  selectedTimeRange === 'week'
+                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
+                }`}
+                onClick={() => setSelectedTimeRange('week')}
+              >
+                Week
+              </button>
+              <button
+                className={`px-5 py-2 text-sm transition-colors ${
+                  selectedTimeRange === 'threeWeeks'
+                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
+                }`}
+                onClick={() => setSelectedTimeRange('threeWeeks')}
+              >
+                Three Weeks
+              </button>
+            </div>
           </div>
 
-          {/* Date range selector - matches reference image exactly */}
-          <div className="flex items-center">
+          {/* CENTER AREA: Date range selector - exactly matching screenshot */}
+          <div className="flex items-center absolute left-1/2 transform -translate-x-1/2">
             <button
               className="p-2 text-dp-text-secondary hover:text-dp-text-primary"
               onClick={handlePrevDate}
@@ -102,9 +101,9 @@ export default function ForecastCharts({
                 <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </button>
-            <div className="flex items-center space-x-1 px-3 py-2 border border-dp-border-light rounded-md">
+            <div className="flex items-center px-3 py-2 border border-dp-frame-border rounded-md">
               <span className="text-sm font-medium">{selectedDateRange}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-dp-text-secondary" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1 text-dp-text-secondary" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </div>
@@ -119,38 +118,17 @@ export default function ForecastCharts({
             </button>
           </div>
 
-          {/* Revert Edits button - matching reference image */}
+          {/* RIGHT AREA: View toggles matching screenshot exactly */}
           <div className="flex items-center">
-            <button
-              className="px-3 py-1.5 text-sm font-medium text-dp-text-secondary border border-dp-border-light rounded-md hover:bg-dp-background-tertiary transition-colors"
-              onClick={onRevertEdits}
-              disabled={!hasAdjustedData}
-            >
-              Revert Edits
-            </button>
-
-            {/* View toggles matching reference image exactly */}
-            <div className="flex ml-4 border border-dp-border-light rounded-md overflow-hidden">
-              <button className="p-2 border-r border-dp-border-light bg-white">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                    className="text-dp-cfa-red"
-                  />
+            <div className="flex border border-dp-frame-border rounded-md overflow-hidden">
+              <button className="p-2 border-r border-dp-frame-border bg-white">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor" className="text-dp-text-secondary" />
                 </svg>
               </button>
               <button className="p-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v3H4V5zm0 5h16v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9z"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                    className="text-dp-text-secondary"
-                  />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 8h16v13H4V8zm16-5H4v4h16V3z" fill="currentColor" className="text-dp-text-secondary" />
                 </svg>
               </button>
             </div>
@@ -158,81 +136,91 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* Series toggles that match reference image exactly */}
-      <div className="px-4 py-3 border-b border-dp-border-light flex flex-wrap gap-x-8 gap-y-2">
-        <label className="flex items-center space-x-2 cursor-pointer">
+      {/* Series toggles exactly matching screenshot styling */}
+      <div className="px-4 py-3 border-b border-dp-frame-border flex flex-wrap gap-x-8 gap-y-2">
+        {/* Forecasted Toggle */}
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             name="toggle-forecasted"
             id="toggle-forecasted"
-            className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
             checked={toggles.forecasted}
             onChange={() => handleToggle('forecasted')}
           />
-          <span className="text-xs text-dp-text-primary flex items-center">
-            <span className="inline-block w-4 border-b-2 border-dotted border-dp-chart-forecasted mr-1"></span>
-            Forecasted
-          </span>
+          <div className="flex items-center">
+            <span className="inline-block w-3 border-b-2 border-dashed border-dp-chart-forecasted mr-1.5"></span>
+            <span className="text-xs text-dp-text-secondary">Forecasted</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+          </div>
         </label>
 
-        <label className="flex items-center space-x-2 cursor-pointer">
+        {/* Edited Toggle */}
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             name="toggle-edited"
             id="toggle-edited"
-            className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
             checked={toggles.edited}
             onChange={() => handleToggle('edited')}
           />
-          <span className="text-xs text-dp-text-primary flex items-center">
-            <span className="inline-block w-4 h-0.5 bg-dp-chart-edited mr-1"></span>
-            Edited
-          </span>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-0.5 bg-dp-chart-edited mr-1.5"></span>
+            <span className="text-xs text-dp-text-secondary">Edited</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+          </div>
         </label>
 
-        <label className="flex items-center space-x-2 cursor-pointer">
+        {/* Actual Toggle */}
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             name="toggle-actual"
             id="toggle-actual"
-            className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
             checked={toggles.actual}
             onChange={() => handleToggle('actual')}
           />
-          <span className="text-xs text-dp-text-primary flex items-center">
-            <span className="inline-block w-4 h-0.5 bg-dp-chart-actual mr-1"></span>
-            Actual
-          </span>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual mr-1.5"></span>
+            <span className="text-xs text-dp-text-secondary">Actual</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+          </div>
         </label>
 
-        <label className="flex items-center space-x-2 cursor-pointer">
+        {/* 2024 Actual Toggle */}
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             name="toggle-actual2024"
             id="toggle-actual2024"
-            className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
             checked={toggles.actual2024}
             onChange={() => handleToggle('actual2024')}
           />
-          <span className="text-xs text-dp-text-primary flex items-center">
-            <span className="inline-block w-4 h-0.5 bg-dp-chart-actual-2024 mr-1"></span>
-            2024 Actual
-          </span>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2024 mr-1.5"></span>
+            <span className="text-xs text-dp-text-secondary">2024 Actual</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+          </div>
         </label>
 
-        <label className="flex items-center space-x-2 cursor-pointer">
+        {/* 2023 Actual Toggle */}
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             name="toggle-actual2023"
             id="toggle-actual2023"
-            className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
             checked={toggles.actual2023}
             onChange={() => handleToggle('actual2023')}
           />
-          <span className="text-xs text-dp-text-primary flex items-center">
-            <span className="inline-block w-4 h-0.5 bg-dp-chart-actual-2023 mr-1"></span>
-            2023 Actual
-          </span>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2023 mr-1.5"></span>
+            <span className="text-xs text-dp-text-secondary">2023 Actual</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+          </div>
         </label>
       </div>
 
@@ -257,14 +245,14 @@ export default function ForecastCharts({
 
         {/* Today pill indicator */}
         <div className="flex justify-center mt-2">
-          <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-dp-cfa-red rounded-full">
+          <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-primary rounded-full">
             Today
           </div>
         </div>
       </div>
 
       {/* X-axis weekday labels exactly matching reference image */}
-      <div className="px-6 py-2 flex justify-between text-xs text-dp-chart-axis-text border-t border-dp-border-light">
+      <div className="px-6 py-2 flex justify-between text-xs text-dp-chart-axis-text border-t border-dp-frame-border">
         <div className="text-center">Mon<br/>May 19</div>
         <div className="text-center">Tue<br/>May 20</div>
         <div className="text-center">Wed<br/>May 21</div>
