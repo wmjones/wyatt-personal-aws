@@ -32,6 +32,7 @@ node_modules/
 .roo/*
 .roomodes
 src/frontend/react-app/build_log.txt
+src/frontend/nextjs-app/build_log.txt
 
 # .tfstate files
 *.tfstate

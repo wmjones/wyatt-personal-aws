@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ThemeToggle } from './theme-toggle'
 import { useAuth } from '../context/AuthContext'
 import { Button } from './ui/button'
 
@@ -53,7 +52,6 @@ export default function Header() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <ThemeToggle />
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-muted-foreground">
