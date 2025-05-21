@@ -191,7 +191,7 @@ resource "aws_lambda_permission" "athena_query_api" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.athena_query.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${module.api_gateway.api_execution_arn}/*/*/api/data/athena/query"
+  source_arn    = "${module.api_gateway.execution_arn}/*/*/api/data/athena/query"
 }
 
 # Outputs
