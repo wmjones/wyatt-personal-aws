@@ -90,7 +90,7 @@ resource "aws_iam_policy" "athena_access" {
         ]
         Resource = [
           aws_athena_workgroup.forecast_analysis.arn,
-          "arn:aws:athena:${var.region}:${data.aws_caller_identity.current.account_id}:database/${aws_athena_database.forecast_db.name}"
+          "arn:aws:athena:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${aws_athena_database.forecast_db.name}"
         ]
       },
       {
@@ -124,9 +124,8 @@ resource "aws_lambda_function" "athena_query" {
   timeout       = 30
   memory_size   = 256
 
-  # We'll create this file later
-  filename         = "${path.module}/../src/lambda/athena/athena-query.zip"
-  source_code_hash = filebase64sha256("${path.module}/../src/lambda/athena/athena-query.zip")
+  filename         = local.lambda_zip_path
+  source_code_hash = filebase64sha256(local.lambda_zip_path)
 
   environment {
     variables = {
