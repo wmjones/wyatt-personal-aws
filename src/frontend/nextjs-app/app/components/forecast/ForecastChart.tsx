@@ -121,7 +121,7 @@ export default function ForecastChart({ data }: ForecastChartProps) {
 
     // Type assertion to help TypeScript understand the data structure
     type DataPoint = { date: Date; value: number };
-    
+
     // Add event handlers with proper typing
     svg.selectAll<SVGCircleElement, DataPoint>('.dot')
       .on('mouseover', function(event, d) {

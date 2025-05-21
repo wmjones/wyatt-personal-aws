@@ -28,6 +28,17 @@ echo "Running post-create setup..."
 # Determine project directory more reliably
 WORKSPACE_DIR="/workspaces"
 
+# Install Git LFS if not already installed
+if ! command -v git-lfs &> /dev/null; then
+  echo "Installing Git LFS..."
+  curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+  sudo apt-get install -y git-lfs
+  git lfs install
+  status "Git LFS installed successfully"
+else
+  status "Git LFS already installed"
+fi
+
 # Check if we can find the actual workspace directory
 if [ -d "$WORKSPACE_DIR" ]; then
   # Find the first directory in /workspaces that isn't node_modules or package
@@ -91,19 +102,7 @@ elif ! grep -q "zsh-autosuggestions" ~/.zshrc; then
   echo "   plugins=(... zsh-autosuggestions zsh-syntax-highlighting ...)"
 fi
 
-# Initialize Stackframe if not already done
-echo "Checking for Stackframe initialization..."
-if [ ! -f "$PROJECT_DIR/.stackframe-initialized" ]; then
-  echo "Initializing Stackframe..."
-  cd "$PROJECT_DIR"
-  npx @stackframe/init-stack@latest || warning "Failed to initialize Stackframe"
-  if [ $? -eq 0 ]; then
-    touch .stackframe-initialized
-    status "Stackframe initialized successfully"
-  fi
-else
-  status "Stackframe already initialized"
-fi
+# Stackframe initialization removed
 
 # Check if Node.js 18+ is installed
 echo "Checking Node.js version..."
