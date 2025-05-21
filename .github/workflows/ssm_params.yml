@@ -74,8 +74,18 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.0
+          terraform_version: 1.6.0
           terraform_wrapper: false
+
+      - name: Validate Terraform Version
+        run: |
+          TERRAFORM_VERSION=$(terraform version -json | jq -r '.terraform_version')
+          echo "Using Terraform version: $TERRAFORM_VERSION"
+          if ! terraform version | grep -q "v1\.[6-9]\|v[2-9]"; then
+            echo "❌ Error: Terraform version >= 1.6.0 is required but found $TERRAFORM_VERSION"
+            exit 1
+          fi
+          echo "✅ Terraform version check passed"
 
       - name: Verify AWS Identity
         run: |
@@ -89,14 +99,36 @@ jobs:
           cd main
 
           # Initialize Terraform to access state
-          terraform init
+          echo "Initializing Terraform..."
+          if ! terraform init; then
+            echo "❌ Error: Terraform init failed"
+            exit 1
+          fi
+          echo "✅ Terraform initialized successfully"
 
-          # Check if we can get Cognito User Pool ID directly from Terraform
+          # Verify terraform state is accessible
+          echo "Checking Terraform state..."
+          if ! terraform show >/dev/null 2>&1; then
+            echo "❌ Error: Cannot access Terraform state. Ensure Terraform apply completed successfully."
+            exit 1
+          fi
+          echo "✅ Terraform state accessible"
+
+          # Get outputs with error handling
+          echo "Retrieving Terraform outputs..."
           USER_POOL_ID=$(terraform output -raw cognito_user_pool_id 2>/dev/null || echo "")
           CLIENT_ID=$(terraform output -raw cognito_client_id 2>/dev/null || echo "")
           API_ENDPOINT=$(terraform output -raw api_endpoint 2>/dev/null || echo "")
           FRONTEND_BUCKET=$(terraform output -raw website_bucket_name 2>/dev/null || echo "")
           CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+
+          # Log what was found
+          echo "Terraform outputs retrieved:"
+          echo "  - User Pool ID: ${USER_POOL_ID:-'(not found)'}"
+          echo "  - Client ID: ${CLIENT_ID:-'(not found)'}"
+          echo "  - API Endpoint: ${API_ENDPOINT:-'(not found)'}"
+          echo "  - Frontend Bucket: ${FRONTEND_BUCKET:-'(not found)'}"
+          echo "  - CloudFront ID: ${CLOUDFRONT_ID:-'(not found)'}"
 
           # Store the values
           echo "user_pool_id=${USER_POOL_ID}" >> $GITHUB_OUTPUT
