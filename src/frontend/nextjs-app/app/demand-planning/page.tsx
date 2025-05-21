@@ -25,6 +25,7 @@ export default function DemandPlanningPage() {
 
   // Initialize with some demo selections for visualization
   useEffect(() => {
+    console.log("Setting initial hierarchy selections");
     setSelectedHierarchies([
       {
         type: 'geography',
@@ -35,6 +36,8 @@ export default function DemandPlanningPage() {
         selectedNodes: ['category-1-1-1'] // Laptops
       }
     ]);
+
+    console.log("Page component mount - initial time periods:", selectedTimePeriods);
   }, []);
 
   // Fetch forecast data based on selections

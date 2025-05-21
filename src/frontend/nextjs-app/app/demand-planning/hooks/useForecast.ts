@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   ForecastSeries,
   ForecastDataPoint,
@@ -20,37 +20,49 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
   const [forecastData, setForecastData] = useState<ForecastSeries | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock time periods
-  const mockTimePeriods: TimePeriod[] = [
+  // Mock time periods with useMemo to avoid recreation on each render
+  const mockTimePeriods = useMemo<TimePeriod[]>(() => [
     { id: 'Q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', type: 'quarter' },
     { id: 'Q2-2025', name: 'Q2 2025', startDate: '2025-04-01', endDate: '2025-06-30', type: 'quarter' },
     { id: 'Q3-2025', name: 'Q3 2025', startDate: '2025-07-01', endDate: '2025-09-30', type: 'quarter' },
     { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
-  ];
+  ], []);
 
   // Fetch forecast data based on selections
   useEffect(() => {
+    console.log("useForecast effect triggered with:", {
+      hierarchySelections,
+      timePeriodIds,
+      selectionCount: hierarchySelections.length,
+      periodCount: timePeriodIds.length
+    });
+
     // Skip if no selections are made
     if (hierarchySelections.length === 0 || timePeriodIds.length === 0) {
+      console.log("useForecast: No selections, skipping data fetch");
       setForecastData(null);
       return;
     }
 
     const fetchForecast = async () => {
+      console.log("useForecast: Starting data fetch");
       setIsLoading(true);
       setError(null);
 
       try {
         // Simulate API call
+        console.log("useForecast: Simulating API call delay");
         await new Promise(resolve => setTimeout(resolve, 800));
 
         // Generate mock data based on selections
         const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
+        console.log("useForecast: Filtered periods:", periods);
 
         // Base value depends on the number of selected hierarchies to simulate different values
         const baseValue = 10000 * (1 + (hierarchySelections.reduce(
           (acc, curr) => acc + curr.selectedNodes.length, 0
         ) / 10));
+        console.log("useForecast: Calculated base value:", baseValue);
 
         // Generate random baseline data
         const baseline: ForecastDataPoint[] = periods.map((period, index) => {
@@ -64,6 +76,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
             value: Math.round(baseValue * growth * randomFactor),
           };
         });
+        console.log("useForecast: Generated baseline data points:", baseline.length);
 
         // Create the forecast series without adjustments initially
         const mockForecast: ForecastSeries = {
@@ -73,12 +86,19 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
           baseline,
           lastUpdated: new Date().toISOString(),
         };
+        console.log("useForecast: Created mock forecast data", {
+          id: mockForecast.id,
+          hierarchyCount: mockForecast.hierarchySelections.length,
+          periodCount: mockForecast.timePeriods.length,
+          dataPointCount: mockForecast.baseline.length
+        });
 
         setForecastData(mockForecast);
       } catch (error) {
         console.error('Error fetching forecast data:', error);
         setError('Failed to fetch forecast data. Please try again.');
       } finally {
+        console.log("useForecast: Completed fetch, setting isLoading to false");
         setIsLoading(false);
       }
     };
