@@ -20,10 +20,10 @@ export default function useHierarchy({ initialType = 'geography' }: UseHierarchy
       try {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Mock data based on hierarchy type
         let mockData: HierarchyNode[] = [];
-        
+
         switch (hierarchyType) {
           case 'geography':
             mockData = [
@@ -71,7 +71,7 @@ export default function useHierarchy({ initialType = 'geography' }: UseHierarchy
           default:
             mockData = [];
         }
-        
+
         setHierarchyData(mockData);
       } catch (error) {
         console.error('Error fetching hierarchy data:', error);
@@ -79,10 +79,10 @@ export default function useHierarchy({ initialType = 'geography' }: UseHierarchy
         setIsLoading(false);
       }
     };
-    
+
     fetchHierarchyData();
   }, [hierarchyType]);
-  
+
   // Build tree structure from flat data
   const buildTree = (nodes: HierarchyNode[], parentId: string | null = null): HierarchyNode[] => {
     return nodes
@@ -92,9 +92,9 @@ export default function useHierarchy({ initialType = 'geography' }: UseHierarchy
         children: buildTree(nodes, node.id)
       }));
   };
-  
+
   const treeData = buildTree(hierarchyData);
-  
+
   // Handle node selection
   const selectNode = (nodeId: string) => {
     setSelectedNodes(prev => ({
@@ -102,34 +102,34 @@ export default function useHierarchy({ initialType = 'geography' }: UseHierarchy
       [nodeId]: !prev[nodeId]
     }));
   };
-  
+
   // Select all nodes
   const selectAll = () => {
     const allSelected = hierarchyData.reduce((acc, node) => {
       acc[node.id] = true;
       return acc;
     }, {} as Record<string, boolean>);
-    
+
     setSelectedNodes(allSelected);
   };
-  
+
   // Clear all selections
   const clearAll = () => {
     setSelectedNodes({});
   };
-  
+
   // Get array of selected node IDs
   const getSelectedNodeIds = (): string[] => {
     return Object.entries(selectedNodes)
       .filter(([, selected]) => selected)
       .map(([id]) => id);
   };
-  
+
   // Get array of selected node objects
   const getSelectedNodes = (): HierarchyNode[] => {
     return hierarchyData.filter(node => selectedNodes[node.id]);
   };
-  
+
   return {
     hierarchyType,
     setHierarchyType,

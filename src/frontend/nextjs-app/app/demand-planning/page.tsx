@@ -14,7 +14,7 @@ export default function DemandPlanningPage() {
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>(['Q1-2025', 'Q2-2025', 'Q3-2025', 'Q4-2025']);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
-  
+
   // Demo time periods
   const timePeriods: TimePeriod[] = [
     { id: 'Q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', type: 'quarter' },
@@ -22,7 +22,7 @@ export default function DemandPlanningPage() {
     { id: 'Q3-2025', name: 'Q3 2025', startDate: '2025-07-01', endDate: '2025-09-30', type: 'quarter' },
     { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
   ];
-  
+
   // Initialize with some demo selections for visualization
   useEffect(() => {
     setSelectedHierarchies([
@@ -36,12 +36,12 @@ export default function DemandPlanningPage() {
       }
     ]);
   }, []);
-  
+
   // Fetch forecast data based on selections
-  const { 
-    forecastData, 
-    isLoading: isLoadingForecast, 
-    error: forecastError, 
+  const {
+    forecastData,
+    isLoading: isLoadingForecast,
+    error: forecastError,
     applyAdjustment,
     resetAdjustments,
     refreshForecast
@@ -49,7 +49,7 @@ export default function DemandPlanningPage() {
     hierarchySelections: selectedHierarchies,
     timePeriodIds: selectedTimePeriods
   });
-  
+
   // Fetch adjustment history
   const {
     adjustmentHistory,
@@ -59,13 +59,13 @@ export default function DemandPlanningPage() {
     error: historyError,
     refreshHistory
   } = useAdjustmentHistory();
-  
+
   // Handle hierarchy selection changes from sidebar
   const handleHierarchySelectionChange = (selection: { type: HierarchyType; nodeIds: string[] }) => {
     setSelectedHierarchies(prev => {
       // Remove the existing selection for this type
       const updatedSelections = prev.filter(s => s.type !== selection.type);
-      
+
       // Add the new selection if there are nodes selected
       if (selection.nodeIds.length > 0) {
         updatedSelections.push({
@@ -73,31 +73,31 @@ export default function DemandPlanningPage() {
           selectedNodes: selection.nodeIds
         });
       }
-      
+
       return updatedSelections;
     });
   };
-  
+
   // Handle tab change
   const handleTabChange = (tab: 'forecast' | 'history' | 'settings') => {
     setActiveTab(tab);
-    
+
     // If switching to history tab, refresh the history data
     if (tab === 'history') {
       refreshHistory();
     }
   };
-  
+
   // Handle adjustment creation
   const handleApplyAdjustment = async (adjustment: AdjustmentData) => {
     await applyAdjustment(adjustment);
-    
+
     // Refresh history after applying adjustment
     refreshHistory();
   };
-  
+
   return (
-    <DashboardLayout 
+    <DashboardLayout
       onHierarchySelectionChange={handleHierarchySelectionChange}
       activeTab={activeTab}
       onTabChange={handleTabChange}
@@ -125,7 +125,7 @@ export default function DemandPlanningPage() {
                 </button>
               </div>
             </div>
-            
+
             {isLoadingForecast ? (
               <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
                 <div className="flex flex-col items-center">
@@ -142,8 +142,8 @@ export default function DemandPlanningPage() {
               </div>
             ) : forecastData ? (
               <div className="p-4">
-                <ForecastCharts 
-                  forecastData={forecastData} 
+                <ForecastCharts
+                  forecastData={forecastData}
                   onRevertEdits={resetAdjustments}
                 />
               </div>
@@ -153,7 +153,7 @@ export default function DemandPlanningPage() {
               </div>
             )}
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Adjustment Panel */}
             {forecastData && (
@@ -168,7 +168,7 @@ export default function DemandPlanningPage() {
                 />
               </div>
             )}
-            
+
             {/* Time Period Selection */}
             <div className="md:col-span-1">
               <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
@@ -194,7 +194,7 @@ export default function DemandPlanningPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Selected Hierarchies */}
             <div className="md:col-span-1">
               <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
@@ -224,17 +224,17 @@ export default function DemandPlanningPage() {
           </div>
         </div>
       )}
-      
+
       {activeTab === 'history' && (
         <div className="grid gap-6">
           {/* History View */}
-          <AdjustmentHistoryTable 
-            entries={adjustmentHistory} 
-            isLoading={isLoadingHistory} 
+          <AdjustmentHistoryTable
+            entries={adjustmentHistory}
+            isLoading={isLoadingHistory}
           />
         </div>
       )}
-      
+
       {activeTab === 'settings' && (
         <div className="dp-card p-6">
           <h1 className="text-2xl font-light mb-4 text-dp-text-primary">Settings</h1>

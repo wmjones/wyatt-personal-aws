@@ -22,31 +22,31 @@ export default function BaseChart({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipContent, setTooltipContent] = useState('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  
+
   // Create a resize observer to handle responsive behavior
   useEffect(() => {
     const svg = d3.select(svgRef.current);
-    
+
     // Function to handle resize events
     const handleResize = () => {
       // This is a placeholder - specific chart implementations will override this
       svg.attr('width', width).attr('height', height);
     };
-    
+
     // Initialize size
     handleResize();
-    
+
     // Set up resize observer
     const resizeObserver = new ResizeObserver(handleResize);
     if (svgRef.current) {
       resizeObserver.observe(svgRef.current.parentElement as Element);
     }
-    
+
     return () => {
       resizeObserver.disconnect();
     };
   }, [width, height]);
-  
+
   // Helper functions for tooltip - used by child components
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const showTooltip = (content: string, x: number, y: number) => {
@@ -54,13 +54,13 @@ export default function BaseChart({
     setTooltipPosition({ x, y });
     setTooltipVisible(true);
   };
-  
+
   // Helper function to hide tooltip
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hideTooltip = () => {
     setTooltipVisible(false);
   };
-  
+
   return (
     <div className={`relative ${className}`}>
       <svg
@@ -71,7 +71,7 @@ export default function BaseChart({
       >
         {/* Chart contents will be rendered by specific implementations */}
       </svg>
-      
+
       {/* Tooltip */}
       {tooltipVisible && (
         <div

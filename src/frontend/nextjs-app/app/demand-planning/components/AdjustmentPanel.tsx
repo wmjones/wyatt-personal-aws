@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import AdjustmentModal, { AdjustmentData } from './AdjustmentModal';
-import { 
-  ForecastSeries, 
-  HierarchySelection 
+import {
+  ForecastSeries,
+  HierarchySelection
 } from '@/app/types/demand-planning';
 
 interface AdjustmentPanelProps {
@@ -25,58 +25,58 @@ export default function AdjustmentPanel({
   selectedHierarchies
 }: AdjustmentPanelProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Calculate the baseline total
   const baselineTotal = forecastData.baseline.reduce((sum, point) => sum + point.value, 0);
-  
+
   // Calculate adjusted total if available
-  const adjustedTotal = forecastData.adjusted 
-    ? forecastData.adjusted.reduce((sum, point) => sum + point.value, 0) 
+  const adjustedTotal = forecastData.adjusted
+    ? forecastData.adjusted.reduce((sum, point) => sum + point.value, 0)
     : baselineTotal;
-  
+
   // Calculate change values
   const absoluteChange = adjustedTotal - baselineTotal;
-  const percentageChange = baselineTotal > 0 
-    ? ((adjustedTotal / baselineTotal) - 1) * 100 
+  const percentageChange = baselineTotal > 0
+    ? ((adjustedTotal / baselineTotal) - 1) * 100
     : 0;
-  
+
   // Handle opening the adjustment modal
   const openAdjustmentModal = () => {
     setIsModalOpen(true);
   };
-  
+
   return (
     <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
       <h2 className="text-lg font-medium mb-4 text-dp-text-primary border-b border-dp-border-light pb-2">Forecast Adjustments</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-dp-background-tertiary rounded-lg p-4">
           <div className="text-xs text-dp-text-secondary mb-1">Baseline Total</div>
           <div className="text-xl font-medium">{baselineTotal.toLocaleString()} units</div>
         </div>
-        
+
         <div className="bg-dp-background-tertiary rounded-lg p-4">
           <div className="text-xs text-dp-text-secondary mb-1">Adjusted Total</div>
           <div className="text-xl font-medium">
-            {forecastData.adjusted 
-              ? `${adjustedTotal.toLocaleString()} units` 
+            {forecastData.adjusted
+              ? `${adjustedTotal.toLocaleString()} units`
               : 'No adjustments applied'}
           </div>
         </div>
-        
+
         {forecastData.adjusted && (
           <div className="bg-dp-background-tertiary rounded-lg p-4">
             <div className="text-xs text-dp-text-secondary mb-1">Overall Change</div>
-            <div 
+            <div
               className={`text-xl font-medium ${
-                percentageChange > 0 
-                  ? 'text-dp-ui-positive' 
-                  : percentageChange < 0 
-                    ? 'text-dp-ui-negative' 
+                percentageChange > 0
+                  ? 'text-dp-ui-positive'
+                  : percentageChange < 0
+                    ? 'text-dp-ui-negative'
                     : ''
               }`}
             >
-              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}% 
+              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
               <span className="text-sm ml-1">
                 ({absoluteChange > 0 ? '+' : ''}{absoluteChange.toLocaleString()})
               </span>
@@ -84,9 +84,9 @@ export default function AdjustmentPanel({
           </div>
         )}
       </div>
-      
+
       <div className="space-y-3">
-        <button 
+        <button
           onClick={openAdjustmentModal}
           className="dp-btn dp-btn-primary w-full flex items-center justify-center"
           disabled={isLoading || selectedHierarchies.length === 0}
@@ -96,16 +96,16 @@ export default function AdjustmentPanel({
           </svg>
           Create New Adjustment
         </button>
-        
-        <button 
+
+        <button
           onClick={onResetAdjustments}
           className="dp-btn dp-btn-tertiary w-full border border-dp-border-medium"
           disabled={isLoading || !forecastData?.adjusted}
         >
           Reset All Adjustments
         </button>
-        
-        <button 
+
+        <button
           onClick={onRefreshForecast}
           className="dp-btn dp-btn-tertiary w-full border border-dp-border-light"
           disabled={isLoading}
@@ -116,7 +116,7 @@ export default function AdjustmentPanel({
           Refresh Forecast Data
         </button>
       </div>
-      
+
       {/* Recent adjustments list - could be expanded in a future phase */}
       {forecastData.adjusted && (
         <div className="mt-6 border-t border-dp-border-light pt-4">
@@ -129,7 +129,7 @@ export default function AdjustmentPanel({
           </div>
         </div>
       )}
-      
+
       {/* Adjustment modal */}
       <AdjustmentModal
         isOpen={isModalOpen}

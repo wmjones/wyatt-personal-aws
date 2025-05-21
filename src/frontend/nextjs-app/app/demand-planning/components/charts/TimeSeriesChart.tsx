@@ -38,56 +38,56 @@ export default function TimeSeriesChart({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipContent, setTooltipContent] = useState('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  
+
   // Process the data for D3
   const baselineDataset = createChartDataset(baselineData, timePeriods);
   // Use useMemo to avoid recreating adjustedDataset on each render
   const adjustedDataset = useMemo(() => {
-    return adjustedData 
-      ? createChartDataset(adjustedData, timePeriods) 
+    return adjustedData
+      ? createChartDataset(adjustedData, timePeriods)
       : [];
   }, [adjustedData, timePeriods]);
-  
+
   // Get the period type from the first time period (assuming all periods have the same type)
   const periodType = timePeriods.length > 0 ? timePeriods[0].type : 'quarter';
-  
+
   // Handle rendering the chart
   useEffect(() => {
     if (!svgRef.current || baselineDataset.length === 0) return;
-    
+
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove(); // Clear previous rendering
-    
+
     // Calculate inner dimensions
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
-    
+
     // Create main group
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
-    
+
     // Create scales
     const xScale = d3.scaleTime()
       .domain(d3.extent(baselineDataset, d => d.date) as [Date, Date])
       .range([0, innerWidth])
       .nice();
-    
+
     // Calculate y-domain including both datasets
     const allValues = [...baselineDataset.map(d => d.value)];
     if (adjustedDataset.length > 0) {
       allValues.push(...adjustedDataset.map(d => d.value));
     }
-    
+
     const yMax = d3.max(allValues) || 0;
     const yMin = d3.min(allValues) || 0;
     // Add some padding to the y-axis
     const yPadding = (yMax - yMin) * 0.1;
-    
+
     const yScale = d3.scaleLinear()
       .domain([Math.max(0, yMin - yPadding), yMax + yPadding])
       .range([innerHeight, 0])
       .nice();
-    
+
     // Add smooth grid lines matching reference exactly
     g.append('g')
       .attr('class', 'grid-lines')
@@ -102,11 +102,11 @@ export default function TimeSeriesChart({
       .attr('stroke', 'var(--dp-chart-grid)')
       .attr('stroke-opacity', 1)
       .attr('stroke-width', 1);
-    
+
     // Find "today" in the data - for demo purposes using May 20 as "today"
     const today = new Date(2025, 4, 21); // May 21, 2025
     const todayXPosition = xScale(today);
-    
+
     // Add today vertical line - matching reference
     if (todayXPosition) {
       g.append('line')
@@ -117,25 +117,25 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-today-line)')
         .attr('stroke-width', 1);
     }
-    
+
     // Create axes - styling to match reference
     const xAxis = d3.axisBottom(xScale)
       .ticks(width > 600 ? 6 : 5)
       .tickSize(0) // Remove tick marks
       .tickFormat(() => ''); // Empty labels since we handle them separately
-    
+
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
       .tickSize(-5) // Short ticks
       .tickFormat(d => `$${formatNumber(d as number)}k`); // Dollar format with k suffix
-    
+
     // Add axes with styling matching reference
     g.append('g')
       .attr('class', 'x-axis')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(xAxis)
       .call(g => g.select(".domain").attr("stroke", "var(--dp-chart-grid)"));
-    
+
     g.append('g')
       .attr('class', 'y-axis')
       .call(yAxis)
@@ -146,7 +146,7 @@ export default function TimeSeriesChart({
         .attr("fill", "var(--dp-chart-axis-text)")
         .attr("dy", "0.3em")
         .attr("x", -10));
-    
+
     // Add Y-axis label - "Sales ($)" to match reference
     g.append('text')
       .attr('class', 'y-axis-label')
@@ -157,22 +157,22 @@ export default function TimeSeriesChart({
       .attr('font-size', '11px')
       .attr('fill', 'var(--dp-text-secondary)')
       .text('Sales ($)');
-    
+
     // Create line generators with monotone curves matching reference
     const line = d3.line<{ date: Date; value: number }>()
       .x(d => xScale(d.date))
       .y(d => yScale(d.value))
       .curve(d3.curveMonotoneX);
-    
+
     // Display data series based on toggle status
-    
+
     // 1. 2023 Actual (green line) - if enabled
     if (showActual2023) {
       const mockData2023 = baselineDataset.map(d => ({
         ...d,
         value: d.value * 0.95 - 2000
       }));
-      
+
       g.append('path')
         .datum(mockData2023)
         .attr('class', '2023-actual-line')
@@ -181,14 +181,14 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-actual-2023)')
         .attr('stroke-width', 2);
     }
-    
+
     // 2. 2024 Actual (orange line) - if enabled
     if (showActual2024) {
       const mockData2024 = baselineDataset.map(d => ({
         ...d,
         value: d.value * 0.9
       }));
-      
+
       g.append('path')
         .datum(mockData2024)
         .attr('class', '2024-actual-line')
@@ -197,7 +197,7 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-actual-2024)')
         .attr('stroke-width', 2);
     }
-    
+
     // 3. Actual data (blue line) - if enabled
     if (showActual) {
       g.append('path')
@@ -208,7 +208,7 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-actual)')
         .attr('stroke-width', 2);
     }
-    
+
     // 4. Edited data (gold/yellow line) - if enabled and available
     if (showEdited && adjustedDataset.length > 0) {
       g.append('path')
@@ -219,7 +219,7 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-edited)')
         .attr('stroke-width', 2.5);
     }
-    
+
     // 5. Forecasted data (red dotted line) - if enabled
     if (showForecasted) {
       // Create forecast data with a slightly upward trend
@@ -227,7 +227,7 @@ export default function TimeSeriesChart({
         ...d,
         value: d.value * 1.1
       }));
-      
+
       g.append('path')
         .datum(forecastData)
         .attr('class', 'forecast-line')
@@ -237,7 +237,7 @@ export default function TimeSeriesChart({
         .attr('stroke-width', 2.5)
         .attr('stroke-dasharray', '3,3'); // Dotted line
     }
-    
+
     // Add data points to match reference
     if (showForecasted) {
       // Add forecast data points (red circles)
@@ -245,7 +245,7 @@ export default function TimeSeriesChart({
         ...d,
         value: d.value * 1.1
       }));
-      
+
       g.selectAll('.forecast-point')
         .data(forecastPoints)
         .enter()
@@ -260,19 +260,19 @@ export default function TimeSeriesChart({
         .style('cursor', 'pointer')
         .on('mouseover', function(event, d) {
           d3.select(this).attr('r', 6);
-          
+
           // Show tooltip
           setTooltipContent(`<div class="p-2">
             <div class="font-medium text-dp-text-primary">Forecasted</div>
             <div class="text-dp-text-secondary mt-1">${formatDate(d.date as Date, periodType)}</div>
             <div class="text-lg mt-1">$${d.value.toLocaleString()}</div>
           </div>`);
-          
-          setTooltipPosition({ 
-            x: xScale(d.date) + margin.left, 
+
+          setTooltipPosition({
+            x: xScale(d.date) + margin.left,
             y: yScale(d.value) + margin.top - 10
           });
-          
+
           setTooltipVisible(true);
         })
         .on('mouseout', function() {
@@ -280,21 +280,21 @@ export default function TimeSeriesChart({
           setTooltipVisible(false);
         });
     }
-    
+
   }, [
-    baselineDataset, 
-    adjustedDataset, 
-    width, 
-    height, 
-    margin, 
-    periodType, 
+    baselineDataset,
+    adjustedDataset,
+    width,
+    height,
+    margin,
+    periodType,
     showForecasted,
     showEdited,
     showActual,
     showActual2024,
     showActual2023
   ]);
-  
+
   return (
     <div className={`relative ${className}`}>
       <svg
@@ -303,7 +303,7 @@ export default function TimeSeriesChart({
         height={height}
         className="max-w-full bg-dp-surface-primary rounded-lg border border-dp-border-light"
       />
-      
+
       {/* Tooltip */}
       {tooltipVisible && (
         <div

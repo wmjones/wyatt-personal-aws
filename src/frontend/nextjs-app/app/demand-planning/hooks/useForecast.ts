@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  ForecastSeries, 
-  ForecastDataPoint, 
-  TimePeriod, 
+import {
+  ForecastSeries,
+  ForecastDataPoint,
+  TimePeriod,
   HierarchySelection
 } from '@/app/types/demand-planning';
 import { createAdjustment } from '../services/adjustmentService';
@@ -35,36 +35,36 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       setForecastData(null);
       return;
     }
-    
+
     const fetchForecast = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 800));
-        
+
         // Generate mock data based on selections
         const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
-        
+
         // Base value depends on the number of selected hierarchies to simulate different values
         const baseValue = 10000 * (1 + (hierarchySelections.reduce(
           (acc, curr) => acc + curr.selectedNodes.length, 0
         ) / 10));
-        
+
         // Generate random baseline data
         const baseline: ForecastDataPoint[] = periods.map((period, index) => {
           // Simulate growth over time
           const growth = 1 + (index * 0.05);
           // Add some randomness
           const randomFactor = 0.9 + (Math.random() * 0.2);
-          
+
           return {
             periodId: period.id,
             value: Math.round(baseValue * growth * randomFactor),
           };
         });
-        
+
         // Create the forecast series without adjustments initially
         const mockForecast: ForecastSeries = {
           id: `forecast-${Date.now()}`,
@@ -73,7 +73,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
           baseline,
           lastUpdated: new Date().toISOString(),
         };
-        
+
         setForecastData(mockForecast);
       } catch (error) {
         console.error('Error fetching forecast data:', error);
@@ -82,23 +82,23 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
         setIsLoading(false);
       }
     };
-    
+
     fetchForecast();
   }, [hierarchySelections, timePeriodIds, mockTimePeriods]);
-  
+
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {
     if (!forecastData) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Create the adjustment in the service (which would normally save to backend)
       await createAdjustment(adjustment, forecastData);
-      
+
       // Clone the current forecast data
       const updatedForecast = { ...forecastData };
-      
+
       // Apply the adjustment to the baseline data
       const adjusted = forecastData.baseline.map(point => {
         // Skip if this time period is not in the adjustment
@@ -107,29 +107,29 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
           const existingAdjusted = forecastData.adjusted?.find(p => p.periodId === point.periodId);
           return existingAdjusted || { periodId: point.periodId, value: point.value };
         }
-        
+
         // Calculate the new value based on adjustment type
         let newValue: number;
-        
+
         if (adjustment.type === 'percentage') {
           newValue = point.value * (1 + adjustment.value / 100);
         } else { // absolute
           newValue = point.value + adjustment.value;
         }
-        
+
         // Ensure we don't go below zero
         newValue = Math.max(0, newValue);
-        
+
         return {
           periodId: point.periodId,
           value: Math.round(newValue),
         };
       });
-      
+
       // Update the forecast with the adjusted data
       updatedForecast.adjusted = adjusted;
       updatedForecast.lastUpdated = new Date().toISOString();
-      
+
       setForecastData(updatedForecast);
     } catch (error) {
       console.error('Error applying adjustment:', error);
@@ -138,24 +138,24 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       setIsLoading(false);
     }
   };
-  
+
   // Reset adjustments (return to baseline)
   const resetAdjustments = async (): Promise<void> => {
     if (!forecastData) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 400));
-      
+
       // Clone the current forecast data without adjustments
-      const updatedForecast = { 
+      const updatedForecast = {
         ...forecastData,
         adjusted: undefined,
         lastUpdated: new Date().toISOString(),
       };
-      
+
       setForecastData(updatedForecast);
     } catch (error) {
       console.error('Error resetting adjustments:', error);
@@ -164,23 +164,23 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       setIsLoading(false);
     }
   };
-  
+
   // Refresh forecast data
   const refreshForecast = async (): Promise<void> => {
     if (!forecastData) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // Small random adjustments to baseline to simulate refreshed data
       const refreshedBaseline = forecastData.baseline.map(point => ({
         periodId: point.periodId,
         value: Math.round(point.value * (0.97 + Math.random() * 0.06)),
       }));
-      
+
       // If we have adjustments, apply them to the new baseline
       let refreshedAdjusted;
       if (forecastData.adjusted) {
@@ -192,15 +192,15 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
           const originalAdjusted = forecastData.adjusted?.find(
             p => p.periodId === baselinePoint.periodId
           );
-          
+
           // If we don't have both original points, return the baseline
           if (!originalBaseline || !originalAdjusted) {
             return refreshedBaseline[index];
           }
-          
+
           // Calculate the adjustment factor from the original data
           const adjustmentFactor = originalAdjusted.value / originalBaseline.value;
-          
+
           // Apply the same factor to the refreshed baseline
           return {
             periodId: baselinePoint.periodId,
@@ -208,14 +208,14 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
           };
         });
       }
-      
+
       const refreshedForecast: ForecastSeries = {
         ...forecastData,
         baseline: refreshedBaseline,
         adjusted: refreshedAdjusted,
         lastUpdated: new Date().toISOString(),
       };
-      
+
       setForecastData(refreshedForecast);
     } catch (error) {
       console.error('Error refreshing forecast data:', error);
@@ -224,7 +224,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       setIsLoading(false);
     }
   };
-  
+
   return {
     isLoading,
     forecastData,

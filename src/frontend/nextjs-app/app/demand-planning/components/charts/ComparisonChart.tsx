@@ -33,18 +33,18 @@ export default function ComparisonChart({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipContent, setTooltipContent] = useState('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  
+
   // Process the data for D3
   const baselineDataset = createChartDataset(baselineData, timePeriods);
   const adjustedDataset = createChartDataset(adjustedData, timePeriods);
-  
+
   // Calculate percentage differences for the bar chart
   const comparisonDataset = baselineDataset.map(baseline => {
     const adjusted = adjustedDataset.find(d => d.periodId === baseline.periodId);
     if (!adjusted) return null;
-    
+
     const percentChange = calculatePercentageChange(baseline.value, adjusted.value);
-    
+
     return {
       periodId: baseline.periodId,
       date: baseline.date,
@@ -59,46 +59,46 @@ export default function ComparisonChart({
     adjustedValue: number;
     percentChange: number;
   }[];
-  
+
   // Get the period type from the first time period
   const periodType = timePeriods.length > 0 ? timePeriods[0].type : 'quarter';
-  
+
   // Handle rendering the chart
   useEffect(() => {
     if (!svgRef.current || comparisonDataset.length === 0) return;
-    
+
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove(); // Clear previous rendering
-    
+
     // Calculate inner dimensions
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
-    
+
     // Create main group
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
-    
+
     // Create scales
     const xScale = d3.scaleBand()
       .domain(comparisonDataset.map(d => formatDate(d.date, periodType)))
       .range([0, innerWidth])
       .padding(0.2);
-    
+
     // Find the max absolute percentage change to make the y-scale symmetric
     const maxChange = d3.max(comparisonDataset, d => Math.abs(d.percentChange)) || 10;
-    
+
     const yScale = d3.scaleLinear()
       .domain([-maxChange * 1.1, maxChange * 1.1])
       .range([innerHeight, 0])
       .nice();
-    
+
     // Create axes
     const xAxis = d3.axisBottom(xScale);
-    
+
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
       .tickFormat(d => `${d}%`);
-    
+
     // Add grid lines
     g.append('g')
       .attr('class', 'grid-lines')
@@ -114,7 +114,7 @@ export default function ComparisonChart({
       .attr('stroke-opacity', 0.5)
       .attr('stroke-width', 0.5)
       .attr('stroke-dasharray', '2,2');
-    
+
     // Add zero line with stronger emphasis
     g.append('line')
       .attr('x1', 0)
@@ -123,7 +123,7 @@ export default function ComparisonChart({
       .attr('y2', yScale(0))
       .attr('stroke', 'var(--dp-border-medium)')
       .attr('stroke-width', 1);
-    
+
     // Add axes
     g.append('g')
       .attr('class', 'x-axis')
@@ -135,13 +135,13 @@ export default function ComparisonChart({
       .attr('dx', '-.8em')
       .attr('dy', '.15em')
       .attr('transform', 'rotate(-35)');
-    
+
     g.append('g')
       .attr('class', 'y-axis')
       .call(yAxis)
       .selectAll('text')
       .attr('font-size', '10px');
-    
+
     // Add axis labels
     g.append('text')
       .attr('class', 'y-axis-label')
@@ -152,7 +152,7 @@ export default function ComparisonChart({
       .attr('font-size', '12px')
       .attr('fill', 'var(--dp-text-secondary)')
       .text('% Change from Baseline');
-    
+
     // Add bars
     const bars = g.selectAll('.bar')
       .data(comparisonDataset)
@@ -167,7 +167,7 @@ export default function ComparisonChart({
       .attr('rx', 2) // Rounded corners
       .attr('ry', 2)
       .style('cursor', 'pointer');
-    
+
     // Add tooltip interaction
     bars
       .on('mouseover', function(event, d) {
@@ -186,14 +186,14 @@ export default function ComparisonChart({
             </div>
           </div>
         `;
-        
+
         const xPosition = (xScale(formatDate(d.date, periodType)) || 0) + xScale.bandwidth() / 2 + margin.left;
         const yPosition = (d.percentChange >= 0 ? yScale(d.percentChange) : yScale(0)) + margin.top;
-        
+
         setTooltipContent(tooltipContent);
         setTooltipPosition({ x: xPosition, y: yPosition });
         setTooltipVisible(true);
-        
+
         d3.select(this)
           .attr('opacity', 0.8);
       })
@@ -202,7 +202,7 @@ export default function ComparisonChart({
         d3.select(this)
           .attr('opacity', 1);
       });
-    
+
     // Add labels for significant changes
     g.selectAll('.bar-label')
       .data(comparisonDataset.filter(d => Math.abs(d.percentChange) > 5))
@@ -210,15 +210,15 @@ export default function ComparisonChart({
       .append('text')
       .attr('class', 'bar-label')
       .attr('x', d => (xScale(formatDate(d.date, periodType)) || 0) + xScale.bandwidth() / 2)
-      .attr('y', d => d.percentChange >= 0 
-        ? yScale(d.percentChange) - 5 
+      .attr('y', d => d.percentChange >= 0
+        ? yScale(d.percentChange) - 5
         : yScale(d.percentChange) + 15
       )
       .attr('text-anchor', 'middle')
       .attr('font-size', '10px')
       .attr('fill', d => d.percentChange >= 0 ? 'var(--dp-ui-positive)' : 'var(--dp-ui-negative)')
       .text(d => `${d.percentChange >= 0 ? '+' : ''}${d.percentChange.toFixed(1)}%`);
-    
+
     // Add title
     g.append('text')
       .attr('class', 'chart-title')
@@ -229,9 +229,9 @@ export default function ComparisonChart({
       .attr('font-weight', '500')
       .attr('fill', 'var(--dp-text-primary)')
       .text('Forecast Adjustment Impact (%)');
-    
+
   }, [comparisonDataset, width, height, margin, periodType]);
-  
+
   return (
     <div className={`relative ${className}`}>
       <svg
@@ -240,7 +240,7 @@ export default function ComparisonChart({
         height={height}
         className="max-w-full bg-dp-surface-primary rounded-lg border border-dp-border-light"
       />
-      
+
       {/* Tooltip */}
       {tooltipVisible && (
         <div
