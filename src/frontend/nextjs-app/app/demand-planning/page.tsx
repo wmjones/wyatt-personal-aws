@@ -178,6 +178,8 @@ export default function DemandPlanningPage() {
                     <label key={period.id} className="flex items-center">
                       <input
                         type="checkbox"
+                        name={`time-period-${period.id}`}
+                        id={`time-period-${period.id}`}
                         checked={selectedTimePeriods.includes(period.id)}
                         onChange={e => {
                           if (e.target.checked) {

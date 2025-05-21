@@ -163,6 +163,8 @@ export default function ForecastCharts({
         <label className="flex items-center space-x-2 cursor-pointer">
           <input
             type="checkbox"
+            name="toggle-forecasted"
+            id="toggle-forecasted"
             className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
             checked={toggles.forecasted}
             onChange={() => handleToggle('forecasted')}
@@ -176,6 +178,8 @@ export default function ForecastCharts({
         <label className="flex items-center space-x-2 cursor-pointer">
           <input
             type="checkbox"
+            name="toggle-edited"
+            id="toggle-edited"
             className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
             checked={toggles.edited}
             onChange={() => handleToggle('edited')}
@@ -189,6 +193,8 @@ export default function ForecastCharts({
         <label className="flex items-center space-x-2 cursor-pointer">
           <input
             type="checkbox"
+            name="toggle-actual"
+            id="toggle-actual"
             className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
             checked={toggles.actual}
             onChange={() => handleToggle('actual')}
@@ -202,6 +208,8 @@ export default function ForecastCharts({
         <label className="flex items-center space-x-2 cursor-pointer">
           <input
             type="checkbox"
+            name="toggle-actual2024"
+            id="toggle-actual2024"
             className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
             checked={toggles.actual2024}
             onChange={() => handleToggle('actual2024')}
@@ -215,6 +223,8 @@ export default function ForecastCharts({
         <label className="flex items-center space-x-2 cursor-pointer">
           <input
             type="checkbox"
+            name="toggle-actual2023"
+            id="toggle-actual2023"
             className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4"
             checked={toggles.actual2023}
             onChange={() => handleToggle('actual2023')}
