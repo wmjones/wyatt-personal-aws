@@ -28,6 +28,8 @@ permissions:
 
 env:
   AWS_REGION: 'us-east-2'  # Update to match your AWS region
+  TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+  TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
 
 jobs:
   set-ssm-parameters:
@@ -93,6 +95,16 @@ jobs:
           aws sts get-caller-identity
           echo "AWS credentials configured successfully"
 
+      - name: Set Terraform Workspace
+        run: |
+          # Set TF_WORKSPACE based on environment
+          if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
+            echo "TF_WORKSPACE=wyatt-personal-aws-prod" >> $GITHUB_ENV
+          else
+            echo "TF_WORKSPACE=wyatt-personal-aws-dev" >> $GITHUB_ENV
+          fi
+          echo "Set TF_WORKSPACE to: $TF_WORKSPACE"
+
       - name: Get Terraform outputs
         id: terraform-outputs
         run: |
@@ -100,6 +112,7 @@ jobs:
 
           # Initialize Terraform to access state
           echo "Initializing Terraform..."
+          echo "Using workspace: $TF_WORKSPACE"
           if ! terraform init; then
             echo "❌ Error: Terraform init failed"
             exit 1
