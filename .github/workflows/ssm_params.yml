@@ -28,8 +28,8 @@ permissions:
 
 env:
   AWS_REGION: 'us-east-2'  # Update to match your AWS region
-  TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
   TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
+  TF_LOG: "INFO"
 
 jobs:
   set-ssm-parameters:
@@ -78,6 +78,7 @@ jobs:
         with:
           terraform_version: 1.6.0
           terraform_wrapper: false
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Validate Terraform Version
         run: |
