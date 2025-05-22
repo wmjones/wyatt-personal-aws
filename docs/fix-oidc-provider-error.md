@@ -1,8 +1,8 @@
-# Fix for IAM OIDC Provider Already Exists Error
+# Fix for OIDC Provider Already Exists Error
 
 ## Problem
 
-When running `terraform apply` from the main branch, you may encounter this error:
+When running `terraform apply` on the main branch, you may encounter this error:
 
 ```
 Error: creating IAM OIDC Provider: operation error IAM: CreateOpenIDConnectProvider,
@@ -11,24 +11,24 @@ EntityAlreadyExists: Provider with url https://token.actions.githubusercontent.c
 ```
 
 This happens because:
-1. OIDC providers are account-wide resources (not environment-specific)
-2. The provider was already created in a previous deployment
-3. Terraform doesn't know about the existing resource
+1. The GitHub Actions OIDC provider is an AWS account-wide resource
+2. It may have been created by another Terraform workspace or manually
+3. Terraform doesn't know about the existing resource in its state
 
 ## Solution
 
-### Option 1: Import Existing Provider (Recommended)
+### Option 1: Run the Fix Script (Recommended)
 
-Run the provided script to import the existing OIDC provider:
+We've provided a script that automatically handles the import:
 
 ```bash
 ./scripts/fix-oidc-provider.sh
 ```
 
 This script will:
-1. Check if the OIDC provider exists
-2. Import it into Terraform state for all workspaces
-3. Allow you to continue with terraform apply
+1. Check if the OIDC provider exists in your AWS account
+2. Import it into both dev and prod Terraform workspaces
+3. Verify the import was successful
 
 ### Option 2: Manual Import
 
@@ -44,40 +44,36 @@ If you prefer to import manually:
    cd main
    ```
 
-3. Import the OIDC provider:
+3. For each workspace, import the OIDC provider:
    ```bash
+   # For dev workspace
+   terraform workspace select wyatt-personal-aws-dev
+   terraform import aws_iam_openid_connect_provider.github_actions \
+     arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+
+   # For prod workspace
+   terraform workspace select wyatt-personal-aws-prod
    terraform import aws_iam_openid_connect_provider.github_actions \
      arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
    ```
 
-4. Run terraform plan to verify:
-   ```bash
-   terraform plan
-   ```
-
-### Option 3: Delete and Recreate
-
-If you want to start fresh (use with caution):
-
-1. Delete the existing OIDC provider:
-   ```bash
-   aws iam delete-open-id-connect-provider \
-     --open-id-connect-provider-arn arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
-   ```
-
-2. Run terraform apply:
-   ```bash
-   terraform apply
-   ```
-
 ## Prevention
 
-To prevent this issue in the future:
-- Always import existing account-wide resources before applying
-- Consider using data sources for shared resources
-- Document which resources are account-wide vs environment-specific
+The `github_actions_oidc.tf` file includes:
+- Clear documentation about this being an account-wide resource
+- Instructions for importing if the resource already exists
+- A lifecycle rule to prevent accidental recreation
 
-## Related Files
+## Verification
 
-- `main/github_actions_oidc.tf` - The OIDC provider configuration
-- `scripts/fix-oidc-provider.sh` - Automated fix script
+After running the fix:
+
+1. Run `terraform plan` to ensure no changes are needed for the OIDC provider
+2. The plan should show no changes for `aws_iam_openid_connect_provider.github_actions`
+3. You can proceed with `terraform apply` for other resources
+
+## Notes
+
+- The OIDC provider is shared across all environments in your AWS account
+- The thumbprint values are AWS-provided and shouldn't be changed
+- The IAM roles are environment-specific (dev/prod) even though the provider is shared

@@ -13,5 +13,9 @@ terraform {
     #
     # NOTE: While we use tag-based selection here for flexibility,
     # the CI/CD pipeline explicitly sets the workspace name
+
+    workspaces {
+      tags = ["wyatt-personal-aws"]
+    }
   }
 }

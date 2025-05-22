@@ -9,8 +9,11 @@ locals {
 }
 
 # Create the OIDC Provider for GitHub Actions
-# NOTE: This is an account-wide resource. If it already exists, you need to import it:
-# terraform import aws_iam_openid_connect_provider.github_actions arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+# NOTE: This is an account-wide resource shared across all environments.
+# If you get an "EntityAlreadyExists" error, the provider already exists in your account.
+# You can either:
+# 1. Import it: terraform import aws_iam_openid_connect_provider.github_actions arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+# 2. Or run the fix-oidc-provider.sh script which will handle the import automatically
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
@@ -23,6 +26,12 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
     Name        = "GitHub-Actions-OIDC-Provider"
     Environment = var.environment
     Component   = "CI/CD"
+  }
+
+  lifecycle {
+    # This prevents Terraform from trying to recreate the resource if it already exists
+    # The OIDC provider is account-wide and shared across all environments
+    create_before_destroy = false
   }
 }
 
