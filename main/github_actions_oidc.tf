@@ -8,13 +8,18 @@ locals {
   allowed_branches = ["main", "dev"] # Branches allowed to assume the role
 }
 
-# Create the OIDC Provider for GitHub Actions
+# Try to read existing OIDC provider (might not exist)
+data "aws_iam_openid_connect_provider" "github_actions_existing" {
+  count = var.environment == "prod" ? 1 : 0
+  arn   = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+}
+
+# Create the OIDC Provider for GitHub Actions ONLY in dev environment
 # NOTE: This is an account-wide resource shared across all environments.
-# If you get an "EntityAlreadyExists" error, the provider already exists in your account.
-# You can either:
-# 1. Import it: terraform import aws_iam_openid_connect_provider.github_actions arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
-# 2. Or run the fix-oidc-provider.sh script which will handle the import automatically
+# We create it only in dev to avoid conflicts when both environments try to create it.
 resource "aws_iam_openid_connect_provider" "github_actions" {
+  count = var.environment == "dev" ? 1 : 0
+
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
@@ -24,15 +29,15 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
 
   tags = {
     Name        = "GitHub-Actions-OIDC-Provider"
-    Environment = var.environment
+    Environment = "shared"
     Component   = "CI/CD"
+    ManagedBy   = "dev-environment"
   }
+}
 
-  lifecycle {
-    # This prevents Terraform from trying to recreate the resource if it already exists
-    # The OIDC provider is account-wide and shared across all environments
-    create_before_destroy = false
-  }
+# Local to get the OIDC provider ARN regardless of which environment we're in
+locals {
+  oidc_provider_arn = var.environment == "dev" ? aws_iam_openid_connect_provider.github_actions[0].arn : data.aws_iam_openid_connect_provider.github_actions_existing[0].arn
 }
 
 # IAM Role for GitHub Actions with necessary permissions
@@ -46,7 +51,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github_actions.arn
+          Federated = local.oidc_provider_arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -154,5 +159,5 @@ output "github_actions_role_arn" {
 
 output "github_actions_oidc_provider_arn" {
   description = "ARN of the GitHub Actions OIDC provider"
-  value       = aws_iam_openid_connect_provider.github_actions.arn
+  value       = local.oidc_provider_arn
 }
