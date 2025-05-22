@@ -1,6 +1,16 @@
 name: Configure SSM Parameters for Deployment
 
 on:
+  # Trigger automatically after successful Terraform apply
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+
+  # Keep manual trigger option for testing
   workflow_dispatch:
     inputs:
       environment:
@@ -14,30 +24,87 @@ on:
 
 permissions:
   contents: read   # Required for actions/checkout
+  id-token: write  # Required for OIDC authentication
 
 env:
   AWS_REGION: 'us-east-2'  # Update to match your AWS region
+  TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
+  TF_LOG: "INFO"
 
 jobs:
   set-ssm-parameters:
     name: Set SSM Parameters
     runs-on: ubuntu-latest
+    # Only run if manually triggered OR if Terraform apply was successful
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
     steps:
+      - name: Determine Environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "Manual trigger - Environment: ${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # Determine environment based on the branch that triggered Terraform apply
+            if [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+              echo "environment=prod" >> $GITHUB_OUTPUT
+              echo "Auto trigger from main branch - Environment: prod"
+            else
+              echo "environment=dev" >> $GITHUB_OUTPUT
+              echo "Auto trigger from dev branch - Environment: dev"
+            fi
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # For workflow_run events, checkout the triggering branch
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Use dynamic role ARN construction with AWS_ACCOUNT_ID secret
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-oidc-role-${{ steps.env.outputs.environment }}
+          role-session-name: GitHubActionsDeployment
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.0
+          terraform_version: 1.6.0
           terraform_wrapper: false
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Validate Terraform Version
+        run: |
+          TERRAFORM_VERSION=$(terraform version -json | jq -r '.terraform_version')
+          echo "Using Terraform version: $TERRAFORM_VERSION"
+          if ! terraform version | grep -q "v1\.[6-9]\|v[2-9]"; then
+            echo "❌ Error: Terraform version >= 1.6.0 is required but found $TERRAFORM_VERSION"
+            exit 1
+          fi
+          echo "✅ Terraform version check passed"
+
+      - name: Verify AWS Identity
+        run: |
+          echo "Verifying AWS credentials..."
+          aws sts get-caller-identity
+          echo "AWS credentials configured successfully"
+
+      - name: Set Terraform Workspace
+        run: |
+          # Set TF_WORKSPACE based on environment
+          if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
+            echo "TF_WORKSPACE=wyatt-personal-aws-prod" >> $GITHUB_ENV
+          else
+            echo "TF_WORKSPACE=wyatt-personal-aws-dev" >> $GITHUB_ENV
+          fi
+          echo "Set TF_WORKSPACE to: $TF_WORKSPACE"
 
       - name: Get Terraform outputs
         id: terraform-outputs
@@ -45,14 +112,37 @@ jobs:
           cd main
 
           # Initialize Terraform to access state
-          terraform init
+          echo "Initializing Terraform..."
+          echo "Using workspace: $TF_WORKSPACE"
+          if ! terraform init; then
+            echo "❌ Error: Terraform init failed"
+            exit 1
+          fi
+          echo "✅ Terraform initialized successfully"
 
-          # Check if we can get Cognito User Pool ID directly from Terraform
+          # Verify terraform state is accessible
+          echo "Checking Terraform state..."
+          if ! terraform show >/dev/null 2>&1; then
+            echo "❌ Error: Cannot access Terraform state. Ensure Terraform apply completed successfully."
+            exit 1
+          fi
+          echo "✅ Terraform state accessible"
+
+          # Get outputs with error handling
+          echo "Retrieving Terraform outputs..."
           USER_POOL_ID=$(terraform output -raw cognito_user_pool_id 2>/dev/null || echo "")
           CLIENT_ID=$(terraform output -raw cognito_client_id 2>/dev/null || echo "")
           API_ENDPOINT=$(terraform output -raw api_endpoint 2>/dev/null || echo "")
           FRONTEND_BUCKET=$(terraform output -raw website_bucket_name 2>/dev/null || echo "")
           CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+
+          # Log what was found
+          echo "Terraform outputs retrieved:"
+          echo "  - User Pool ID: ${USER_POOL_ID:-'(not found)'}"
+          echo "  - Client ID: ${CLIENT_ID:-'(not found)'}"
+          echo "  - API Endpoint: ${API_ENDPOINT:-'(not found)'}"
+          echo "  - Frontend Bucket: ${FRONTEND_BUCKET:-'(not found)'}"
+          echo "  - CloudFront ID: ${CLOUDFRONT_ID:-'(not found)'}"
 
           # Store the values
           echo "user_pool_id=${USER_POOL_ID}" >> $GITHUB_OUTPUT
@@ -67,14 +157,14 @@ jobs:
           if [ -n "${{ steps.terraform-outputs.outputs.frontend_bucket }}" ]; then
             BUCKET_NAME="${{ steps.terraform-outputs.outputs.frontend_bucket }}"
           else
-            BUCKET_NAME=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'wyatt-personal-aws-${{ github.event.inputs.environment }}-app')].Name | [0]" --output text)
+            BUCKET_NAME=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'wyatt-personal-aws-${{ steps.env.outputs.environment }}-app')].Name | [0]" --output text)
           fi
 
           echo "Found bucket: $BUCKET_NAME"
 
           # Store bucket name in SSM Parameter Store
           aws ssm put-parameter \
-            --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/frontend_bucket_name" \
+            --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/frontend_bucket_name" \
             --value "$BUCKET_NAME" \
             --type "String" \
             --overwrite
@@ -88,7 +178,7 @@ jobs:
             CF_ID="${{ steps.terraform-outputs.outputs.cloudfront_id }}"
           else
             # Get bucket name for lookup
-            BUCKET_NAME=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/frontend_bucket_name" --query "Parameter.Value" --output text)
+            BUCKET_NAME=$(aws ssm get-parameter --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/frontend_bucket_name" --query "Parameter.Value" --output text)
 
             # Find CloudFront distribution that has our bucket as origin
             BUCKET_DOMAIN=$(aws s3api get-bucket-location --bucket "$BUCKET_NAME" --query "join('.', ['s3', LocationConstraint])" --output text)
@@ -109,7 +199,7 @@ jobs:
 
             # Store CloudFront ID in SSM Parameter Store
             aws ssm put-parameter \
-              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cloudfront_id" \
+              --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/cloudfront_id" \
               --value "$CF_ID" \
               --type "String" \
               --overwrite
@@ -128,7 +218,7 @@ jobs:
 
             # Store User Pool ID in SSM Parameter Store
             aws ssm put-parameter \
-              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cognito_user_pool_id" \
+              --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/cognito_user_pool_id" \
               --value "$USER_POOL_ID" \
               --type "String" \
               --overwrite
@@ -145,7 +235,7 @@ jobs:
 
             # Store Client ID in SSM Parameter Store
             aws ssm put-parameter \
-              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/cognito_client_id" \
+              --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/cognito_client_id" \
               --value "$CLIENT_ID" \
               --type "String" \
               --overwrite
@@ -164,7 +254,7 @@ jobs:
 
             # Store API Endpoint in SSM Parameter Store
             aws ssm put-parameter \
-              --name "/wyatt-personal-aws-${{ github.event.inputs.environment }}/api_endpoint" \
+              --name "/wyatt-personal-aws-${{ steps.env.outputs.environment }}/api_endpoint" \
               --value "$API_ENDPOINT" \
               --type "String" \
               --overwrite
@@ -173,3 +263,16 @@ jobs:
           else
             echo "No API Endpoint found from Terraform outputs"
           fi
+
+      - name: Deployment Summary
+        run: |
+          echo "## SSM Parameters Configuration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "- **Triggered by**: ${{ github.event.workflow_run.name }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source branch**: ${{ github.event.workflow_run.head_branch }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **Timestamp**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ SSM parameters updated successfully for **${{ steps.env.outputs.environment }}** environment" >> $GITHUB_STEP_SUMMARY

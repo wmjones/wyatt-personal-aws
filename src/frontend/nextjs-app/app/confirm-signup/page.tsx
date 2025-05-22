@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 // import { useAuth } from '../context/AuthContext';
@@ -8,7 +8,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { authService } from '../services/auth';
 
-export default function ConfirmSignUpPage() {
+// Component that uses useSearchParams
+function ConfirmSignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
@@ -143,5 +144,14 @@ export default function ConfirmSignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Page Component with Suspense boundary
+export default function ConfirmSignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>}>
+      <ConfirmSignUpContent />
+    </Suspense>
   );
 }

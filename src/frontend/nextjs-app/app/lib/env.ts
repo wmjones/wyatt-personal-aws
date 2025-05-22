@@ -50,6 +50,12 @@ const requiredVariables = {
 
 // Validate required environment variables
 export function validateEnv() {
+  // Skip validation during Next.js static analysis/build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    console.warn('Skipping environment validation during build phase');
+    return;
+  }
+
   const env = process.env.NODE_ENV as keyof typeof requiredVariables;
   const required = requiredVariables[env] || requiredVariables.development;
 
@@ -72,6 +78,11 @@ export function validateEnv() {
 // Helper function to get typed environment variable
 export function getEnvVar<K extends keyof EnvSchema>(key: K): EnvSchema[K] {
   const value = envSchema[key];
+
+  // Skip validation during Next.js static analysis/build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return value as EnvSchema[K];
+  }
 
   // On client-side, only validate public variables
   if (typeof window !== 'undefined') {

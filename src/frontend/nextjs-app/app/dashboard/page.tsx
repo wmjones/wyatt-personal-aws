@@ -43,7 +43,7 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Welcome back!</h2>
 
             <div className="space-y-2">
@@ -60,7 +60,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Your Visualizations</h3>
               <p className="text-muted-foreground">
                 Create and manage your D3.js visualizations here.
@@ -70,7 +70,7 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Account Settings</h3>
               <p className="text-muted-foreground">
                 Manage your profile and preferences.

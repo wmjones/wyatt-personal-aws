@@ -151,7 +151,6 @@ module "visualization_data_bucket" {
 
 # Policy document for access by authenticated users
 # Used to manage bucket access policies for visualization data
-data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "visualization_data_policy" {
   # Allow authenticated users to access their own objects

@@ -18,6 +18,7 @@ on:
 
 env:
   TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
+  TF_LOG: "INFO"
   TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
 
 jobs:
@@ -43,28 +44,45 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
+      - name: Initialize Terraform
+        run: |
+          cd main
+          echo "Initializing Terraform..."
+          terraform init
+
       - name: Check Development Workspace
         if: ${{ github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'all' || github.event_name == 'schedule' }}
         env:
           TF_WORKSPACE: "wyatt-personal-aws-dev"
         run: |
           cd main
-          terraform init
-          terraform workspace select $TF_WORKSPACE
+
+          # Validate workspace exists
+          echo "Validating workspace: wyatt-personal-aws-dev"
+          if ! terraform workspace list | grep -q "wyatt-personal-aws-dev"; then
+            echo "ERROR: Workspace 'wyatt-personal-aws-dev' not found in Terraform Cloud"
+            echo "Available workspaces:"
+            terraform workspace list
+            exit 1
+          fi
+
+          echo "Using workspace: $TF_WORKSPACE"
 
           # Run drift detection
-          if terraform plan -var-file=environments/dev.tfvars -detailed-exitcode -no-color > /tmp/drift-dev.txt 2>&1; then
-            echo "No drift detected in development"
+          echo "Running drift detection for development environment..."
+          PLAN_EXIT_CODE=0
+          terraform plan -var-file=environments/dev.tfvars -detailed-exitcode -no-color > /tmp/drift-dev.txt 2>&1 || PLAN_EXIT_CODE=$?
+
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✅ No drift detected in development"
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "⚠️ Drift detected in development!"
+            cat /tmp/drift-dev.txt
+            echo "drift_detected_dev=true" >> $GITHUB_ENV
           else
-            if [ $? -eq 2 ]; then
-              echo "Drift detected in development!"
-              cat /tmp/drift-dev.txt
-              echo "drift_detected_dev=true" >> $GITHUB_ENV
-            else
-              echo "Error checking development workspace"
-              cat /tmp/drift-dev.txt
-              exit 1
-            fi
+            echo "❌ Error checking development workspace (exit code: $PLAN_EXIT_CODE)"
+            cat /tmp/drift-dev.txt
+            exit 1
           fi
 
       - name: Check Production Workspace
@@ -73,22 +91,33 @@ jobs:
           TF_WORKSPACE: "wyatt-personal-aws-prod"
         run: |
           cd main
-          terraform init
-          terraform workspace select $TF_WORKSPACE
+
+          # Validate workspace exists
+          echo "Validating workspace: wyatt-personal-aws-prod"
+          if ! terraform workspace list | grep -q "wyatt-personal-aws-prod"; then
+            echo "ERROR: Workspace 'wyatt-personal-aws-prod' not found in Terraform Cloud"
+            echo "Available workspaces:"
+            terraform workspace list
+            exit 1
+          fi
+
+          echo "Using workspace: $TF_WORKSPACE"
 
           # Run drift detection
-          if terraform plan -var-file=environments/prod.tfvars -detailed-exitcode -no-color > /tmp/drift-prod.txt 2>&1; then
-            echo "No drift detected in production"
+          echo "Running drift detection for production environment..."
+          PLAN_EXIT_CODE=0
+          terraform plan -var-file=environments/prod.tfvars -detailed-exitcode -no-color > /tmp/drift-prod.txt 2>&1 || PLAN_EXIT_CODE=$?
+
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✅ No drift detected in production"
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "⚠️ CRITICAL: Drift detected in production!"
+            cat /tmp/drift-prod.txt
+            echo "drift_detected_prod=true" >> $GITHUB_ENV
           else
-            if [ $? -eq 2 ]; then
-              echo "Drift detected in production!"
-              cat /tmp/drift-prod.txt
-              echo "drift_detected_prod=true" >> $GITHUB_ENV
-            else
-              echo "Error checking production workspace"
-              cat /tmp/drift-prod.txt
-              exit 1
-            fi
+            echo "❌ Error checking production workspace (exit code: $PLAN_EXIT_CODE)"
+            cat /tmp/drift-prod.txt
+            exit 1
           fi
 
       - name: Create Drift Report Issue
