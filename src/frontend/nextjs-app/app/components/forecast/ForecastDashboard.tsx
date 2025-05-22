@@ -1,22 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAthenaQuery } from '@/app/hooks/useAthenaQuery';
+import { useState } from 'react';
+import { useAthenaQuery } from '../../hooks/useForecastData';
 import ForecastChart from './ForecastChart';
 import ForecastSummary from './ForecastSummary';
-
-interface ForecastData {
-  state: string;
-  record_count: number;
-  avg_forecast: number;
-  min_forecast: number;
-  max_forecast: number;
-}
-
-interface DateForecast {
-  business_date: string;
-  avg_forecast: number;
-}
 
 /**
  * Forecast Dashboard Component
@@ -29,34 +16,70 @@ export default function ForecastDashboard() {
   const [startDate, setStartDate] = useState<string>('2024-01-01');
   const [endDate, setEndDate] = useState<string>('2024-12-31');
 
+  // Query to get aggregated forecast data by date
+  const aggregatedQuery = `
+    SELECT
+      business_date,
+      SUM(y_05) as y_05,
+      SUM(y_50) as y_50,
+      SUM(y_95) as y_95
+    FROM forecast
+    WHERE business_date BETWEEN '${startDate}' AND '${endDate}'
+    ${selectedState ? `AND state = '${selectedState}'` : ''}
+    GROUP BY business_date
+    ORDER BY business_date
+  `;
+
+  // Query to get summary statistics
+  const summaryQuery = `
+    SELECT
+      state,
+      COUNT(*) as record_count,
+      AVG(y_50) as avg_forecast,
+      MIN(y_05) as min_forecast,
+      MAX(y_95) as max_forecast
+    FROM forecast
+    WHERE business_date BETWEEN '${startDate}' AND '${endDate}'
+    GROUP BY state
+    ORDER BY state
+  `;
+
   // Use Athena query hooks
-  const summaryQuery = useAthenaQuery<ForecastData>();
-  const dateQuery = useAthenaQuery<DateForecast>();
+  const {
+    data: aggregatedData,
+    loading: aggregatedLoading,
+    error: aggregatedError,
+    refetch: refetchAggregated
+  } = useAthenaQuery(aggregatedQuery);
 
-  // Load forecast summary on component mount
-  useEffect(() => {
-    summaryQuery.getForecastData();
-  }, [summaryQuery]);
+  const {
+    data: summaryData,
+    loading: summaryLoading,
+    error: summaryError,
+    refetch: refetchSummary
+  } = useAthenaQuery(summaryQuery);
 
-  // Load date-based forecast when filter changes
-  useEffect(() => {
-    if (startDate) {
-      dateQuery.getForecastByDateRange(startDate, endDate, selectedState);
-    }
-  }, [selectedState, startDate, endDate, dateQuery]);
+  // Transform aggregated data for the chart
+  const chartData = aggregatedData ? aggregatedData.rows.map((row) => ({
+    business_date: row[0],
+    y_05: parseFloat(row[1]),
+    y_50: parseFloat(row[2]),
+    y_95: parseFloat(row[3])
+  })) : [];
 
-  // Handle state selection
-  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedState(e.target.value);
-  };
+  // Transform summary data
+  const summaryTableData = summaryData ? summaryData.rows.map((row) => ({
+    state: row[0],
+    record_count: parseInt(row[1], 10),
+    avg_forecast: parseFloat(row[2]),
+    min_forecast: parseFloat(row[3]),
+    max_forecast: parseFloat(row[4])
+  })) : [];
 
-  // Handle date range changes
-  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setStartDate(e.target.value);
-  };
-
-  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEndDate(e.target.value);
+  // Handle refresh
+  const handleRefresh = () => {
+    refetchAggregated();
+    refetchSummary();
   };
 
   return (
@@ -65,18 +88,18 @@ export default function ForecastDashboard() {
         <h2 className="text-2xl font-bold mb-4">Forecast Dashboard</h2>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               State
             </label>
             <select
               value={selectedState}
-              onChange={handleStateChange}
+              onChange={(e) => setSelectedState(e.target.value)}
               className="w-full rounded-md border border-gray-300 py-2 px-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All States</option>
-              {summaryQuery.data.map((item) => (
+              {summaryTableData.map((item) => (
                 <option key={item.state} value={item.state}>
                   {item.state}
                 </option>
@@ -91,7 +114,7 @@ export default function ForecastDashboard() {
             <input
               type="date"
               value={startDate}
-              onChange={handleStartDateChange}
+              onChange={(e) => setStartDate(e.target.value)}
               className="w-full rounded-md border border-gray-300 py-2 px-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -103,36 +126,44 @@ export default function ForecastDashboard() {
             <input
               type="date"
               value={endDate}
-              onChange={handleEndDateChange}
+              onChange={(e) => setEndDate(e.target.value)}
               className="w-full rounded-md border border-gray-300 py-2 px-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={handleRefresh}
+              disabled={aggregatedLoading || summaryLoading}
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {aggregatedLoading || summaryLoading ? 'Loading...' : 'Refresh'}
+            </button>
           </div>
         </div>
 
         {/* Loading/Error States */}
-        {(summaryQuery.loading || dateQuery.loading) && (
+        {(aggregatedLoading || summaryLoading) && (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         )}
 
-        {(summaryQuery.error || dateQuery.error) && (
+        {(aggregatedError || summaryError) && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
             <p className="text-red-700">
-              {summaryQuery.error?.message || dateQuery.error?.message || 'An error occurred loading forecast data'}
+              {aggregatedError?.message || summaryError?.message || 'An error occurred loading forecast data'}
             </p>
           </div>
         )}
 
         {/* Data Visualizations */}
-        {!summaryQuery.loading && !summaryQuery.error && summaryQuery.data.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ForecastSummary data={summaryQuery.data} selectedState={selectedState} />
+        {!aggregatedLoading && !aggregatedError && chartData.length > 0 && (
+          <ForecastChart data={chartData} />
+        )}
 
-            {!dateQuery.loading && !dateQuery.error && dateQuery.data.length > 0 && (
-              <ForecastChart data={dateQuery.data} />
-            )}
-          </div>
+        {!summaryLoading && !summaryError && summaryTableData.length > 0 && (
+          <ForecastSummary data={summaryTableData} selectedState={selectedState} />
         )}
       </div>
     </div>

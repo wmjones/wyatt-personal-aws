@@ -38,7 +38,7 @@ export default function DemandPlanningPage() {
     ]);
 
     console.log("Page component mount - initial time periods:", selectedTimePeriods);
-  }, []);
+  }, [selectedTimePeriods]);
 
   // Fetch forecast data based on selections
   const {

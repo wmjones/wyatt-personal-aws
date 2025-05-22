@@ -107,7 +107,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
     });
 
     fetchForecast();
-  }, [fetchForecast]);
+  }, [fetchForecast, hierarchySelections, timePeriodIds]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {
