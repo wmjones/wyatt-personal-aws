@@ -9,6 +9,8 @@ locals {
 }
 
 # Create the OIDC Provider for GitHub Actions
+# NOTE: This is an account-wide resource. If it already exists, you need to import it:
+# terraform import aws_iam_openid_connect_provider.github_actions arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
