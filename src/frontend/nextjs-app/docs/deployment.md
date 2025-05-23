@@ -112,12 +112,10 @@ The `vercel.json` file configures:
       "maxDuration": 30
     }
   },
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "DATABASE_URL_UNPOOLED": "@database_url_unpooled"
-  }
 }
 ```
+
+**Note:** Environment variables are configured directly in Vercel Dashboard, not in vercel.json.
 
 ## Custom Domain
 
@@ -168,6 +166,16 @@ The `vercel.json` file configures:
    - Ensure `DATABASE_URL` and `DATABASE_URL_UNPOOLED` are set in Vercel
    - Verify Neon database is accessible from Vercel's regions
    - Check for connection pool limits
+
+6. **Environment Variable Secret Errors**
+   - Don't use `@secret_name` syntax in vercel.json
+   - Configure environment variables directly in Vercel Dashboard
+   - Ensure variables are set for all environments (Production, Preview, Development)
+
+7. **Next.js Detection Errors**
+   - Verify Root Directory is set to `src/frontend/nextjs-app`
+   - Ensure package.json contains Next.js in dependencies
+   - Clear build cache in Vercel project settings if needed
 
 ### Debug Mode
 
