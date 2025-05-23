@@ -17,6 +17,10 @@
     "context7": {
       "command": "/usr/local/bin/npx",
       "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "Neon": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.neon.tech/sse"]
     }
   }
 }
