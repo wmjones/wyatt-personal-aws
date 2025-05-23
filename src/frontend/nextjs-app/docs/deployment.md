@@ -2,6 +2,12 @@
 
 This guide explains how to deploy the D3 Dashboard to Vercel.
 
+## ⚠️ Important: Single Project Deployment
+
+This project is configured for **single deployment** from the Next.js application directory (`src/frontend/nextjs-app/`).
+
+**Previous Issue Resolved**: The repository previously had duplicate Vercel deployments due to multiple `vercel.json` files. This has been cleaned up to ensure only one deployment per PR.
+
 ## Prerequisites
 
 1. A GitHub account with the repository
@@ -88,9 +94,30 @@ Vercel automatically deploys:
 The `vercel.json` file configures:
 - Build settings
 - Environment variable mappings
-- Function timeouts
+- Function timeouts (30s for API functions)
 - Headers and redirects
 - Region selection
+- Ignore command for conditional builds
+
+### Current Configuration
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD .",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "DATABASE_URL_UNPOOLED": "@database_url_unpooled"
+  }
+}
+```
 
 ## Custom Domain
 
@@ -117,20 +144,30 @@ The `vercel.json` file configures:
 
 ### Common Issues
 
-1. **Build Failures**
+1. **Multiple Deployments per PR** (RESOLVED)
+   - ✅ **Fixed**: Removed duplicate `vercel.json` files
+   - ✅ **Result**: Only one deployment per PR now
+   - If you still see duplicates, verify no `vercel.json` exists at repository root
+
+2. **Build Failures**
    - Check build logs
    - Verify all dependencies are listed in package.json
    - Ensure environment variables are set
 
-2. **Environment Variables Not Loading**
+3. **Environment Variables Not Loading**
    - Verify variable names match exactly
    - Check variable scopes
    - Restart deployment after changes
 
-3. **Function Timeouts**
-   - Adjust timeout in vercel.json
+4. **Function Timeouts**
+   - Adjust timeout in vercel.json (currently set to 30s)
    - Optimize long-running operations
    - Consider using Edge Functions
+
+5. **Database Connection Issues**
+   - Ensure `DATABASE_URL` and `DATABASE_URL_UNPOOLED` are set in Vercel
+   - Verify Neon database is accessible from Vercel's regions
+   - Check for connection pool limits
 
 ### Debug Mode
 

@@ -1,0 +1,41 @@
+
+> nextjs-app@0.1.0 build
+> next build
+
+   ▲ Next.js 15.3.2
+   - Environments: .env.local, .env.production, .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 7.0s
+   Linting and checking validity of types ...
+
+Failed to compile.
+
+./app/api/forecast/cache/route.ts
+10:22  Error: 'QueryFilters' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/lib/cache-utils.ts
+75:17  Error: '_' is defined but never used.  @typescript-eslint/no-unused-vars
+87:20  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+
+./app/lib/postgres.ts
+57:33  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+59:12  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+73:43  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+75:12  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/services/cacheService.ts
+14:26  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+88:11  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+110:11  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/services/hybridForecastService.ts
+10:36  Error: 'CACHE_CONFIG' is defined but never used.  @typescript-eslint/no-unused-vars
+15:26  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+356:31  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+360:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+395:65  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+397:68  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+418:72  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules

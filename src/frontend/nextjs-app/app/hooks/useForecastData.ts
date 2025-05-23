@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { athenaService, ForecastSummary, ForecastByDate } from '../services/athenaService';
+import { hybridForecastService } from '../services/hybridForecastService';
+import { ForecastSummary, ForecastByDate } from '../services/athenaService';
 
 interface UseForecastDataOptions {
   autoFetch?: boolean;
@@ -28,7 +29,7 @@ export function useForecastSummary(
     setError(null);
 
     try {
-      const result = await athenaService.getForecastSummary(state);
+      const result = await hybridForecastService.getForecastSummary(state);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch forecast summary'));
@@ -75,7 +76,7 @@ export function useForecastByDate(
     setError(null);
 
     try {
-      const result = await athenaService.getForecastByDate(startDate, endDate, state);
+      const result = await hybridForecastService.getForecastByDate(startDate, endDate, state);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch forecast data'));
@@ -122,7 +123,7 @@ export function useForecastData(
     setError(null);
 
     try {
-      const result = await athenaService.getForecastData(filters);
+      const result = await hybridForecastService.getForecastData(filters);
       setData(result.data);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch forecast data'));
@@ -164,7 +165,7 @@ export function useAthenaQuery(
     setError(null);
 
     try {
-      const result = await athenaService.executeQuery(customQuery);
+      const result = await hybridForecastService.executeQuery(customQuery);
       setData(result.data);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to execute query'));

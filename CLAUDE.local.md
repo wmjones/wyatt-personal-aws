@@ -28,6 +28,7 @@
 - Only create custom code when necessary or when existing solutions don't meet requirements
 - Prioritize well-maintained, popular packages with good documentation
 - Keep solutions simple and maintainable by leveraging community packages
+- dont create backup of files when refactoring or cleaning up the codebase. rely on git for versioning.
 
 ## Project Context
 

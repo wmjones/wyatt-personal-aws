@@ -8,38 +8,37 @@
    Creating an optimized production build ...
  ✓ Compiled successfully in 9.0s
    Linting and checking validity of types ...
-
-./app/demand-planning/hooks/useForecast.ts
-110:6  Warning: React Hook useEffect has missing dependencies: 'hierarchySelections' and 'timePeriodIds'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
-
-./app/demand-planning/page.tsx
-41:6  Warning: React Hook useEffect has a missing dependency: 'selectedTimePeriods'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
-
-info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
    Collecting page data ...
-   Generating static pages (0/16) ...
 Skipping environment validation during build phase
-   Generating static pages (4/16)
-   Generating static pages (8/16)
-   Generating static pages (12/16)
- ✓ Generating static pages (16/16)
+Skipping environment validation during build phase
+   Generating static pages (0/19) ...
+Skipping environment validation during build phase
+Skipping environment validation during build phase
+   Generating static pages (4/19)
+Cache metric [system] service_started: { timestamp: 2025-05-23T12:31:50.864Z }
+   Generating static pages (9/19)
+   Generating static pages (14/19)
+ ✓ Generating static pages (19/19)
    Finalizing page optimization ...
    Collecting build traces ...
 
 Route (app)                                 Size  First Load JS
 ┌ ○ /                                      178 B         105 kB
-├ ○ /_not-found                            142 B         101 kB
+├ ○ /_not-found                            147 B         101 kB
 ├ ○ /about                                 178 B         105 kB
+├ ƒ /api/data/athena                       147 B         101 kB
+├ ƒ /api/forecast/cache                    147 B         101 kB
 ├ ○ /confirm-signup                      1.78 kB         142 kB
 ├ ○ /dashboard                           2.02 kB         139 kB
 ├ ○ /demand-planning                     13.3 kB         140 kB
 ├ ○ /demo                                2.29 kB         129 kB
+├ ○ /forecast                            7.45 kB         161 kB
 ├ ○ /forgot-password                     1.79 kB         142 kB
 ├ ○ /login                               2.26 kB         142 kB
-├ ○ /robots.txt                            142 B         101 kB
+├ ○ /robots.txt                            147 B         101 kB
 ├ ○ /signup                              2.37 kB         142 kB
-├ ○ /sitemap.xml                           142 B         101 kB
-└ ○ /visualizations                      4.44 kB         158 kB
+├ ○ /sitemap.xml                           147 B         101 kB
+└ ○ /visualizations                      4.98 kB         158 kB
 + First Load JS shared by all             101 kB
   ├ chunks/4bd1b696-149fce6f7a3432d9.js  53.2 kB
   ├ chunks/684-8583fd9dd4ce5cf4.js       45.9 kB
@@ -48,4 +47,5 @@ Route (app)                                 Size  First Load JS
 
 ƒ Middleware                             32.6 kB
 
-○  (Static)  prerendered as static content
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
