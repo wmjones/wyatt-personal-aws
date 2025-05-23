@@ -261,28 +261,7 @@ export default function TimeSeriesChart({
         .attr('r', 4)
         .attr('fill', 'var(--dp-chart-forecasted)')
         .attr('stroke', '#FFFFFF')
-        .attr('stroke-width', 1.5)
-        .style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          d3.select(this).attr('r', 6);
-
-          setTooltipContent(`<div class="p-3">
-            <div class="font-medium text-gray-900 text-sm">y_50 (Median)</div>
-            <div class="text-gray-500 text-xs mt-1">${formatDate(d.date as Date, periodType)}</div>
-            <div class="text-base font-semibold mt-1 text-gray-900">$${formatNumber(d.value)}k</div>
-          </div>`);
-
-          setTooltipPosition({
-            x: xScale(d.date) + margin.left,
-            y: yScale(d.value) + margin.top - 15
-          });
-
-          setTooltipVisible(true);
-        })
-        .on('mouseout', function() {
-          d3.select(this).attr('r', 4);
-          setTooltipVisible(false);
-        });
+        .attr('stroke-width', 1.5);
     }
 
     // 4. Actual data (blue line) - if enabled
@@ -319,6 +298,121 @@ export default function TimeSeriesChart({
         .attr('stroke', 'var(--dp-chart-edited)')
         .attr('stroke-width', 2.5);
     }
+
+    // Add comprehensive hover functionality
+    // Create bisector for finding closest data points
+    const bisectDate = d3.bisector((d: { date: Date; value: number }) => d.date).left;
+
+    // Create hover group
+    const hoverGroup = g.append('g')
+      .attr('class', 'hover-group')
+      .style('opacity', 0);
+
+    // Add vertical line for hover indicator
+    const hoverLine = hoverGroup.append('line')
+      .attr('class', 'hover-line')
+      .attr('stroke', 'var(--dp-text-tertiary)')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+      .attr('y1', 0)
+      .attr('y2', innerHeight);
+
+    // Add hover circles for each data series
+    const hoverCircleY50 = hoverGroup.append('circle')
+      .attr('class', 'hover-circle-y50')
+      .attr('r', 5)
+      .attr('fill', 'var(--dp-chart-forecasted)')
+      .attr('stroke', '#FFFFFF')
+      .attr('stroke-width', 2);
+
+    const hoverCircleEdited = hoverGroup.append('circle')
+      .attr('class', 'hover-circle-edited')
+      .attr('r', 5)
+      .attr('fill', 'var(--dp-chart-edited)')
+      .attr('stroke', '#FFFFFF')
+      .attr('stroke-width', 2)
+      .style('opacity', 0);
+
+    // Create invisible overlay for mouse events
+    g.append('rect')
+      .attr('class', 'hover-overlay')
+      .attr('width', innerWidth)
+      .attr('height', innerHeight)
+      .attr('fill', 'none')
+      .attr('pointer-events', 'all')
+      .on('mousemove', function(event) {
+        const [mouseX] = d3.pointer(event);
+        const xDate = xScale.invert(mouseX);
+
+        // Find closest data points
+        const i = bisectDate(forecastData.y_50Data, xDate, 1);
+        const d0 = forecastData.y_50Data[i - 1];
+        const d1 = forecastData.y_50Data[i];
+        const d = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
+
+        if (!d) return;
+
+        // Find corresponding edited data point if available
+        const editedPoint = adjustedDataset.find(adj =>
+          Math.abs(adj.date.getTime() - d.date.getTime()) < 24 * 60 * 60 * 1000 // Within 1 day
+        );
+
+        // Position hover elements
+        const xPos = xScale(d.date);
+        const yPosY50 = yScale(d.value);
+
+        hoverLine.attr('x1', xPos).attr('x2', xPos);
+        hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
+
+        // Show/hide edited circle based on data availability
+        if (editedPoint && showEdited) {
+          const yPosEdited = yScale(editedPoint.value);
+          hoverCircleEdited
+            .attr('cx', xPos)
+            .attr('cy', yPosEdited)
+            .style('opacity', 1);
+        } else {
+          hoverCircleEdited.style('opacity', 0);
+        }
+
+        // Update tooltip content
+        let tooltipHtml = `<div class="p-3">
+          <div class="font-medium text-gray-900 text-sm mb-2">${formatDate(d.date as Date, periodType)}</div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-600">y_50 (Median):</span>
+              <span class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</span>
+            </div>`;
+
+        if (editedPoint && showEdited) {
+          const changeValue = (editedPoint.value - d.value) / d.value * 100;
+          const change = changeValue.toFixed(1);
+          const changeColor = editedPoint.value > d.value ? 'text-green-600' : 'text-red-600';
+          tooltipHtml += `
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-600">Edited:</span>
+              <span class="text-sm font-semibold text-gray-900">$${formatNumber(editedPoint.value)}k</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-600">Change:</span>
+              <span class="text-xs font-medium ${changeColor}">${changeValue > 0 ? '+' : ''}${change}%</span>
+            </div>`;
+        }
+
+        tooltipHtml += `</div></div>`;
+
+        setTooltipContent(tooltipHtml);
+        setTooltipPosition({
+          x: xPos + margin.left,
+          y: Math.min(yPosY50, editedPoint ? yScale(editedPoint.value) : yPosY50) + margin.top - 10
+        });
+        setTooltipVisible(true);
+        hoverGroup.style('opacity', 1);
+      })
+      .on('mouseout', function() {
+        hoverGroup.style('opacity', 0);
+        setTooltipVisible(false);
+      });
 
     // Add brush to chart
     const brushGroup = g.append('g')
