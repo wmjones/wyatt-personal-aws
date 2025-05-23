@@ -142,14 +142,6 @@ export default function DemandPlanningPage() {
                   }
                 </p>
               </div>
-              <div className="hidden md:block">
-                <button className="add-forecast-btn dp-btn-primary px-4 py-2 text-sm rounded-md">
-                  <svg className="inline-block w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Add New Forecast
-                </button>
-              </div>
             </div>
 
             {isLoadingForecast ? (
@@ -179,76 +171,19 @@ export default function DemandPlanningPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Adjustment Panel */}
-            {forecastData && (
-              <div className="md:col-span-1">
-                <AdjustmentPanel
-                  forecastData={forecastData}
-                  isLoading={isLoadingForecast}
-                  onApplyAdjustment={handleApplyAdjustment}
-                  onResetAdjustments={resetAdjustments}
-                  onRefreshForecast={refreshForecast}
-                  selectedHierarchies={selectedHierarchies}
-                />
-              </div>
-            )}
-
-            {/* Time Period Selection */}
-            <div className="md:col-span-1">
-              <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
-                <h2 className="text-lg font-medium mb-4 text-dp-text-primary border-b border-dp-border-light pb-2">Time Periods</h2>
-                <div className="space-y-2">
-                  {timePeriods.map(period => (
-                    <label key={period.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name={`time-period-${period.id}`}
-                        id={`time-period-${period.id}`}
-                        checked={selectedTimePeriods.includes(period.id)}
-                        onChange={e => {
-                          if (e.target.checked) {
-                            setSelectedTimePeriods(prev => [...prev, period.id]);
-                          } else {
-                            setSelectedTimePeriods(prev => prev.filter(id => id !== period.id));
-                          }
-                        }}
-                        className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4 mr-2"
-                      />
-                      <span className="text-sm text-dp-text-primary">{period.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+          {/* Adjustment Panel */}
+          {forecastData && (
+            <div className="max-w-md">
+              <AdjustmentPanel
+                forecastData={forecastData}
+                isLoading={isLoadingForecast}
+                onApplyAdjustment={handleApplyAdjustment}
+                onResetAdjustments={resetAdjustments}
+                onRefreshForecast={refreshForecast}
+                selectedHierarchies={selectedHierarchies}
+              />
             </div>
-
-            {/* Selected Hierarchies */}
-            <div className="md:col-span-1">
-              <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
-                <h2 className="text-lg font-medium mb-4 text-dp-text-primary border-b border-dp-border-light pb-2">Selected Hierarchies</h2>
-                {selectedHierarchies.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedHierarchies.map(selection => (
-                      <div key={selection.type} className="pb-2 border-b border-dp-border-light last:border-0">
-                        <p className="text-sm font-medium capitalize text-dp-text-primary">{selection.type}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selection.selectedNodes.map(node => (
-                            <span key={node} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dp-background-tertiary text-dp-text-primary border border-dp-border-light">
-                              {node.split('-').pop()}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-dp-text-secondary">
-                    No hierarchies selected. Use the sidebar to select hierarchies.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
