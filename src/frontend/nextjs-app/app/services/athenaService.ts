@@ -32,7 +32,7 @@ export interface ForecastByDate {
 }
 
 class AthenaService {
-  private readonly endpoint = '/api/data/athena/query';
+  private readonly endpoint = '/api/data/athena';
 
   /**
    * Execute a custom Athena query

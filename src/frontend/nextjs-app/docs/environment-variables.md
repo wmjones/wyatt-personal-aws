@@ -41,6 +41,7 @@ These variables are only available on the server:
 | `TODOIST_API_KEY` | Todoist API key | Yes* | `0123456789abcdef` |
 | `OPENAI_API_KEY` | OpenAI API key | Yes* | `sk-...` |
 | `NOTION_API_KEY` | Notion API key | Yes* | `secret_...` |
+| `AWS_API_GATEWAY_URL` | AWS API Gateway endpoint URL | Yes | `https://xxx.execute-api.us-east-1.amazonaws.com` |
 
 \* Required in production, optional in development
 

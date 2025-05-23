@@ -17,6 +17,7 @@ export const envSchema = {
   TODOIST_API_KEY: process.env.TODOIST_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   NOTION_API_KEY: process.env.NOTION_API_KEY,
+  AWS_API_GATEWAY_URL: process.env.AWS_API_GATEWAY_URL,
 
   // Application
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
@@ -39,6 +40,7 @@ const requiredVariables = {
     'TODOIST_API_KEY',
     'OPENAI_API_KEY',
     'NOTION_API_KEY',
+    'AWS_API_GATEWAY_URL',
   ],
   development: [
     'NEXT_PUBLIC_AWS_REGION',
