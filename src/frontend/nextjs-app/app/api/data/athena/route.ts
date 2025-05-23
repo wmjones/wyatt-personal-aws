@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { config } from '@/app/lib/config';
 
 /**
  * Athena API Route Handler
@@ -20,8 +19,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get AWS API Gateway URL from environment variable
+    const awsApiGatewayUrl = process.env.AWS_API_GATEWAY_URL;
+
+    if (!awsApiGatewayUrl) {
+      return NextResponse.json(
+        { error: 'AWS API Gateway URL not configured' },
+        { status: 500 }
+      );
+    }
+
     // Create the request to AWS API Gateway
-    const apiUrl = `${config.app.url}/api/data/athena/query`;
+    const apiUrl = `${awsApiGatewayUrl}/api/data/athena/query`;
 
     // Forward the request to AWS API Gateway
     const response = await fetch(apiUrl, {

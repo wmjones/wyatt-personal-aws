@@ -4,12 +4,12 @@
 # This script uses AWS CLI instead of a complex Node.js application
 
 # Configuration
-BUCKET_NAME="wyatt-personal-aws-datalake-dev-35315550"
+BUCKET_NAME="wyatt-personal-aws-dev-datalake-dev-35315550"
 DATA_FOLDER="forecast_data"
 CSV_PATH="/workspaces/wyatt-personal-aws/data/forecast_data.csv"
 ATHENA_DATABASE="forecast_data_dev"
-ATHENA_WORKGROUP="wyatt-personal-aws-forecast-analysis-dev"
-ATHENA_OUTPUT_LOCATION="s3://wyatt-personal-aws-athena-results-dev/query-results/"
+ATHENA_WORKGROUP="wyatt-personal-aws-dev-forecast-analysis-dev"
+ATHENA_OUTPUT_LOCATION="s3://wyatt-personal-aws-dev-athena-results-dev-499f9264/query-results/"
 FORECAST_TABLE_NAME="forecast"
 
 # Check if AWS CLI is installed

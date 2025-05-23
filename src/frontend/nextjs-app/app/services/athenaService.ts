@@ -32,7 +32,7 @@ export interface ForecastByDate {
 }
 
 class AthenaService {
-  private readonly endpoint = '/api/data/athena/query';
+  private readonly endpoint = '/api/data/athena';
 
   /**
    * Execute a custom Athena query
@@ -99,7 +99,7 @@ class AthenaService {
   async getForecastData(filters?: {
     restaurantId?: number;
     inventoryItemId?: number;
-    state?: string;
+    state?: string | string[];
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -115,7 +115,13 @@ class AthenaService {
         conditions.push(`inventory_item_id = ${filters.inventoryItemId}`);
       }
       if (filters.state) {
-        conditions.push(`state = '${filters.state}'`);
+        // Handle both single state and multiple states
+        if (Array.isArray(filters.state)) {
+          const stateList = filters.state.map(s => `'${s}'`).join(', ');
+          conditions.push(`state IN (${stateList})`);
+        } else {
+          conditions.push(`state = '${filters.state}'`);
+        }
       }
       if (filters.startDate) {
         conditions.push(`business_date >= '${filters.startDate}'`);
