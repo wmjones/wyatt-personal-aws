@@ -127,7 +127,7 @@ Create a modern, performant web application that combines interactive data visua
 
 #### Data Storage
 - DynamoDB for user data
-- S3 for file uploads
+- S3 for file uploads and data exports
 - CloudWatch for logs
 - Parameter versioning
 - Automatic backups
@@ -169,7 +169,7 @@ Create a modern, performant web application that combines interactive data visua
 │             Vercel Edge Network                 │
 │  ┌─────────────────────────────────────────┐    │
 │  │        Next.js Application             │    │
-│  │  - React Components                    │    │
+│  │  - React Server Components            │    │
 │  │  - API Client                          │    │
 │  │  - WebSocket Client                    │    │
 │  └─────────────────────────────────────────┘    │

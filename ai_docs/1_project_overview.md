@@ -12,9 +12,9 @@ The system is split into two distinct deployment targets:
 
 1. **Frontend (Vercel)**
    - Next.js 14 application with TypeScript
-   - React-based UI with D3.js visualizations
+   - Server-side rendering with React Server Components
    - Automatic deployments from GitHub
-   - Global CDN distribution
+   - Global edge network distribution via Vercel
    - Preview environments for each branch
 
 2. **Backend (AWS)**
@@ -23,14 +23,14 @@ The system is split into two distinct deployment targets:
    - API Gateway for HTTP/WebSocket connections
    - Cognito for authentication
    - Step Functions for workflow orchestration
-   - S3 for static assets and data storage
+   - S3 for data storage and file uploads
 
 ### Integration Points
 
 - **API Communication**: Frontend connects to AWS backend via API Gateway endpoints
 - **Authentication**: AWS Cognito handles user auth with JWT tokens
 - **Real-time Updates**: WebSocket connections through API Gateway
-- **File Storage**: S3 for user uploads and exports
+- **File Storage**: S3 for user uploads and data exports
 
 ## System Components
 
@@ -150,12 +150,12 @@ Frontend requires configuration for:
 ## Key Technologies
 
 ### Frontend Stack
-- Next.js 14
-- React 18
+- Next.js 14 (App Router)
+- React 18 with Server Components
 - TypeScript
-- D3.js
-- Tailwind CSS
-- Vercel hosting
+- D3.js for data visualization
+- Tailwind CSS v4
+- Vercel hosting with edge runtime
 
 ### Backend Stack
 - AWS Lambda (Python)

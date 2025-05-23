@@ -3,28 +3,30 @@
 import { useState } from 'react';
 import Header from './Header';
 import Footer from './Footer';
-import HierarchySidebar from './HierarchySidebar';
-import { DashboardView, HierarchyType } from '@/app/types/demand-planning';
+import FilterSidebar, { FilterSelections } from './FilterSidebar';
+import { DashboardView } from '@/app/types/demand-planning';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  onHierarchySelectionChange?: (selection: { type: HierarchyType; nodeIds: string[] }) => void;
+  filterSelections: FilterSelections;
+  onFilterSelectionChange?: (selections: FilterSelections) => void;
   activeTab: DashboardView;
   onTabChange: (tab: DashboardView) => void;
 }
 
 export default function DashboardLayout({
   children,
-  onHierarchySelectionChange,
+  filterSelections,
+  onFilterSelectionChange,
   activeTab,
   onTabChange
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleHierarchySelectionChange = (selection: { type: HierarchyType; nodeIds: string[] }) => {
-    // Pass the selection up to the parent component if the callback is provided
-    if (onHierarchySelectionChange) {
-      onHierarchySelectionChange(selection);
+  const handleFilterSelectionChange = (selections: FilterSelections) => {
+    // Pass the selections up to the parent component if the callback is provided
+    if (onFilterSelectionChange) {
+      onFilterSelectionChange(selections);
     }
   };
 
@@ -89,7 +91,10 @@ export default function DashboardLayout({
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
-          <HierarchySidebar onSelectionChange={handleHierarchySelectionChange} />
+          <FilterSidebar
+            selections={filterSelections}
+            onSelectionChange={handleFilterSelectionChange}
+          />
         </div>
 
         {/* Backdrop for mobile */}

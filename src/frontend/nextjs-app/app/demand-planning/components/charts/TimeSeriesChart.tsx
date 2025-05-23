@@ -11,11 +11,11 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   adjustedData?: ForecastDataPoint[];
   timePeriods: TimePeriod[];
   className?: string;
-  showForecasted?: boolean;
+  showY05?: boolean;
+  showY50?: boolean;
+  showY95?: boolean;
   showEdited?: boolean;
   showActual?: boolean;
-  showActual2024?: boolean;
-  showActual2023?: boolean;
 }
 
 export default function TimeSeriesChart({
@@ -26,11 +26,11 @@ export default function TimeSeriesChart({
   height = 400,
   margin = { top: 20, right: 30, bottom: 50, left: 60 },
   className = '',
-  showForecasted = true,
+  showY05 = true,
+  showY50 = true,
+  showY95 = true,
   showEdited = true,
-  showActual = true,
-  showActual2024 = false,
-  showActual2023 = false
+  showActual = true
 }: TimeSeriesChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -38,14 +38,27 @@ export default function TimeSeriesChart({
   const [tooltipContent, setTooltipContent] = useState('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
+  // Zoom and brush state
+  const [zoomDomain, setZoomDomain] = useState<[Date, Date] | null>(null);
+
   // Process the data for D3
   const baselineDataset = createChartDataset(baselineData, timePeriods);
+
   // Use useMemo to avoid recreating adjustedDataset on each render
   const adjustedDataset = useMemo(() => {
     return adjustedData
       ? createChartDataset(adjustedData, timePeriods)
       : [];
   }, [adjustedData, timePeriods]);
+
+  // Generate forecast confidence intervals (y_05, y_50, y_95)
+  const forecastData = useMemo(() => {
+    const y_05Data = baselineDataset.map(d => ({ ...d, value: d.value * 0.85 })); // Lower bound
+    const y_50Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.0 }));  // Median (baseline)
+    const y_95Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.15 })); // Upper bound
+
+    return { y_05Data, y_50Data, y_95Data };
+  }, [baselineDataset]);
 
   // Get the period type from the first time period (assuming all periods have the same type)
   const periodType = timePeriods.length > 0 ? timePeriods[0].type : 'quarter';
@@ -65,17 +78,29 @@ export default function TimeSeriesChart({
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Create scales
+    // Add clip path for zooming
+    svg.append('defs')
+      .append('clipPath')
+      .attr('id', 'chart-clip')
+      .append('rect')
+      .attr('width', innerWidth)
+      .attr('height', innerHeight);
+
+    // Create scales with zoom domain support
+    const originalDomain = d3.extent(baselineDataset, d => d.date) as [Date, Date];
     const xScale = d3.scaleTime()
-      .domain(d3.extent(baselineDataset, d => d.date) as [Date, Date])
+      .domain(zoomDomain || originalDomain)
       .range([0, innerWidth])
       .nice();
 
-    // Calculate y-domain including both datasets
+    // Calculate y-domain including all datasets
     const allValues = [...baselineDataset.map(d => d.value)];
     if (adjustedDataset.length > 0) {
       allValues.push(...adjustedDataset.map(d => d.value));
     }
+    // Include forecast confidence intervals in domain calculation
+    allValues.push(...forecastData.y_05Data.map(d => d.value));
+    allValues.push(...forecastData.y_95Data.map(d => d.value));
 
     const yMax = d3.max(allValues) || 0;
     const yMin = d3.min(allValues) || 0;
@@ -102,8 +127,8 @@ export default function TimeSeriesChart({
       .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Find "today" in the data - May 20, 2025 to match screenshot
-    const today = new Date(2025, 4, 20); // May 20, 2025
+    // Find "today" in the data - February 15, 2025 (middle of the range)
+    const today = new Date(2025, 1, 15); // February 15, 2025
     const todayXPosition = xScale(today);
 
     // Add today vertical line - pinkish red with Today pill
@@ -139,9 +164,9 @@ export default function TimeSeriesChart({
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
-      .ticks(width > 600 ? 6 : 5)
+      .ticks(d3.timeMonth.every(1)) // Monthly ticks for 3-month view
       .tickSize(0) // Remove tick marks
-      .tickFormat(() => ''); // Empty labels since we handle them separately with custom weekday display
+      .tickFormat(() => ''); // Empty labels since we handle them separately with custom month display
 
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
@@ -156,9 +181,9 @@ export default function TimeSeriesChart({
       .call(g => g.select(".domain").attr("stroke", "var(--dp-chart-grid)"))
       .call(g => g.selectAll(".tick line").remove()); // Remove x-axis tick lines
 
-    // Add y-axis (vertical) with styling using variables
+    // Add y-axis (vertical) with styling using variables and improved spacing
     g.append('g')
-      .attr('class', 'y-axis')
+      .attr('class', 'y-axis chart-y-axis-labels')
       .call(yAxis)
       .call(g => g.select(".domain").remove()) // Remove y-axis line
       .call(g => g.selectAll(".tick line").attr("stroke", "var(--dp-chart-grid)"))
@@ -166,7 +191,8 @@ export default function TimeSeriesChart({
         .attr("font-size", "10px")
         .attr("fill", "var(--dp-chart-axis-text)") // Using variable for text color
         .attr("dy", "0.3em")
-        .attr("x", -10));
+        .attr("x", -22) // Improved spacing from chart area
+        .attr("class", "forecast-values")); // Add forecast values styling
 
     // Add Y-axis label - "Sales ($)" using variables
     g.append('text')
@@ -186,51 +212,69 @@ export default function TimeSeriesChart({
       .y(d => yScale(d.value))
       .curve(d3.curveMonotoneX);
 
-    // Display data series based on toggle status - exactly matching screenshot
+    // Display forecast confidence intervals and data series
 
-    // 1. 2023 Actual (green line) - if enabled
-    if (showActual2023) {
-      const mockData2023 = baselineDataset.map(d => ({
-        ...d,
-        value: d.value * 0.95 - 2000
-      }));
-
+    // 1. y_05 (Lower confidence interval) - if enabled
+    if (showY05) {
       g.append('path')
-        .datum(mockData2023)
-        .attr('class', '2023-actual-line')
+        .datum(forecastData.y_05Data)
+        .attr('class', 'y05-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual-2023)') // Green line from variables
-        .attr('stroke-width', 2);
+        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '6,3') // Dashed line
+        .attr('opacity', 0.7);
     }
 
-    // 2. 2024 Actual (orange line) - if enabled
-    if (showActual2024) {
-      const mockData2024 = baselineDataset.map(d => ({
-        ...d,
-        value: d.value * 0.9
-      }));
-
+    // 2. y_95 (Upper confidence interval) - if enabled
+    if (showY95) {
       g.append('path')
-        .datum(mockData2024)
-        .attr('class', '2024-actual-line')
+        .datum(forecastData.y_95Data)
+        .attr('class', 'y95-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual-2024)') // Amber/orange line from variables
-        .attr('stroke-width', 2);
+        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '3,6') // Dotted line
+        .attr('opacity', 0.7);
     }
 
-    // 3. Actual data (blue line) - if enabled
+    // 3. y_50 (Median forecast) - if enabled
+    if (showY50) {
+      g.append('path')
+        .datum(forecastData.y_50Data)
+        .attr('class', 'y50-line')
+        .attr('d', line)
+        .attr('fill', 'none')
+        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke-width', 2.5);
+
+      // Add data points for y_50
+      g.selectAll('.y50-point')
+        .data(forecastData.y_50Data)
+        .enter()
+        .append('circle')
+        .attr('class', 'y50-point')
+        .attr('cx', d => xScale(d.date))
+        .attr('cy', d => yScale(d.value))
+        .attr('r', 4)
+        .attr('fill', 'var(--dp-chart-forecasted)')
+        .attr('stroke', '#FFFFFF')
+        .attr('stroke-width', 1.5);
+    }
+
+    // 4. Actual data (blue line) - if enabled
     if (showActual) {
       g.append('path')
         .datum(baselineDataset)
         .attr('class', 'actual-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)') // Blue line from variables
+        .attr('stroke', 'var(--dp-chart-actual)')
         .attr('stroke-width', 2.5);
 
-      // Add data points for actual (blue circles)
+      // Add data points for actual
       g.selectAll('.actual-point')
         .data(baselineDataset)
         .enter()
@@ -244,83 +288,210 @@ export default function TimeSeriesChart({
         .attr('stroke-width', 1.5);
     }
 
-    // 4. Edited data (gold/yellow line) - if enabled and available
+    // 5. Edited data (yellow line) - if enabled and available
     if (showEdited && adjustedDataset.length > 0) {
       g.append('path')
         .datum(adjustedDataset)
         .attr('class', 'edited-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-edited)') // Yellow line from variables
+        .attr('stroke', 'var(--dp-chart-edited)')
         .attr('stroke-width', 2.5);
     }
 
-    // 5. Forecasted data (red dotted line) - if enabled - MUST BE DRAWN LAST TO BE ON TOP
-    if (showForecasted) {
-      // Create forecast data with a slightly upward trend
-      const forecastData = baselineDataset.map(d => ({
-        ...d,
-        value: d.value * 1.1
-      }));
+    // Add comprehensive hover functionality
+    // Create bisector for finding closest data points
+    const bisectDate = d3.bisector((d: { date: Date; value: number }) => d.date).left;
 
-      // Draw dashed line
-      g.append('path')
-        .datum(forecastData)
-        .attr('class', 'forecast-line')
-        .attr('d', line)
-        .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)') // Red line from updated colors
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '4,4'); // Dashed line
+    // Create hover group
+    const hoverGroup = g.append('g')
+      .attr('class', 'hover-group')
+      .style('opacity', 0);
 
-      // Add forecast data points (red circles)
-      g.selectAll('.forecast-point')
-        .data(forecastData)
-        .enter()
-        .append('circle')
-        .attr('class', 'forecast-point')
-        .attr('cx', d => xScale(d.date))
-        .attr('cy', d => yScale(d.value))
-        .attr('r', 4)
-        .attr('fill', 'var(--dp-chart-forecasted)') // Red dots from updated colors
-        .attr('stroke', '#FFFFFF') // White border
-        .attr('stroke-width', 1.5)
-        .style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          d3.select(this).attr('r', 6);
+    // Add vertical line for hover indicator
+    const hoverLine = hoverGroup.append('line')
+      .attr('class', 'hover-line')
+      .attr('stroke', 'var(--dp-text-tertiary)')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+      .attr('y1', 0)
+      .attr('y2', innerHeight);
 
-          // Show tooltip exactly matching screenshot style
-          setTooltipContent(`<div class="p-3">
-            <div class="font-medium text-gray-900 text-sm">Forecasted</div>
-            <div class="text-gray-500 text-xs mt-1">${formatDate(d.date as Date, periodType)}</div>
-            <div class="text-base font-semibold mt-1 text-gray-900">$${formatNumber(d.value)}k</div>
-          </div>`);
+    // Add hover circles for each data series
+    const hoverCircleY50 = hoverGroup.append('circle')
+      .attr('class', 'hover-circle-y50')
+      .attr('r', 5)
+      .attr('fill', 'var(--dp-chart-forecasted)')
+      .attr('stroke', '#FFFFFF')
+      .attr('stroke-width', 2);
 
-          setTooltipPosition({
-            x: xScale(d.date) + margin.left,
-            y: yScale(d.value) + margin.top - 15
-          });
+    const hoverCircleEdited = hoverGroup.append('circle')
+      .attr('class', 'hover-circle-edited')
+      .attr('r', 5)
+      .attr('fill', 'var(--dp-chart-edited)')
+      .attr('stroke', '#FFFFFF')
+      .attr('stroke-width', 2)
+      .style('opacity', 0);
 
-          setTooltipVisible(true);
-        })
-        .on('mouseout', function() {
-          d3.select(this).attr('r', 4);
+
+    // Add brush to chart
+    const brushGroup = g.append('g')
+      .attr('class', 'brush');
+
+    // Add brush for interactive zooming
+    const brush = d3.brushX()
+      .extent([[0, 0], [innerWidth, innerHeight]])
+      .on('start brush', (event) => {
+        // Hide hover elements during brushing
+        if (event.selection) {
+          hoverGroup.style('opacity', 0);
           setTooltipVisible(false);
-        });
-    }
+        }
+      })
+      .on('end', (event) => {
+        const selection = event.selection;
+        if (!selection) return;
+
+        // Convert brush selection to domain
+        const [x0, x1] = selection.map(xScale.invert);
+        setZoomDomain([x0, x1]);
+
+        // Clear the brush selection
+        brushGroup.call(brush.move, null);
+      });
+
+    brushGroup.call(brush);
+
+    // Apply brush styles after D3 creates the brush elements
+    // Use a small timeout to ensure D3 has finished creating the elements
+    setTimeout(() => {
+      // Style the brush selection area (the gray rectangle when dragging)
+      svg.selectAll('.brush .selection')
+        .style('fill', 'var(--dp-chart-brush-fill, #3B82F6)')
+        .style('fill-opacity', 0.15)
+        .style('stroke', 'var(--dp-chart-brush-stroke, #3B82F6)')
+        .style('stroke-width', 1)
+        .style('stroke-opacity', 0.4);
+
+      // Style the brush overlay (invisible area for interaction)
+      svg.selectAll('.brush .overlay')
+        .style('cursor', 'crosshair');
+
+      // Style the brush handles (resize handles at edges)
+      svg.selectAll('.brush .handle')
+        .style('fill', 'var(--dp-chart-brush-handle, #1E40AF)')
+        .style('fill-opacity', 0.8);
+    }, 0);
+
+    // Add hover events to the entire chart area
+    svg.on('mousemove', function(event) {
+      // Don't show hover if actively brushing
+      const isBrushing = d3.select('.brush .selection').node() && d3.select('.brush .selection').style('display') !== 'none';
+      if (isBrushing) return;
+
+      const [mouseX] = d3.pointer(event, g.node());
+
+      // Only show hover if mouse is within chart bounds
+      if (mouseX < 0 || mouseX > innerWidth) {
+        hoverGroup.style('opacity', 0);
+        setTooltipVisible(false);
+        return;
+      }
+
+      const xDate = xScale.invert(mouseX);
+
+      // Find closest data points
+      const i = bisectDate(forecastData.y_50Data, xDate, 1);
+      const d0 = forecastData.y_50Data[i - 1];
+      const d1 = forecastData.y_50Data[i];
+      const d = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
+
+      if (!d) return;
+
+      // Find corresponding edited data point if available
+      const editedPoint = adjustedDataset.find(adj =>
+        Math.abs(adj.date.getTime() - d.date.getTime()) < 24 * 60 * 60 * 1000 // Within 1 day
+      );
+
+      // Position hover elements
+      const xPos = xScale(d.date);
+      const yPosY50 = yScale(d.value);
+
+      hoverLine.attr('x1', xPos).attr('x2', xPos);
+      hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
+
+      // Show/hide edited circle based on data availability
+      if (editedPoint && showEdited) {
+        const yPosEdited = yScale(editedPoint.value);
+        hoverCircleEdited
+          .attr('cx', xPos)
+          .attr('cy', yPosEdited)
+          .style('opacity', 1);
+      } else {
+        hoverCircleEdited.style('opacity', 0);
+      }
+
+      // Update tooltip content
+      let tooltipHtml = `<div class="p-3">
+        <div class="font-medium text-gray-900 text-sm mb-2">${formatDate(d.date as Date, periodType)}</div>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">y_50 (Median):</span>
+            <span class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</span>
+          </div>`;
+
+      if (editedPoint && showEdited) {
+        const changeValue = (editedPoint.value - d.value) / d.value * 100;
+        const change = changeValue.toFixed(1);
+        const changeColor = editedPoint.value > d.value ? 'text-green-600' : 'text-red-600';
+        tooltipHtml += `
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">Edited:</span>
+            <span class="text-sm font-semibold text-gray-900">$${formatNumber(editedPoint.value)}k</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">Change:</span>
+            <span class="text-xs font-medium ${changeColor}">${changeValue > 0 ? '+' : ''}${change}%</span>
+          </div>`;
+      }
+
+      tooltipHtml += `</div></div>`;
+
+      setTooltipContent(tooltipHtml);
+      setTooltipPosition({
+        x: xPos + margin.left,
+        y: Math.min(yPosY50, editedPoint ? yScale(editedPoint.value) : yPosY50) + margin.top - 10
+      });
+      setTooltipVisible(true);
+      hoverGroup.style('opacity', 1);
+    })
+    .on('mouseleave', function() {
+      hoverGroup.style('opacity', 0);
+      setTooltipVisible(false);
+    })
+    // Add zoom reset functionality (double-click)
+    .on('dblclick', () => {
+      setZoomDomain(null);
+    });
+
+    // Apply clip path to all chart elements
+    g.selectAll('.y05-line, .y50-line, .y95-line, .actual-line, .edited-line')
+      .attr('clip-path', 'url(#chart-clip)');
 
   }, [
     baselineDataset,
     adjustedDataset,
+    forecastData,
     width,
     height,
     margin,
     periodType,
-    showForecasted,
+    showY05,
+    showY50,
+    showY95,
     showEdited,
     showActual,
-    showActual2024,
-    showActual2023
+    zoomDomain
   ]);
 
   return (
@@ -331,6 +502,28 @@ export default function TimeSeriesChart({
         height={height}
         className="max-w-full bg-dp-chart-background rounded-lg border border-dp-frame-border"
       />
+
+      {/* Zoom controls */}
+      {zoomDomain && (
+        <div className="absolute top-2 right-2 z-20">
+          <button
+            onClick={() => setZoomDomain(null)}
+            className="px-3 py-1 text-xs bg-white border border-dp-frame-border rounded-md shadow-sm hover:bg-dp-background-secondary transition-colors"
+            title="Reset zoom (or double-click chart)"
+          >
+            Reset Zoom
+          </button>
+        </div>
+      )}
+
+      {/* Brush instruction */}
+      {!zoomDomain && (
+        <div className="absolute bottom-2 left-2 z-20">
+          <div className="px-2 py-1 text-xs bg-white bg-opacity-90 border border-dp-frame-border rounded text-dp-text-secondary">
+            Drag to zoom • Double-click to reset
+          </div>
+        </div>
+      )}
 
       {/* Tooltip - styled exactly like screenshot */}
       {tooltipVisible && (

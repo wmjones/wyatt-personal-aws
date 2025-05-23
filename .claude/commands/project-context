@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Claude slash command to load project context
+# This script outputs the content of key project documentation files
+
+echo "# Project Context Loaded"
+echo ""
+echo "Loading comprehensive project documentation..."
+echo ""
+
+# Function to safely cat a file with header
+load_file() {
+    local file_path=$1
+    local description=$2
+
+    if [ -f "$file_path" ]; then
+        echo "## $description"
+        echo "\`\`\`"
+        cat "$file_path"
+        echo "\`\`\`"
+        echo ""
+    else
+        echo "⚠️  Warning: $file_path not found"
+        echo ""
+    fi
+}
+
+# Load main project instructions
+load_file "/workspaces/wyatt-personal-aws/CLAUDE.md" "Main Project Instructions (CLAUDE.md)"
+
+# Load AI documentation suite
+load_file "/workspaces/wyatt-personal-aws/ai_docs/1_project_overview.md" "Project Overview"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/2_d3_dashboard.md" "D3 Dashboard Architecture"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/3_productivity_system.md" "Productivity System"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/4_terraform_modules.md" "Terraform Modules"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/5_environment_configuration.md" "Environment Configuration"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/6_implementation_roadmap.md" "Implementation Roadmap"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/7_technical_specifications.md" "Technical Specifications"
+
+# Load additional documentation
+load_file "/workspaces/wyatt-personal-aws/ai_docs/consolidated_prd.md" "Product Requirements Document"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/consolidated_migration_guide.md" "Migration Guide"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/design_requirements.md" "Design Requirements"
+load_file "/workspaces/wyatt-personal-aws/ai_docs/color_palette.md" "Color Palette"
+
+echo "✅ Project context successfully loaded!"
+echo ""
+echo "Key Points:"
+echo "- Frontend: Next.js 14 on Vercel with Server Components"
+echo "- Backend: AWS Lambda, DynamoDB, API Gateway, Cognito"
+echo "- Infrastructure: Terraform modules-based approach"
+echo "- Task Management: Task Master AI"
+echo "- Development: VS Code with DevContainer"

@@ -3,5 +3,17 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "ignoreCommand": "node skip-build.js",
+  "git": {
+    "deploymentEnabled": false
+  },
+  "github": {
+    "silent": true
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
 }
