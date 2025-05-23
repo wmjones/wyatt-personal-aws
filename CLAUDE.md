@@ -45,10 +45,10 @@ Each module in the project has its own README.md that details:
 The visualization dashboard consists of:
 
 ### Frontend
-- **React SPA**: Single-page application built with React and TypeScript
+- **Next.js Application**: Modern React framework deployed on Vercel
 - **D3.js Integration**: Interactive data visualizations with drag-and-drop editing
 - **Authentication**: AWS Cognito for user management and JWT-based authentication
-- **Deployment**: Static assets in S3 delivered through CloudFront CDN
+- **Deployment**: Hosted on Vercel with automatic deployments
 
 ### Backend
 - **API Gateway**: HTTP API with JWT authorization
@@ -73,7 +73,7 @@ The project is organized into reusable Terraform modules:
 1. **api_gateway**: Creates and configures HTTP API Gateway endpoints
 2. **cognito**: Manages user authentication and authorization
 3. **dynamodb**: Configures NoSQL database tables for data storage
-4. **frontend**: Sets up S3 and CloudFront for hosting the SPA
+4. ~~**frontend**~~: (Deprecated - React app removed in favor of Next.js on Vercel)
 5. **lambda_function**: Deploys serverless functions with appropriate permissions
 6. **static_site**: Provides simpler static website hosting for documentation
 7. **step_function**: Orchestrates multi-step workflows for the productivity system
@@ -86,7 +86,7 @@ This project leverages several key modules from the terraform-aws-modules collec
 - **Lambda**: Serverless compute functions
 - **DynamoDB**: NoSQL database tables
 - **S3**: Object storage buckets
-- **CloudFront**: Content delivery network
+- ~~**CloudFront**~~: (Removed - using Vercel CDN for Next.js app)
 - **API Gateway v2**: HTTP API endpoints
 - **Cognito**: User authentication
 - **Step Functions**: Workflow orchestration

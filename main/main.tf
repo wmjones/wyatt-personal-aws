@@ -26,14 +26,12 @@ module "ssm_parameters" {
   environment = var.environment
 
   parameters = {
-    api_gateway_url            = module.api_gateway.api_endpoint
-    websocket_api_url          = aws_apigatewayv2_api.websocket.api_endpoint
-    cognito_user_pool_id       = module.cognito.user_pool_id
-    cognito_client_id          = module.cognito.client_ids["${var.project_name}-web-client-${var.environment}"]
-    cognito_region             = var.aws_region
-    s3_static_bucket           = module.frontend.bucket_name
-    cloudfront_url             = module.frontend.website_url
-    cloudfront_distribution_id = module.frontend.cloudfront_distribution_id
+    api_gateway_url      = module.api_gateway.api_endpoint
+    websocket_api_url    = aws_apigatewayv2_api.websocket.api_endpoint
+    cognito_user_pool_id = module.cognito.user_pool_id
+    cognito_client_id    = module.cognito.client_ids["${var.project_name}-web-client-${var.environment}"]
+    cognito_region       = var.aws_region
+    # Frontend parameters removed - React app deprecated in favor of Next.js on Vercel
   }
 
   tags = {

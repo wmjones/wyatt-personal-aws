@@ -20,7 +20,7 @@ resource "aws_kms_key" "s3_key" {
   deletion_window_in_days = 10
   enable_key_rotation     = true
 
-  # Add policy to allow CloudFront to use the key
+  # Basic policy for KMS key management
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -32,23 +32,6 @@ resource "aws_kms_key" "s3_key" {
         }
         Action   = "kms:*"
         Resource = "*"
-      },
-      {
-        Sid    = "Allow CloudFront to use the key"
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        }
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey*"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = module.frontend.cloudfront_distribution_arn
-          }
-        }
       }
     ]
   })

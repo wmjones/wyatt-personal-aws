@@ -94,22 +94,11 @@ resource "aws_iam_policy" "github_actions_permissions" {
           "s3:DeleteObject"
         ]
         Resource = [
-          module.frontend.bucket_arn,
-          "${module.frontend.bucket_arn}/*",
           module.visualization_data_bucket.s3_bucket_arn,
           "${module.visualization_data_bucket.s3_bucket_arn}/*"
         ]
       },
-      # CloudFront Permissions
-      {
-        Effect = "Allow"
-        Action = [
-          "cloudfront:CreateInvalidation",
-          "cloudfront:GetDistribution",
-          "cloudfront:ListDistributions"
-        ]
-        Resource = "*"
-      },
+      # CloudFront permissions removed - React app deprecated
       # SSM Parameter Permissions
       {
         Effect = "Allow"
