@@ -46,10 +46,16 @@ export default function ForecastCharts({
   }, [forecastData.baseline, selectedInventoryItemId]);
 
   const filteredAdjustedData = useMemo(() => {
-    if (!selectedInventoryItemId || !forecastData.adjusted) return forecastData.adjusted;
-    return forecastData.adjusted.filter(item =>
+    if (!forecastData.adjusted) return undefined;
+    if (!selectedInventoryItemId) return forecastData.adjusted;
+
+    // Filter adjusted data by selected inventory item
+    const filtered = forecastData.adjusted.filter(item =>
       item.inventoryItemId === selectedInventoryItemId
     );
+
+    // Return filtered data or undefined if no data for this item
+    return filtered.length > 0 ? filtered : undefined;
   }, [forecastData.adjusted, selectedInventoryItemId]);
 
   // Handle inventory item selection

@@ -140,8 +140,9 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         });
       });
 
-      // Filter baseline data based on filter selections
-      const baseline = allBaselineData.filter(dataPoint => {
+      // Filter and aggregate baseline data based on filter selections
+      // First filter the data based on selections
+      const filteredData = allBaselineData.filter(dataPoint => {
         // If no filters are selected, include all data
         if (!filterSelections) return true;
 
@@ -160,7 +161,41 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         return stateMatch && dmaMatch && dcMatch;
       });
 
-      console.log("useForecast: Generated baseline data points:", baseline.length);
+      // Aggregate the filtered data by inventory item and period
+      // This simulates what would happen in a SQL GROUP BY query
+      const aggregationMap = new Map<string, ForecastDataPoint>();
+
+      filteredData.forEach(dataPoint => {
+        // Create a key for aggregation based on inventoryItemId and periodId
+        const key = `${dataPoint.inventoryItemId}-${dataPoint.periodId}`;
+
+        if (aggregationMap.has(key)) {
+          // Sum up the values for the same item and period
+          const existing = aggregationMap.get(key)!;
+          existing.value += dataPoint.value;
+        } else {
+          // Create a new aggregated point
+          aggregationMap.set(key, {
+            periodId: dataPoint.periodId,
+            value: dataPoint.value,
+            inventoryItemId: dataPoint.inventoryItemId,
+            // We don't include state/dma/dc in aggregated data since it's summed across multiple
+          });
+        }
+      });
+
+      const baseline = Array.from(aggregationMap.values());
+
+      console.log("useForecast: Filter state:", {
+        hasFilters: !!filterSelections,
+        stateCount: filterSelections?.states.length || 0,
+        dmaCount: filterSelections?.dmaIds.length || 0,
+        dcCount: filterSelections?.dcIds.length || 0,
+        filteredDataCount: filteredData.length,
+        aggregatedDataCount: baseline.length,
+        uniqueItems: new Set(baseline.map(d => d.inventoryItemId)).size,
+        uniquePeriods: new Set(baseline.map(d => d.periodId)).size
+      });
 
       // Create the forecast series with inventory items
       const mockForecast: ForecastSeries = {
@@ -217,9 +252,16 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       const adjusted = forecastData.baseline.map(point => {
         // Skip if this time period is not in the adjustment
         if (!adjustment.timePeriods.includes(point.periodId)) {
-          // If we already have adjusted data for this period, use it
-          const existingAdjusted = forecastData.adjusted?.find(p => p.periodId === point.periodId);
-          return existingAdjusted || { periodId: point.periodId, value: point.value };
+          // If we already have adjusted data for this period and same inventory item, use it
+          const existingAdjusted = forecastData.adjusted?.find(p =>
+            p.periodId === point.periodId &&
+            p.inventoryItemId === point.inventoryItemId
+          );
+          return existingAdjusted || {
+            periodId: point.periodId,
+            value: point.value,
+            inventoryItemId: point.inventoryItemId
+          };
         }
 
         // Calculate the new value based on adjustment type
@@ -237,6 +279,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         return {
           periodId: point.periodId,
           value: Math.round(newValue),
+          inventoryItemId: point.inventoryItemId,
         };
       });
 
@@ -293,6 +336,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       const refreshedBaseline = forecastData.baseline.map(point => ({
         periodId: point.periodId,
         value: Math.round(point.value * (0.97 + Math.random() * 0.06)),
+        inventoryItemId: point.inventoryItemId,
       }));
 
       // If we have adjustments, apply them to the new baseline
@@ -301,10 +345,12 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         refreshedAdjusted = forecastData.baseline.map((baselinePoint, index) => {
           // Find the corresponding adjusted point
           const originalBaseline = forecastData.baseline.find(
-            p => p.periodId === baselinePoint.periodId
+            p => p.periodId === baselinePoint.periodId &&
+            p.inventoryItemId === baselinePoint.inventoryItemId
           );
           const originalAdjusted = forecastData.adjusted?.find(
-            p => p.periodId === baselinePoint.periodId
+            p => p.periodId === baselinePoint.periodId &&
+            p.inventoryItemId === baselinePoint.inventoryItemId
           );
 
           // If we don't have both original points, return the baseline
@@ -319,6 +365,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
           return {
             periodId: baselinePoint.periodId,
             value: Math.round(refreshedBaseline[index].value * adjustmentFactor),
+            inventoryItemId: baselinePoint.inventoryItemId,
           };
         });
       }
