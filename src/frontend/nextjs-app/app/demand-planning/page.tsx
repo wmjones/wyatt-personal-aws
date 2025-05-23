@@ -5,12 +5,21 @@ import DashboardLayout from './components/DashboardLayout';
 import ForecastCharts from './components/ForecastCharts';
 import AdjustmentPanel from './components/AdjustmentPanel';
 import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
-import { HierarchySelection, HierarchyType, TimePeriod } from '@/app/types/demand-planning';
+import { FilterSelections } from './components/FilterSidebar';
+import { HierarchySelection, TimePeriod } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import { AdjustmentData } from './components/AdjustmentModal';
 
 export default function DemandPlanningPage() {
+  // Filter selections state
+  const [filterSelections, setFilterSelections] = useState<FilterSelections>({
+    states: [],
+    dmaIds: [],
+    dcIds: []
+  });
+
+  // Keep hierarchy selections for backward compatibility with useForecast hook
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
   // Initialize with all daily periods from Jan 1 to Apr 1, 2025
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
@@ -84,22 +93,13 @@ export default function DemandPlanningPage() {
     refreshHistory
   } = useAdjustmentHistory();
 
-  // Handle hierarchy selection changes from sidebar
-  const handleHierarchySelectionChange = (selection: { type: HierarchyType; nodeIds: string[] }) => {
-    setSelectedHierarchies(prev => {
-      // Remove the existing selection for this type
-      const updatedSelections = prev.filter(s => s.type !== selection.type);
+  // Handle filter selection changes from sidebar
+  const handleFilterSelectionChange = (selections: FilterSelections) => {
+    setFilterSelections(selections);
+    console.log("Filter selections changed:", selections);
 
-      // Add the new selection if there are nodes selected
-      if (selection.nodeIds.length > 0) {
-        updatedSelections.push({
-          type: selection.type,
-          selectedNodes: selection.nodeIds
-        });
-      }
-
-      return updatedSelections;
-    });
+    // You can add logic here to convert filter selections to hierarchy selections
+    // if needed for backward compatibility with existing hooks
   };
 
   // Handle tab change
@@ -122,7 +122,8 @@ export default function DemandPlanningPage() {
 
   return (
     <DashboardLayout
-      onHierarchySelectionChange={handleHierarchySelectionChange}
+      filterSelections={filterSelections}
+      onFilterSelectionChange={handleFilterSelectionChange}
       activeTab={activeTab}
       onTabChange={handleTabChange}
     >
