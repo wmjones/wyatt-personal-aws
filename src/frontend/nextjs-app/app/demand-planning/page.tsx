@@ -120,7 +120,7 @@ export default function DemandPlanningPage() {
                 </p>
               </div>
               <div className="hidden md:block">
-                <button className="dp-btn-tertiary px-4 py-2 text-sm">
+                <button className="add-forecast-btn dp-btn-primary px-4 py-2 text-sm rounded-md">
                   <svg className="inline-block w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>

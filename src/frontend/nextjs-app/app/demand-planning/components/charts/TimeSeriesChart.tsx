@@ -156,9 +156,9 @@ export default function TimeSeriesChart({
       .call(g => g.select(".domain").attr("stroke", "var(--dp-chart-grid)"))
       .call(g => g.selectAll(".tick line").remove()); // Remove x-axis tick lines
 
-    // Add y-axis (vertical) with styling using variables
+    // Add y-axis (vertical) with styling using variables and improved spacing
     g.append('g')
-      .attr('class', 'y-axis')
+      .attr('class', 'y-axis chart-y-axis-labels')
       .call(yAxis)
       .call(g => g.select(".domain").remove()) // Remove y-axis line
       .call(g => g.selectAll(".tick line").attr("stroke", "var(--dp-chart-grid)"))
@@ -166,7 +166,8 @@ export default function TimeSeriesChart({
         .attr("font-size", "10px")
         .attr("fill", "var(--dp-chart-axis-text)") // Using variable for text color
         .attr("dy", "0.3em")
-        .attr("x", -10));
+        .attr("x", -22) // Improved spacing from chart area
+        .attr("class", "forecast-values")); // Add forecast values styling
 
     // Add Y-axis label - "Sales ($)" using variables
     g.append('text')
