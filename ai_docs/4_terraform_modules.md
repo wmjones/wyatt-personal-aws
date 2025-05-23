@@ -40,17 +40,11 @@ This project follows a "modules first" approach to infrastructure as code, using
 
 **Usage**: Stores visualization parameters, user preferences, task data, and connection information
 
-## 4. Frontend Module
+## 4. Frontend Module (Deprecated)
 
-**Purpose**: Sets up S3 and CloudFront for hosting the SPA
+**Purpose**: Previously used for hosting React SPA - now deprecated in favor of Vercel hosting
 
-**Key Components**:
-- S3 bucket for static assets
-- CloudFront distribution
-- Custom domain configuration
-- HTTPS certificate management
-
-**Usage**: Hosts the React frontend application with global content delivery
+**Status**: Removed - Frontend is now hosted on Vercel with Next.js
 
 ## 5. Lambda Function Module
 
@@ -70,7 +64,7 @@ This project follows a "modules first" approach to infrastructure as code, using
 
 **Key Components**:
 - S3 bucket with website configuration
-- CloudFront distribution (optional)
+- Optional custom domain configuration
 - Route 53 DNS configuration (optional)
 
 **Usage**: Hosts documentation and other static content

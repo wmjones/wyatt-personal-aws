@@ -10,21 +10,7 @@ output "step_function_arn" {
   value       = module.todoist_workflow.state_machine_arn
 }
 
-# Frontend Outputs
-output "website_bucket_name" {
-  description = "Name of the S3 bucket hosting the frontend website"
-  value       = module.frontend.bucket_name
-}
-
-output "cloudfront_distribution_id" {
-  description = "ID of the CloudFront distribution"
-  value       = module.frontend.cloudfront_distribution_id
-}
-
-output "website_url" {
-  description = "URL of the frontend website"
-  value       = module.frontend.website_url
-}
+# Frontend outputs removed - React app deprecated in favor of Next.js on Vercel
 
 # API Gateway Outputs
 output "api_gateway_endpoint" {
