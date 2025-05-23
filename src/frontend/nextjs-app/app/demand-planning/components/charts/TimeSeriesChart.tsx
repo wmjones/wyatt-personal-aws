@@ -333,86 +333,6 @@ export default function TimeSeriesChart({
       .attr('stroke-width', 2)
       .style('opacity', 0);
 
-    // Create invisible overlay for mouse events
-    g.append('rect')
-      .attr('class', 'hover-overlay')
-      .attr('width', innerWidth)
-      .attr('height', innerHeight)
-      .attr('fill', 'none')
-      .attr('pointer-events', 'all')
-      .on('mousemove', function(event) {
-        const [mouseX] = d3.pointer(event);
-        const xDate = xScale.invert(mouseX);
-
-        // Find closest data points
-        const i = bisectDate(forecastData.y_50Data, xDate, 1);
-        const d0 = forecastData.y_50Data[i - 1];
-        const d1 = forecastData.y_50Data[i];
-        const d = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
-
-        if (!d) return;
-
-        // Find corresponding edited data point if available
-        const editedPoint = adjustedDataset.find(adj =>
-          Math.abs(adj.date.getTime() - d.date.getTime()) < 24 * 60 * 60 * 1000 // Within 1 day
-        );
-
-        // Position hover elements
-        const xPos = xScale(d.date);
-        const yPosY50 = yScale(d.value);
-
-        hoverLine.attr('x1', xPos).attr('x2', xPos);
-        hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
-
-        // Show/hide edited circle based on data availability
-        if (editedPoint && showEdited) {
-          const yPosEdited = yScale(editedPoint.value);
-          hoverCircleEdited
-            .attr('cx', xPos)
-            .attr('cy', yPosEdited)
-            .style('opacity', 1);
-        } else {
-          hoverCircleEdited.style('opacity', 0);
-        }
-
-        // Update tooltip content
-        let tooltipHtml = `<div class="p-3">
-          <div class="font-medium text-gray-900 text-sm mb-2">${formatDate(d.date as Date, periodType)}</div>
-          <div class="space-y-1">
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-600">y_50 (Median):</span>
-              <span class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</span>
-            </div>`;
-
-        if (editedPoint && showEdited) {
-          const changeValue = (editedPoint.value - d.value) / d.value * 100;
-          const change = changeValue.toFixed(1);
-          const changeColor = editedPoint.value > d.value ? 'text-green-600' : 'text-red-600';
-          tooltipHtml += `
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-600">Edited:</span>
-              <span class="text-sm font-semibold text-gray-900">$${formatNumber(editedPoint.value)}k</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-600">Change:</span>
-              <span class="text-xs font-medium ${changeColor}">${changeValue > 0 ? '+' : ''}${change}%</span>
-            </div>`;
-        }
-
-        tooltipHtml += `</div></div>`;
-
-        setTooltipContent(tooltipHtml);
-        setTooltipPosition({
-          x: xPos + margin.left,
-          y: Math.min(yPosY50, editedPoint ? yScale(editedPoint.value) : yPosY50) + margin.top - 10
-        });
-        setTooltipVisible(true);
-        hoverGroup.style('opacity', 1);
-      })
-      .on('mouseout', function() {
-        hoverGroup.style('opacity', 0);
-        setTooltipVisible(false);
-      });
 
     // Add brush to chart
     const brushGroup = g.append('g')
@@ -435,8 +355,90 @@ export default function TimeSeriesChart({
 
     brushGroup.call(brush);
 
+    // Add hover events to the entire chart area
+    svg.on('mousemove', function(event) {
+      const [mouseX] = d3.pointer(event, g.node());
+
+      // Only show hover if mouse is within chart bounds
+      if (mouseX < 0 || mouseX > innerWidth) {
+        hoverGroup.style('opacity', 0);
+        setTooltipVisible(false);
+        return;
+      }
+
+      const xDate = xScale.invert(mouseX);
+
+      // Find closest data points
+      const i = bisectDate(forecastData.y_50Data, xDate, 1);
+      const d0 = forecastData.y_50Data[i - 1];
+      const d1 = forecastData.y_50Data[i];
+      const d = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
+
+      if (!d) return;
+
+      // Find corresponding edited data point if available
+      const editedPoint = adjustedDataset.find(adj =>
+        Math.abs(adj.date.getTime() - d.date.getTime()) < 24 * 60 * 60 * 1000 // Within 1 day
+      );
+
+      // Position hover elements
+      const xPos = xScale(d.date);
+      const yPosY50 = yScale(d.value);
+
+      hoverLine.attr('x1', xPos).attr('x2', xPos);
+      hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
+
+      // Show/hide edited circle based on data availability
+      if (editedPoint && showEdited) {
+        const yPosEdited = yScale(editedPoint.value);
+        hoverCircleEdited
+          .attr('cx', xPos)
+          .attr('cy', yPosEdited)
+          .style('opacity', 1);
+      } else {
+        hoverCircleEdited.style('opacity', 0);
+      }
+
+      // Update tooltip content
+      let tooltipHtml = `<div class="p-3">
+        <div class="font-medium text-gray-900 text-sm mb-2">${formatDate(d.date as Date, periodType)}</div>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">y_50 (Median):</span>
+            <span class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</span>
+          </div>`;
+
+      if (editedPoint && showEdited) {
+        const changeValue = (editedPoint.value - d.value) / d.value * 100;
+        const change = changeValue.toFixed(1);
+        const changeColor = editedPoint.value > d.value ? 'text-green-600' : 'text-red-600';
+        tooltipHtml += `
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">Edited:</span>
+            <span class="text-sm font-semibold text-gray-900">$${formatNumber(editedPoint.value)}k</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">Change:</span>
+            <span class="text-xs font-medium ${changeColor}">${changeValue > 0 ? '+' : ''}${change}%</span>
+          </div>`;
+      }
+
+      tooltipHtml += `</div></div>`;
+
+      setTooltipContent(tooltipHtml);
+      setTooltipPosition({
+        x: xPos + margin.left,
+        y: Math.min(yPosY50, editedPoint ? yScale(editedPoint.value) : yPosY50) + margin.top - 10
+      });
+      setTooltipVisible(true);
+      hoverGroup.style('opacity', 1);
+    })
+    .on('mouseleave', function() {
+      hoverGroup.style('opacity', 0);
+      setTooltipVisible(false);
+    })
     // Add zoom reset functionality (double-click)
-    svg.on('dblclick', () => {
+    .on('dblclick', () => {
       setZoomDomain(null);
     });
 
