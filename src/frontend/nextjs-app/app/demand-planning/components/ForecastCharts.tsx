@@ -16,17 +16,17 @@ export default function ForecastCharts({
   forecastData,
   className = ''
 }: ForecastChartsProps) {
-  // Time period selection state based on reference image
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'day' | 'week' | 'threeWeeks'>('threeWeeks');
-  const selectedDateRange = 'Jan 1 - Apr 1, 2025'; // Updated to show full data range
+  // Date range selection state
+  const [startDate, setStartDate] = useState('2025-01-01');
+  const [endDate, setEndDate] = useState('2025-04-01');
 
-  // Toggle state for data series based on reference image
+  // Toggle state for forecast data series (using actual column names)
   const [toggles, setToggles] = useState({
-    forecasted: true,
+    y_05: true,   // Lower confidence interval
+    y_50: true,   // Median forecast
+    y_95: true,   // Upper confidence interval
     edited: true,
-    actual: true,
-    actual2024: true,
-    actual2023: false
+    actual: true
   });
 
 
@@ -38,15 +38,13 @@ export default function ForecastCharts({
     }));
   };
 
-  // Handle date navigation
-  const handlePrevDate = () => {
-    // This would normally adjust the date range
-    console.log("Navigate to previous week");
+  // Handle date changes
+  const handleStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setStartDate(event.target.value);
   };
 
-  const handleNextDate = () => {
-    // This would normally adjust the date range
-    console.log("Navigate to next week");
+  const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEndDate(event.target.value);
   };
 
   return (
@@ -54,68 +52,32 @@ export default function ForecastCharts({
       <div className="p-4 border-b border-dp-frame-border">
         {/* Main control container */}
         <div className="flex justify-between items-center">
-          {/* LEFT AREA: Time period selector - Day/Week/Three Weeks formatted exactly like screenshot */}
+          {/* LEFT AREA: Date range selectors */}
           <div className="flex items-center space-x-4">
-            <div className="flex rounded-lg overflow-hidden border border-dp-frame-border">
-              <button
-                className={`time-period-toggle px-5 py-2 text-sm ${
-                  selectedTimeRange === 'day'
-                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('day')}
-              >
-                Day
-              </button>
-              <button
-                className={`time-period-toggle px-5 py-2 text-sm border-l border-r border-dp-frame-border ${
-                  selectedTimeRange === 'week'
-                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('week')}
-              >
-                Week
-              </button>
-              <button
-                className={`time-period-toggle px-5 py-2 text-sm ${
-                  selectedTimeRange === 'threeWeeks'
-                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('threeWeeks')}
-              >
-                Three Weeks
-              </button>
+            <div className="flex items-center space-x-2">
+              <label htmlFor="start-date" className="text-sm font-medium text-dp-text-primary">Start Date:</label>
+              <input
+                type="date"
+                id="start-date"
+                value={startDate}
+                onChange={handleStartDateChange}
+                className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                min="2025-01-01"
+                max="2025-12-31"
+              />
             </div>
-          </div>
-
-          {/* CENTER AREA: Date range selector - exactly matching screenshot */}
-          <div className="flex items-center absolute left-1/2 transform -translate-x-1/2 space-x-2">
-            <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary transition-colors rounded-md hover:bg-dp-background-secondary"
-              onClick={handlePrevDate}
-              aria-label="Previous date range"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <div className="date-range-selector flex items-center">
-              <span className="text-sm font-medium">{selectedDateRange}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1 text-dp-text-secondary" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+            <div className="flex items-center space-x-2">
+              <label htmlFor="end-date" className="text-sm font-medium text-dp-text-primary">End Date:</label>
+              <input
+                type="date"
+                id="end-date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                min="2025-01-01"
+                max="2025-12-31"
+              />
             </div>
-            <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary transition-colors rounded-md hover:bg-dp-background-secondary"
-              onClick={handleNextDate}
-              aria-label="Next date range"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
           </div>
 
           {/* RIGHT AREA: View toggles matching screenshot exactly */}
@@ -136,22 +98,56 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* Series toggles exactly matching screenshot styling */}
+      {/* Series toggles with actual forecast column names */}
       <div className="px-4 py-3 border-b border-dp-frame-border flex flex-wrap gap-x-8 gap-y-2">
-        {/* Forecasted Toggle */}
+        {/* y_05 Toggle (Lower Confidence Interval) */}
         <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
-            name="toggle-forecasted"
-            id="toggle-forecasted"
+            name="toggle-y_05"
+            id="toggle-y_05"
             className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.forecasted}
-            onChange={() => handleToggle('forecasted')}
+            checked={toggles.y_05}
+            onChange={() => handleToggle('y_05')}
           />
           <div className="flex items-center">
             <span className="inline-block w-3 border-b-2 border-dashed border-dp-chart-forecasted mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">Forecasted</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_05 (Lower)</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="5th percentile forecast">i</span>
+          </div>
+        </label>
+
+        {/* y_50 Toggle (Median Forecast) */}
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            name="toggle-y_50"
+            id="toggle-y_50"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
+            checked={toggles.y_50}
+            onChange={() => handleToggle('y_50')}
+          />
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-0.5 bg-dp-chart-forecasted mr-1.5"></span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_50 (Median)</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="50th percentile forecast">i</span>
+          </div>
+        </label>
+
+        {/* y_95 Toggle (Upper Confidence Interval) */}
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            name="toggle-y_95"
+            id="toggle-y_95"
+            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
+            checked={toggles.y_95}
+            onChange={() => handleToggle('y_95')}
+          />
+          <div className="flex items-center">
+            <span className="inline-block w-3 border-b-2 border-dotted border-dp-chart-forecasted mr-1.5"></span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_95 (Upper)</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="95th percentile forecast">i</span>
           </div>
         </label>
 
@@ -168,7 +164,7 @@ export default function ForecastCharts({
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-edited mr-1.5"></span>
             <span className="chart-legend-primary text-xs text-dp-text-secondary">Edited</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="Manually adjusted forecast">i</span>
           </div>
         </label>
 
@@ -185,41 +181,7 @@ export default function ForecastCharts({
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-actual mr-1.5"></span>
             <span className="chart-legend-primary text-xs text-dp-text-secondary">Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* 2024 Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual2024"
-            id="toggle-actual2024"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual2024}
-            onChange={() => handleToggle('actual2024')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2024 mr-1.5"></span>
-            <span className="chart-legend-secondary text-xs text-dp-text-secondary">2024 Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* 2023 Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual2023"
-            id="toggle-actual2023"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual2023}
-            onChange={() => handleToggle('actual2023')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2023 mr-1.5"></span>
-            <span className="chart-legend-secondary text-xs text-dp-text-secondary">2023 Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
+            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="Actual observed values">i</span>
           </div>
         </label>
       </div>
@@ -234,11 +196,13 @@ export default function ForecastCharts({
               baselineData={forecastData.baseline}
               adjustedData={forecastData.adjusted}
               timePeriods={forecastData.timePeriods}
-              showForecasted={toggles.forecasted}
+              startDate={startDate}
+              endDate={endDate}
+              showY05={toggles.y_05}
+              showY50={toggles.y_50}
+              showY95={toggles.y_95}
               showEdited={toggles.edited}
               showActual={toggles.actual}
-              showActual2024={toggles.actual2024}
-              showActual2023={toggles.actual2023}
             />
           )}
         </ResponsiveChartWrapper>

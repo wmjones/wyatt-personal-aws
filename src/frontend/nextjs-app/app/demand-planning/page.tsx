@@ -59,7 +59,7 @@ export default function DemandPlanningPage() {
     const allPeriodIds = timePeriods.map(period => period.id);
     setSelectedTimePeriods(allPeriodIds);
     console.log("Page component mount - setting all daily periods:", allPeriodIds.length);
-  }, []); // Empty dependency array to run only once
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch forecast data based on selections
   const {
