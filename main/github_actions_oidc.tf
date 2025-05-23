@@ -98,7 +98,23 @@ resource "aws_iam_policy" "github_actions_permissions" {
           "${module.visualization_data_bucket.s3_bucket_arn}/*"
         ]
       },
-      # CloudFront permissions removed - React app deprecated
+      # S3 ListAllMyBuckets permission for SSM workflow
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListAllMyBuckets",
+          "s3:GetBucketLocation"
+        ]
+        Resource = "*"
+      },
+      # CloudFront permissions for SSM workflow (even though React app deprecated, workflow still checks)
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudfront:ListDistributions"
+        ]
+        Resource = "*"
+      },
       # SSM Parameter Permissions
       {
         Effect = "Allow"
