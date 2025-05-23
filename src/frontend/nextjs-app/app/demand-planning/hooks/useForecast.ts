@@ -10,11 +10,55 @@ import {
 import { FilterSelections } from '../components/FilterSidebar';
 import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
+import { hybridForecastService } from '@/app/services/hybridForecastService';
+import { AthenaQueryResponse } from '@/app/services/athenaService';
 
 interface UseForecastProps {
   hierarchySelections: HierarchySelection[];
   timePeriodIds: string[];
   filterSelections?: FilterSelections;
+}
+
+/**
+ * Transform Athena query response to ForecastDataPoint array
+ */
+function transformAthenaToForecastData(
+  athenaResponse: AthenaQueryResponse,
+  timePeriods: TimePeriod[]
+): { forecastData: ForecastDataPoint[], inventoryItems: { id: string, name: string }[] } {
+  const forecastData: ForecastDataPoint[] = [];
+  const inventoryItemsMap = new Map<string, string>();
+
+  // Expected Athena columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
+  athenaResponse.data.rows.forEach(row => {
+    const [businessDate, inventoryItemId, , state, dmaId, dcId, y50Value] = row;
+
+    // Find matching time period
+    const matchingPeriod = timePeriods.find(period => period.startDate === businessDate);
+    if (!matchingPeriod) {
+      return; // Skip if date doesn't match our time period range
+    }
+
+    // Track inventory items
+    inventoryItemsMap.set(inventoryItemId, `Item ${inventoryItemId}`);
+
+    forecastData.push({
+      periodId: matchingPeriod.id,
+      value: parseFloat(y50Value) || 0,
+      inventoryItemId,
+      state,
+      dmaId,
+      dcId,
+    });
+  });
+
+  // Convert inventory items map to array
+  const inventoryItems = Array.from(inventoryItemsMap.entries()).map(([id, name]) => ({
+    id,
+    name
+  }));
+
+  return { forecastData, inventoryItems };
 }
 
 export default function useForecast({ hierarchySelections, timePeriodIds, filterSelections }: UseForecastProps) {
@@ -53,152 +97,119 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
 
-    // Skip if no selections are made
-    if (hierarchySelections.length === 0 || timePeriodIds.length === 0) {
-      console.log("useForecast: No selections, skipping data fetch");
+    // Skip if no time periods are selected
+    if (timePeriodIds.length === 0) {
+      console.log("useForecast: No time periods selected, skipping data fetch");
       setForecastData(null);
       return;
     }
 
-    console.log("useForecast: Starting data fetch");
+    console.log("useForecast: Starting real data fetch");
     setIsLoading(true);
     setError(null);
 
     try {
-      // Simulate API call
-      console.log("useForecast: Simulating API call delay");
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Generate mock data based on selections
+      // Get time periods for date range
       const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
-      console.log("useForecast: Filtered periods:", periods);
+      if (periods.length === 0) {
+        throw new Error('No valid time periods found');
+      }
 
-      // Base value depends on the number of selected hierarchies to simulate different values
-      const baseValue = 10000 * (1 + (hierarchySelections.reduce(
-        (acc, curr) => acc + curr.selectedNodes.length, 0
-      ) / 10));
-      console.log("useForecast: Calculated base value:", baseValue);
+      const startDate = periods[0].startDate;
+      const endDate = periods[periods.length - 1].endDate;
 
-      // Create sample inventory items (mimicking the simulation data)
-      const inventoryItems = [
-        { id: '1', name: 'Item 1' },
-        { id: '5', name: 'Item 5' },
-        { id: '12', name: 'Item 12' },
-        { id: '25', name: 'Item 25' },
-        { id: '50', name: 'Item 50' },
-        { id: '100', name: 'Item 100' },
-        { id: '250', name: 'Item 250' },
-        { id: '500', name: 'Item 500' },
-      ];
+      // Build filters for Athena query
+      const filters: {
+        startDate: string;
+        endDate: string;
+        state?: string | string[];
+      } = {
+        startDate,
+        endDate,
+      };
 
-      // Define available filter values (matching FilterSidebar exactly)
-      const availableStates = ['CA', 'TX', 'FL', 'NY', 'IL'];
-      const availableDMAs = ['ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQR', 'STU', 'VWX', 'YZA', 'BCD',
-                             'EFG', 'HIJ', 'KLM', 'NOP', 'QRS', 'TUV', 'WXY', 'ZAB', 'CDE', 'FGH',
-                             'IJK', 'LMN', 'OPQ', 'RST', 'UVW', 'XYZ', 'ABD', 'CEF', 'GHK', 'LMQ'];
-      const availableDCs = Array.from({ length: 60 }, (_, i) => String(i + 1));
-
-      // Generate baseline data for each inventory item with state/DMA/DC combinations
-      const allBaselineData: ForecastDataPoint[] = [];
-
-      inventoryItems.forEach(item => {
-        availableStates.forEach((state, stateIndex) => {
-          // Use 2-3 DMAs per state for manageable data size
-          const stateSpecificDMAs = availableDMAs.slice(stateIndex * 3, (stateIndex + 1) * 3);
-
-          stateSpecificDMAs.forEach((dmaId, dmaIndex) => {
-            // Use 2 DCs per DMA for manageable data size
-            const dmaSpecificDCs = availableDCs.slice(dmaIndex * 2, (dmaIndex + 1) * 2);
-
-            dmaSpecificDCs.forEach(dcId => {
-              // Different base values for different combinations
-              const itemBaseValue = baseValue * (0.5 + Math.random() * 1.5);
-
-              periods.forEach((period, index) => {
-                // Simulate seasonal trends (slight increase over time)
-                const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
-
-                // Add weekly patterns (higher on weekends)
-                const date = new Date(period.startDate);
-                const dayOfWeek = date.getDay();
-                const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
-
-                // Add realistic daily variation
-                const randomFactor = 0.85 + (Math.random() * 0.3);
-
-                allBaselineData.push({
-                  periodId: period.id,
-                  value: Math.round(itemBaseValue * seasonalTrend * weekendBoost * randomFactor),
-                  inventoryItemId: item.id,
-                  state,
-                  dmaId,
-                  dcId,
-                });
-              });
-            });
-          });
-        });
-      });
-
-      // Filter and aggregate baseline data based on filter selections
-      // First filter the data based on selections
-      const filteredData = allBaselineData.filter(dataPoint => {
-        // If no filters are selected, include all data
-        if (!filterSelections) return true;
-
-        const { states, dmaIds, dcIds } = filterSelections;
-
-        // If no specific filters are active, include all data
-        if (states.length === 0 && dmaIds.length === 0 && dcIds.length === 0) {
-          return true;
+      // Add location filters if specified
+      if (filterSelections) {
+        if (filterSelections.states.length > 0) {
+          // Pass all selected states to Athena
+          filters.state = filterSelections.states.length === 1
+            ? filterSelections.states[0]
+            : filterSelections.states;
         }
+        // Note: athenaService doesn't currently support dmaIds or dcIds filters
+        // These are handled via client-side filtering after Athena query
+      }
 
-        // Check each filter - if filter is active, data point must match
-        const stateMatch = states.length === 0 || states.includes(dataPoint.state || '');
-        const dmaMatch = dmaIds.length === 0 || dmaIds.includes(dataPoint.dmaId || '');
-        const dcMatch = dcIds.length === 0 || dcIds.includes(dataPoint.dcId || '');
+      console.log("useForecast: Querying with filters:", filters);
 
-        return stateMatch && dmaMatch && dcMatch;
+      // Query real data from hybrid service
+      const athenaResponse = await hybridForecastService.getForecastData(filters);
+
+      console.log("useForecast: Received Athena response:", {
+        columns: athenaResponse.data.columns,
+        rowCount: athenaResponse.data.rows.length
       });
 
-      // Aggregate the filtered data by inventory item and period
-      // This simulates what would happen in a SQL GROUP BY query
+      // Check if we got any data
+      if (!athenaResponse.data.rows || athenaResponse.data.rows.length === 0) {
+        throw new Error('No forecast data found for the selected filters and date range. Try adjusting your filters or date range.');
+      }
+
+      // Transform Athena data to forecast format
+      const { forecastData: rawForecastData, inventoryItems } = transformAthenaToForecastData(
+        athenaResponse,
+        periods
+      );
+
+      // Check if transformation yielded any data
+      if (rawForecastData.length === 0) {
+        throw new Error('No forecast data matches the selected time periods. The data may be outside the selected date range.');
+      }
+
+      // Aggregate data by inventory item and period (same logic as before)
       const aggregationMap = new Map<string, ForecastDataPoint>();
 
-      filteredData.forEach(dataPoint => {
-        // Create a key for aggregation based on inventoryItemId and periodId
+      rawForecastData.forEach(dataPoint => {
+        // Apply client-side filtering for unsupported filters (DMA, DC)
+        if (filterSelections) {
+          const { dmaIds, dcIds } = filterSelections;
+
+          if (dmaIds.length > 0 && !dmaIds.includes(dataPoint.dmaId || '')) {
+            return;
+          }
+          if (dcIds.length > 0 && !dcIds.includes(dataPoint.dcId || '')) {
+            return;
+          }
+        }
+
         const key = `${dataPoint.inventoryItemId}-${dataPoint.periodId}`;
 
         if (aggregationMap.has(key)) {
-          // Sum up the values for the same item and period
           const existing = aggregationMap.get(key)!;
           existing.value += dataPoint.value;
         } else {
-          // Create a new aggregated point
           aggregationMap.set(key, {
             periodId: dataPoint.periodId,
             value: dataPoint.value,
             inventoryItemId: dataPoint.inventoryItemId,
-            // We don't include state/dma/dc in aggregated data since it's summed across multiple
           });
         }
       });
 
       const baseline = Array.from(aggregationMap.values());
 
-      console.log("useForecast: Filter state:", {
+      console.log("useForecast: Real data processing complete:", {
         hasFilters: !!filterSelections,
-        stateCount: filterSelections?.states.length || 0,
-        dmaCount: filterSelections?.dmaIds.length || 0,
-        dcCount: filterSelections?.dcIds.length || 0,
-        filteredDataCount: filteredData.length,
-        aggregatedDataCount: baseline.length,
+        stateFilter: filters.state || 'none',
+        rawDataPoints: rawForecastData.length,
+        aggregatedDataPoints: baseline.length,
         uniqueItems: new Set(baseline.map(d => d.inventoryItemId)).size,
-        uniquePeriods: new Set(baseline.map(d => d.periodId)).size
+        uniquePeriods: new Set(baseline.map(d => d.periodId)).size,
+        inventoryItemCount: inventoryItems.length
       });
 
-      // Create the forecast series with inventory items
-      const mockForecast: ForecastSeries = {
+      // Create the forecast series
+      const realForecast: ForecastSeries = {
         id: `forecast-${Date.now()}`,
         hierarchySelections,
         timePeriods: periods,
@@ -206,19 +217,13 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         inventoryItems,
         lastUpdated: new Date().toISOString(),
       };
-      console.log("useForecast: Created mock forecast data", {
-        id: mockForecast.id,
-        hierarchyCount: mockForecast.hierarchySelections.length,
-        periodCount: mockForecast.timePeriods.length,
-        dataPointCount: mockForecast.baseline.length
-      });
 
-      setForecastData(mockForecast);
+      setForecastData(realForecast);
     } catch (error) {
-      console.error('Error fetching forecast data:', error);
-      setError('Failed to fetch forecast data. Please try again.');
+      console.error('Error fetching real forecast data:', error);
+      setError(`Failed to fetch forecast data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      console.log("useForecast: Completed fetch, setting isLoading to false");
+      console.log("useForecast: Completed real data fetch");
       setIsLoading(false);
     }
   }, [hierarchySelections, timePeriodIds, mockTimePeriods, filterSelections]);
