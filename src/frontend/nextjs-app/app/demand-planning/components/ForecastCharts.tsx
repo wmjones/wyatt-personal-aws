@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ForecastSeries } from '@/app/types/demand-planning';
 import TimeSeriesChart from './charts/TimeSeriesChart';
 // ComparisonChart is imported but not used yet
@@ -16,109 +16,73 @@ export default function ForecastCharts({
   forecastData,
   className = ''
 }: ForecastChartsProps) {
-  // Time period selection state based on reference image
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'day' | 'week' | 'threeWeeks'>('week');
-  const selectedDateRange = 'May 19 - May 24, 2025'; // Currently static, will be dynamic in the future
+  // Get the lowest inventory item ID and set as default
+  const defaultInventoryItemId = useMemo(() => {
+    if (!forecastData.inventoryItems || forecastData.inventoryItems.length === 0) {
+      return null;
+    }
+    // Sort inventory items by ID and get the lowest one
+    const sortedItems = [...forecastData.inventoryItems].sort((a, b) =>
+      parseInt(a.id) - parseInt(b.id)
+    );
+    return sortedItems[0].id;
+  }, [forecastData.inventoryItems]);
 
-  // Toggle state for data series based on reference image
-  const [toggles, setToggles] = useState({
-    forecasted: true,
-    edited: true,
-    actual: true,
-    actual2024: true,
-    actual2023: false
-  });
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(null);
 
+  // Update selected inventory item when default changes
+  useEffect(() => {
+    if (defaultInventoryItemId && !selectedInventoryItemId) {
+      setSelectedInventoryItemId(defaultInventoryItemId);
+    }
+  }, [defaultInventoryItemId, selectedInventoryItemId]);
 
-  // Toggle data series display
-  const handleToggle = (series: keyof typeof toggles) => {
-    setToggles(prev => ({
-      ...prev,
-      [series]: !prev[series]
-    }));
+  // Filter data by selected inventory item
+  const filteredBaselineData = useMemo(() => {
+    if (!selectedInventoryItemId) return forecastData.baseline;
+    return forecastData.baseline.filter(item =>
+      item.inventoryItemId === selectedInventoryItemId
+    );
+  }, [forecastData.baseline, selectedInventoryItemId]);
+
+  const filteredAdjustedData = useMemo(() => {
+    if (!selectedInventoryItemId || !forecastData.adjusted) return forecastData.adjusted;
+    return forecastData.adjusted.filter(item =>
+      item.inventoryItemId === selectedInventoryItemId
+    );
+  }, [forecastData.adjusted, selectedInventoryItemId]);
+
+  // Handle inventory item selection
+  const handleInventoryItemChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedInventoryItemId(event.target.value);
   };
 
-  // Handle date navigation
-  const handlePrevDate = () => {
-    // This would normally adjust the date range
-    console.log("Navigate to previous week");
-  };
-
-  const handleNextDate = () => {
-    // This would normally adjust the date range
-    console.log("Navigate to next week");
-  };
 
   return (
     <div className={`bg-dp-surface-primary border border-dp-frame-border rounded-lg shadow-dp-medium ${className}`}>
       <div className="p-4 border-b border-dp-frame-border">
-        {/* Main control container */}
+        {/* Control bar with inventory dropdown and view toggles */}
         <div className="flex justify-between items-center">
-          {/* LEFT AREA: Time period selector - Day/Week/Three Weeks formatted exactly like screenshot */}
-          <div className="flex items-center space-x-4">
-            <div className="flex rounded-lg overflow-hidden border border-dp-frame-border">
-              <button
-                className={`px-5 py-2 text-sm transition-colors ${
-                  selectedTimeRange === 'day'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('day')}
-              >
-                Day
-              </button>
-              <button
-                className={`px-5 py-2 text-sm transition-colors border-l border-r border-dp-frame-border ${
-                  selectedTimeRange === 'week'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('week')}
-              >
-                Week
-              </button>
-              <button
-                className={`px-5 py-2 text-sm transition-colors ${
-                  selectedTimeRange === 'threeWeeks'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
-                    : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
-                }`}
-                onClick={() => setSelectedTimeRange('threeWeeks')}
-              >
-                Three Weeks
-              </button>
-            </div>
+          {/* LEFT: Inventory Item Dropdown */}
+          <div className="flex items-center space-x-2">
+            <label htmlFor="inventory-item-select" className="text-sm font-medium text-dp-text-primary">
+              Inventory Item:
+            </label>
+            <select
+              id="inventory-item-select"
+              value={selectedInventoryItemId || ''}
+              onChange={handleInventoryItemChange}
+              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+            >
+              {forecastData.inventoryItems.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.name || `Item ${item.id}`}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* CENTER AREA: Date range selector - exactly matching screenshot */}
-          <div className="flex items-center absolute left-1/2 transform -translate-x-1/2">
-            <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary"
-              onClick={handlePrevDate}
-              aria-label="Previous date range"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <div className="flex items-center px-3 py-2 border border-dp-frame-border rounded-md">
-              <span className="text-sm font-medium">{selectedDateRange}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1 text-dp-text-secondary" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary"
-              onClick={handleNextDate}
-              aria-label="Next date range"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-
-          {/* RIGHT AREA: View toggles matching screenshot exactly */}
+          {/* RIGHT: View toggles */}
           <div className="flex items-center">
             <div className="flex border border-dp-frame-border rounded-md overflow-hidden">
               <button className="p-2 border-r border-dp-frame-border bg-white">
@@ -136,93 +100,6 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* Series toggles exactly matching screenshot styling */}
-      <div className="px-4 py-3 border-b border-dp-frame-border flex flex-wrap gap-x-8 gap-y-2">
-        {/* Forecasted Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-forecasted"
-            id="toggle-forecasted"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.forecasted}
-            onChange={() => handleToggle('forecasted')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 border-b-2 border-dashed border-dp-chart-forecasted mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Forecasted</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* Edited Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-edited"
-            id="toggle-edited"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.edited}
-            onChange={() => handleToggle('edited')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-edited mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Edited</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual"
-            id="toggle-actual"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual}
-            onChange={() => handleToggle('actual')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* 2024 Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual2024"
-            id="toggle-actual2024"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual2024}
-            onChange={() => handleToggle('actual2024')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2024 mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">2024 Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-
-        {/* 2023 Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual2023"
-            id="toggle-actual2023"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual2023}
-            onChange={() => handleToggle('actual2023')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2023 mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">2023 Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
-          </div>
-        </label>
-      </div>
 
       {/* Chart display */}
       <div className="p-4">
@@ -231,14 +108,14 @@ export default function ForecastCharts({
             <TimeSeriesChart
               width={width}
               height={height}
-              baselineData={forecastData.baseline}
-              adjustedData={forecastData.adjusted}
+              baselineData={filteredBaselineData}
+              adjustedData={filteredAdjustedData}
               timePeriods={forecastData.timePeriods}
-              showForecasted={toggles.forecasted}
-              showEdited={toggles.edited}
-              showActual={toggles.actual}
-              showActual2024={toggles.actual2024}
-              showActual2023={toggles.actual2023}
+              showY05={true}
+              showY50={true}
+              showY95={true}
+              showEdited={true}
+              showActual={true}
             />
           )}
         </ResponsiveChartWrapper>
@@ -251,14 +128,12 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* X-axis weekday labels exactly matching reference image */}
+      {/* X-axis labels for 3-month view */}
       <div className="px-6 py-2 flex justify-between text-xs text-dp-chart-axis-text border-t border-dp-frame-border">
-        <div className="text-center">Mon<br/>May 19</div>
-        <div className="text-center">Tue<br/>May 20</div>
-        <div className="text-center">Wed<br/>May 21</div>
-        <div className="text-center">Thu<br/>May 22</div>
-        <div className="text-center">Fri<br/>May 23</div>
-        <div className="text-center">Sat<br/>May 24</div>
+        <div className="text-center">Jan<br/>2025</div>
+        <div className="text-center">Feb<br/>2025</div>
+        <div className="text-center">Mar<br/>2025</div>
+        <div className="text-center">Apr<br/>2025</div>
       </div>
 
       <div className="mt-1 text-xs text-dp-text-tertiary text-right px-4 pb-2">

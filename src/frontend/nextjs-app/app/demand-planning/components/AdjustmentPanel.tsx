@@ -52,12 +52,12 @@ export default function AdjustmentPanel({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-dp-background-tertiary rounded-lg p-4">
           <div className="text-xs text-dp-text-secondary mb-1">Baseline Total</div>
-          <div className="text-xl font-medium">{baselineTotal.toLocaleString()} units</div>
+          <div className="forecast-values text-xl font-medium">{baselineTotal.toLocaleString()} units</div>
         </div>
 
         <div className="bg-dp-background-tertiary rounded-lg p-4">
           <div className="text-xs text-dp-text-secondary mb-1">Adjusted Total</div>
-          <div className="text-xl font-medium">
+          <div className="forecast-values text-xl font-medium">
             {forecastData.adjusted
               ? `${adjustedTotal.toLocaleString()} units`
               : 'No adjustments applied'}
@@ -68,7 +68,7 @@ export default function AdjustmentPanel({
           <div className="bg-dp-background-tertiary rounded-lg p-4">
             <div className="text-xs text-dp-text-secondary mb-1">Overall Change</div>
             <div
-              className={`text-xl font-medium ${
+              className={`forecast-values text-xl font-medium ${
                 percentageChange > 0
                   ? 'text-dp-ui-positive'
                   : percentageChange < 0

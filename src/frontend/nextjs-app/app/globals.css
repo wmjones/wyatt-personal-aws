@@ -43,6 +43,33 @@
   --dp-tab-height: 48px;
   --dp-sidebar-width: 280px;
   --dp-footer-height: 60px;
+
+  /* Enhanced design principles variables */
+  --dp-cfa-red-primary: #DD0033;
+  --dp-cfa-red-light: #FF6B8A;
+  --dp-cfa-red-subtle: #FFF5F7;
+  --dp-cfa-red-border: #FFE1E6;
+  --dp-gray-50: #FAFAFA;
+  --dp-gray-100: #F5F5F5;
+
+  /* Text hierarchy */
+  --dp-text-primary: #333333;
+  --dp-text-secondary: #6B7280;
+  --dp-text-tertiary: #9CA3AF;
+
+  /* Background levels */
+  --dp-background-primary: #FFFFFF;
+  --dp-background-secondary: #F9FAFB;
+  --dp-background-tertiary: #F3F4F6;
+
+  /* UI state colors */
+  --dp-ui-positive: #059669;
+  --dp-ui-negative: #DC2626;
+
+  /* Chart brush colors */
+  --dp-chart-brush-fill: #3B82F6;
+  --dp-chart-brush-stroke: #3B82F6;
+  --dp-chart-brush-handle: #1E40AF;
 }
 
 @theme inline {
@@ -350,4 +377,107 @@ body {
   .desktop-up {
     display: block;
   }
+}
+
+/* ========================================
+   DESIGN PRINCIPLES IMPROVEMENTS
+   ======================================== */
+
+/* Alignment Enhancements */
+.chart-y-axis-labels {
+  margin-right: 12px; /* Improved spacing from chart area */
+}
+
+.date-range-selector {
+  border: 1px solid var(--dp-border-light);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+
+.date-range-selector:hover {
+  border-color: var(--dp-border-medium);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Visual Weighting Enhancements */
+.add-forecast-btn {
+  background: var(--dp-cfa-red-primary) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(221, 0, 51, 0.15) !important;
+  transition: all 0.15s ease !important;
+}
+
+.add-forecast-btn:hover {
+  background: var(--dp-cfa-red-light) !important;
+  box-shadow: 0 4px 8px rgba(221, 0, 51, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+.time-period-toggle {
+  transition: all 0.15s ease;
+}
+
+.time-period-toggle.active {
+  background: white !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  font-weight: 500 !important;
+  border-color: var(--dp-border-medium) !important;
+}
+
+/* Information Hierarchy Refinements */
+.forecast-values {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--dp-text-primary) !important;
+}
+
+.chart-legend-primary {
+  font-weight: 600 !important;
+}
+
+.chart-legend-secondary {
+  font-weight: 400 !important;
+  opacity: 0.8 !important;
+}
+
+/* Enhanced button hierarchy */
+.dp-btn-primary {
+  background: var(--dp-cfa-red-primary) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(221, 0, 51, 0.15) !important;
+  border: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.dp-btn-primary:hover {
+  background: var(--dp-cfa-red-light) !important;
+  box-shadow: 0 4px 8px rgba(221, 0, 51, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+.dp-btn-tertiary {
+  background: transparent !important;
+  color: var(--dp-text-secondary) !important;
+  border: 1px solid var(--dp-border-light) !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.dp-btn-tertiary:hover {
+  background: var(--dp-background-secondary) !important;
+  color: var(--dp-text-primary) !important;
+  border-color: var(--dp-border-medium) !important;
+}
+
+/* UI state color utilities */
+.text-dp-ui-positive {
+  color: var(--dp-ui-positive) !important;
+}
+
+.text-dp-ui-negative {
+  color: var(--dp-ui-negative) !important;
 }

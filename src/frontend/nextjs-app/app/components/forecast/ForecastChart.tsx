@@ -162,10 +162,10 @@ export default function ForecastChart({ data }: ForecastChartProps) {
 
     // Legend items
     const legendData = [
-      { label: 'Median (50th)', color: '#4f46e5', dash: null as string | null, width: 3 },
-      { label: '5th percentile', color: '#94a3b8', dash: '3,3', width: 1 },
-      { label: '95th percentile', color: '#94a3b8', dash: '3,3', width: 1 },
-      { label: 'Confidence band', color: '#4f46e5', opacity: 0.2, isArea: true }
+      { label: 'Median (50th)', color: '#4f46e5', dash: null as string | null, width: 3 as number | undefined },
+      { label: '5th percentile', color: '#94a3b8', dash: '3,3' as string | null, width: 1 as number | undefined },
+      { label: '95th percentile', color: '#94a3b8', dash: '3,3' as string | null, width: 1 as number | undefined },
+      { label: 'Confidence band', color: '#4f46e5', opacity: 0.2 as number | undefined, isArea: true as boolean | undefined }
     ];
 
     legendData.forEach((item, i) => {
@@ -177,7 +177,7 @@ export default function ForecastChart({ data }: ForecastChartProps) {
           .attr('width', 20)
           .attr('height', 10)
           .attr('fill', item.color)
-          .attr('fill-opacity', item.opacity);
+          .attr('fill-opacity', item.opacity || 1);
       } else {
         legendItem.append('line')
           .attr('x1', 0)
@@ -185,8 +185,8 @@ export default function ForecastChart({ data }: ForecastChartProps) {
           .attr('y1', 5)
           .attr('y2', 5)
           .attr('stroke', item.color)
-          .attr('stroke-width', item.width ?? 1)
-          .attr('stroke-dasharray', item.dash ?? 'none');
+          .attr('stroke-width', item.width || 1)
+          .attr('stroke-dasharray', item.dash || 'none');
       }
 
       legendItem.append('text')
@@ -198,7 +198,7 @@ export default function ForecastChart({ data }: ForecastChartProps) {
     });
 
     // Add interactive hover effect
-    const bisectDate = d3.bisector<{ date: Date; y_05: number; y_50: number; y_95: number }, Date>(d => d.date).left;
+    const bisectDate = d3.bisector((d: { date: Date; y_05: number; y_50: number; y_95: number }) => d.date).left;
 
     // Create focus elements
     const focus = svg.append('g')

@@ -17,7 +17,17 @@ export interface TimePeriod {
 export interface ForecastDataPoint {
   periodId: string;
   value: number;
+  inventoryItemId?: string;
+  state?: string;
+  dmaId?: string;
+  dcId?: string;
   metadata?: Record<string, unknown>;
+}
+
+// Inventory item information
+export interface InventoryItem {
+  id: string;
+  name?: string;
 }
 
 // Complete forecast series
@@ -27,6 +37,7 @@ export interface ForecastSeries {
   timePeriods: TimePeriod[];
   baseline: ForecastDataPoint[];
   adjusted?: ForecastDataPoint[];
+  inventoryItems: InventoryItem[];
   lastUpdated: string;
 }
 

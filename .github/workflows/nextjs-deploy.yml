@@ -55,7 +55,13 @@ jobs:
 
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          which npm
+          which node
+          npm --version
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          PATH: ${{ env.PATH }}:/usr/local/bin:/usr/bin:/bin
 
       - name: Deploy Project Artifacts to Vercel
         working-directory: src/frontend/nextjs-app
@@ -110,7 +116,13 @@ jobs:
 
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          which npm
+          which node
+          npm --version
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          PATH: ${{ env.PATH }}:/usr/local/bin:/usr/bin:/bin
 
       - name: Deploy Project Artifacts to Vercel
         working-directory: src/frontend/nextjs-app

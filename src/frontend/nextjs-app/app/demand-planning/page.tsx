@@ -5,23 +5,50 @@ import DashboardLayout from './components/DashboardLayout';
 import ForecastCharts from './components/ForecastCharts';
 import AdjustmentPanel from './components/AdjustmentPanel';
 import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
-import { HierarchySelection, HierarchyType, TimePeriod } from '@/app/types/demand-planning';
+import { FilterSelections } from './components/FilterSidebar';
+import { HierarchySelection, TimePeriod } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import { AdjustmentData } from './components/AdjustmentModal';
 
 export default function DemandPlanningPage() {
+  // Filter selections state
+  const [filterSelections, setFilterSelections] = useState<FilterSelections>({
+    states: [],
+    dmaIds: [],
+    dcIds: []
+  });
+
+  // Keep hierarchy selections for backward compatibility with useForecast hook
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
-  const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>(['Q1-2025', 'Q2-2025', 'Q3-2025', 'Q4-2025']);
+  // Initialize with all daily periods from Jan 1 to Apr 1, 2025
+  const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
-  // Demo time periods
-  const timePeriods: TimePeriod[] = [
-    { id: 'Q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', type: 'quarter' },
-    { id: 'Q2-2025', name: 'Q2 2025', startDate: '2025-04-01', endDate: '2025-06-30', type: 'quarter' },
-    { id: 'Q3-2025', name: 'Q3 2025', startDate: '2025-07-01', endDate: '2025-09-30', type: 'quarter' },
-    { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
-  ];
+  // Generate daily periods for the full range (matches useForecast hook)
+  const timePeriods: TimePeriod[] = (() => {
+    const periods: TimePeriod[] = [];
+    const startDate = new Date('2025-01-01');
+    const endDate = new Date('2025-04-01');
+
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      periods.push({
+        id: `day-${dateStr}`,
+        name: currentDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
+        startDate: dateStr,
+        endDate: dateStr,
+        type: 'day'
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return periods;
+  })();
 
   // Initialize with some demo selections for visualization
   useEffect(() => {
@@ -37,8 +64,11 @@ export default function DemandPlanningPage() {
       }
     ]);
 
-    console.log("Page component mount - initial time periods:", selectedTimePeriods);
-  }, [selectedTimePeriods]);
+    // Select all daily periods for the full date range
+    const allPeriodIds = timePeriods.map(period => period.id);
+    setSelectedTimePeriods(allPeriodIds);
+    console.log("Page component mount - setting all daily periods:", allPeriodIds.length);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch forecast data based on selections
   const {
@@ -50,7 +80,8 @@ export default function DemandPlanningPage() {
     refreshForecast
   } = useForecast({
     hierarchySelections: selectedHierarchies,
-    timePeriodIds: selectedTimePeriods
+    timePeriodIds: selectedTimePeriods,
+    filterSelections
   });
 
   // Fetch adjustment history
@@ -63,22 +94,13 @@ export default function DemandPlanningPage() {
     refreshHistory
   } = useAdjustmentHistory();
 
-  // Handle hierarchy selection changes from sidebar
-  const handleHierarchySelectionChange = (selection: { type: HierarchyType; nodeIds: string[] }) => {
-    setSelectedHierarchies(prev => {
-      // Remove the existing selection for this type
-      const updatedSelections = prev.filter(s => s.type !== selection.type);
+  // Handle filter selection changes from sidebar
+  const handleFilterSelectionChange = (selections: FilterSelections) => {
+    setFilterSelections(selections);
+    console.log("Filter selections changed:", selections);
 
-      // Add the new selection if there are nodes selected
-      if (selection.nodeIds.length > 0) {
-        updatedSelections.push({
-          type: selection.type,
-          selectedNodes: selection.nodeIds
-        });
-      }
-
-      return updatedSelections;
-    });
+    // You can add logic here to convert filter selections to hierarchy selections
+    // if needed for backward compatibility with existing hooks
   };
 
   // Handle tab change
@@ -101,7 +123,8 @@ export default function DemandPlanningPage() {
 
   return (
     <DashboardLayout
-      onHierarchySelectionChange={handleHierarchySelectionChange}
+      filterSelections={filterSelections}
+      onFilterSelectionChange={handleFilterSelectionChange}
       activeTab={activeTab}
       onTabChange={handleTabChange}
     >
@@ -118,14 +141,6 @@ export default function DemandPlanningPage() {
                     : 'Select hierarchies from the sidebar to view forecast data.'
                   }
                 </p>
-              </div>
-              <div className="hidden md:block">
-                <button className="dp-btn-tertiary px-4 py-2 text-sm">
-                  <svg className="inline-block w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Add New Forecast
-                </button>
               </div>
             </div>
 
@@ -156,76 +171,19 @@ export default function DemandPlanningPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Adjustment Panel */}
-            {forecastData && (
-              <div className="md:col-span-1">
-                <AdjustmentPanel
-                  forecastData={forecastData}
-                  isLoading={isLoadingForecast}
-                  onApplyAdjustment={handleApplyAdjustment}
-                  onResetAdjustments={resetAdjustments}
-                  onRefreshForecast={refreshForecast}
-                  selectedHierarchies={selectedHierarchies}
-                />
-              </div>
-            )}
-
-            {/* Time Period Selection */}
-            <div className="md:col-span-1">
-              <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
-                <h2 className="text-lg font-medium mb-4 text-dp-text-primary border-b border-dp-border-light pb-2">Time Periods</h2>
-                <div className="space-y-2">
-                  {timePeriods.map(period => (
-                    <label key={period.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name={`time-period-${period.id}`}
-                        id={`time-period-${period.id}`}
-                        checked={selectedTimePeriods.includes(period.id)}
-                        onChange={e => {
-                          if (e.target.checked) {
-                            setSelectedTimePeriods(prev => [...prev, period.id]);
-                          } else {
-                            setSelectedTimePeriods(prev => prev.filter(id => id !== period.id));
-                          }
-                        }}
-                        className="form-checkbox text-dp-cfa-red rounded border-dp-border-medium h-4 w-4 mr-2"
-                      />
-                      <span className="text-sm text-dp-text-primary">{period.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+          {/* Adjustment Panel */}
+          {forecastData && (
+            <div className="max-w-md">
+              <AdjustmentPanel
+                forecastData={forecastData}
+                isLoading={isLoadingForecast}
+                onApplyAdjustment={handleApplyAdjustment}
+                onResetAdjustments={resetAdjustments}
+                onRefreshForecast={refreshForecast}
+                selectedHierarchies={selectedHierarchies}
+              />
             </div>
-
-            {/* Selected Hierarchies */}
-            <div className="md:col-span-1">
-              <div className="bg-dp-surface-primary p-4 shadow-dp-light border border-dp-border-light rounded-lg">
-                <h2 className="text-lg font-medium mb-4 text-dp-text-primary border-b border-dp-border-light pb-2">Selected Hierarchies</h2>
-                {selectedHierarchies.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedHierarchies.map(selection => (
-                      <div key={selection.type} className="pb-2 border-b border-dp-border-light last:border-0">
-                        <p className="text-sm font-medium capitalize text-dp-text-primary">{selection.type}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selection.selectedNodes.map(node => (
-                            <span key={node} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dp-background-tertiary text-dp-text-primary border border-dp-border-light">
-                              {node.split('-').pop()}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-dp-text-secondary">
-                    No hierarchies selected. Use the sidebar to select hierarchies.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
