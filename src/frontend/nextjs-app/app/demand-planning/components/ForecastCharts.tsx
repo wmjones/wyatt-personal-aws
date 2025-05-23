@@ -58,9 +58,9 @@ export default function ForecastCharts({
           <div className="flex items-center space-x-4">
             <div className="flex rounded-lg overflow-hidden border border-dp-frame-border">
               <button
-                className={`px-5 py-2 text-sm transition-colors ${
+                className={`time-period-toggle px-5 py-2 text-sm ${
                   selectedTimeRange === 'day'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
                     : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
                 }`}
                 onClick={() => setSelectedTimeRange('day')}
@@ -68,9 +68,9 @@ export default function ForecastCharts({
                 Day
               </button>
               <button
-                className={`px-5 py-2 text-sm transition-colors border-l border-r border-dp-frame-border ${
+                className={`time-period-toggle px-5 py-2 text-sm border-l border-r border-dp-frame-border ${
                   selectedTimeRange === 'week'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
                     : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
                 }`}
                 onClick={() => setSelectedTimeRange('week')}
@@ -78,9 +78,9 @@ export default function ForecastCharts({
                 Week
               </button>
               <button
-                className={`px-5 py-2 text-sm transition-colors ${
+                className={`time-period-toggle px-5 py-2 text-sm ${
                   selectedTimeRange === 'threeWeeks'
-                    ? 'bg-white shadow-dp-light text-dp-text-primary font-medium'
+                    ? 'active bg-white shadow-dp-light text-dp-text-primary font-medium'
                     : 'bg-dp-background-secondary text-dp-text-secondary hover:text-dp-text-primary'
                 }`}
                 onClick={() => setSelectedTimeRange('threeWeeks')}
@@ -91,9 +91,9 @@ export default function ForecastCharts({
           </div>
 
           {/* CENTER AREA: Date range selector - exactly matching screenshot */}
-          <div className="flex items-center absolute left-1/2 transform -translate-x-1/2">
+          <div className="flex items-center absolute left-1/2 transform -translate-x-1/2 space-x-2">
             <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary"
+              className="p-2 text-dp-text-secondary hover:text-dp-text-primary transition-colors rounded-md hover:bg-dp-background-secondary"
               onClick={handlePrevDate}
               aria-label="Previous date range"
             >
@@ -101,14 +101,14 @@ export default function ForecastCharts({
                 <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </button>
-            <div className="flex items-center px-3 py-2 border border-dp-frame-border rounded-md">
+            <div className="date-range-selector flex items-center">
               <span className="text-sm font-medium">{selectedDateRange}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1 text-dp-text-secondary" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </div>
             <button
-              className="p-2 text-dp-text-secondary hover:text-dp-text-primary"
+              className="p-2 text-dp-text-secondary hover:text-dp-text-primary transition-colors rounded-md hover:bg-dp-background-secondary"
               onClick={handleNextDate}
               aria-label="Next date range"
             >
@@ -150,7 +150,7 @@ export default function ForecastCharts({
           />
           <div className="flex items-center">
             <span className="inline-block w-3 border-b-2 border-dashed border-dp-chart-forecasted mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Forecasted</span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">Forecasted</span>
             <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
           </div>
         </label>
@@ -167,7 +167,7 @@ export default function ForecastCharts({
           />
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-edited mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Edited</span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">Edited</span>
             <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
           </div>
         </label>
@@ -184,7 +184,7 @@ export default function ForecastCharts({
           />
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-actual mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">Actual</span>
+            <span className="chart-legend-primary text-xs text-dp-text-secondary">Actual</span>
             <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
           </div>
         </label>
@@ -201,7 +201,7 @@ export default function ForecastCharts({
           />
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2024 mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">2024 Actual</span>
+            <span className="chart-legend-secondary text-xs text-dp-text-secondary">2024 Actual</span>
             <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
           </div>
         </label>
@@ -218,7 +218,7 @@ export default function ForecastCharts({
           />
           <div className="flex items-center">
             <span className="inline-block w-3 h-0.5 bg-dp-chart-actual-2023 mr-1.5"></span>
-            <span className="text-xs text-dp-text-secondary">2023 Actual</span>
+            <span className="chart-legend-secondary text-xs text-dp-text-secondary">2023 Actual</span>
             <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help">i</span>
           </div>
         </label>
