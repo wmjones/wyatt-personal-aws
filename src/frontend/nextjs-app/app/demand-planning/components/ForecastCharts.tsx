@@ -17,8 +17,8 @@ export default function ForecastCharts({
   className = ''
 }: ForecastChartsProps) {
   // Time period selection state based on reference image
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'day' | 'week' | 'threeWeeks'>('week');
-  const selectedDateRange = 'May 19 - May 24, 2025'; // Currently static, will be dynamic in the future
+  const [selectedTimeRange, setSelectedTimeRange] = useState<'day' | 'week' | 'threeWeeks'>('threeWeeks');
+  const selectedDateRange = 'Jan 1 - Apr 1, 2025'; // Updated to show full data range
 
   // Toggle state for data series based on reference image
   const [toggles, setToggles] = useState({
@@ -251,14 +251,12 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* X-axis weekday labels exactly matching reference image */}
+      {/* X-axis labels for 3-month view */}
       <div className="px-6 py-2 flex justify-between text-xs text-dp-chart-axis-text border-t border-dp-frame-border">
-        <div className="text-center">Mon<br/>May 19</div>
-        <div className="text-center">Tue<br/>May 20</div>
-        <div className="text-center">Wed<br/>May 21</div>
-        <div className="text-center">Thu<br/>May 22</div>
-        <div className="text-center">Fri<br/>May 23</div>
-        <div className="text-center">Sat<br/>May 24</div>
+        <div className="text-center">Jan<br/>2025</div>
+        <div className="text-center">Feb<br/>2025</div>
+        <div className="text-center">Mar<br/>2025</div>
+        <div className="text-center">Apr<br/>2025</div>
       </div>
 
       <div className="mt-1 text-xs text-dp-text-tertiary text-right px-4 pb-2">

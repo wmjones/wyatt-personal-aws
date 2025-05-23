@@ -21,12 +21,31 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
   const [error, setError] = useState<string | null>(null);
 
   // Mock time periods with useMemo to avoid recreation on each render
-  const mockTimePeriods = useMemo<TimePeriod[]>(() => [
-    { id: 'Q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', type: 'quarter' },
-    { id: 'Q2-2025', name: 'Q2 2025', startDate: '2025-04-01', endDate: '2025-06-30', type: 'quarter' },
-    { id: 'Q3-2025', name: 'Q3 2025', startDate: '2025-07-01', endDate: '2025-09-30', type: 'quarter' },
-    { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
-  ], []);
+  // Updated to show full date range from 2025-01-01 to 2025-04-01
+  const mockTimePeriods = useMemo<TimePeriod[]>(() => {
+    const periods: TimePeriod[] = [];
+    const startDate = new Date('2025-01-01');
+    const endDate = new Date('2025-04-01');
+
+    // Generate daily periods for the full range
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      periods.push({
+        id: `day-${dateStr}`,
+        name: currentDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
+        startDate: dateStr,
+        endDate: dateStr,
+        type: 'day'
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return periods;
+  }, []);
 
   // Create a memoized fetch function to avoid dependency issues
   const fetchForecast = useCallback(async () => {
@@ -58,16 +77,22 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       ) / 10));
       console.log("useForecast: Calculated base value:", baseValue);
 
-      // Generate random baseline data
+      // Generate random baseline data with more realistic daily variation
       const baseline: ForecastDataPoint[] = periods.map((period, index) => {
-        // Simulate growth over time
-        const growth = 1 + (index * 0.05);
-        // Add some randomness
-        const randomFactor = 0.9 + (Math.random() * 0.2);
+        // Simulate seasonal trends (slight increase over time)
+        const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
+
+        // Add weekly patterns (higher on weekends)
+        const date = new Date(period.startDate);
+        const dayOfWeek = date.getDay();
+        const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
+
+        // Add realistic daily variation
+        const randomFactor = 0.85 + (Math.random() * 0.3);
 
         return {
           periodId: period.id,
-          value: Math.round(baseValue * growth * randomFactor),
+          value: Math.round(baseValue * seasonalTrend * weekendBoost * randomFactor),
         };
       });
       console.log("useForecast: Generated baseline data points:", baseline.length);

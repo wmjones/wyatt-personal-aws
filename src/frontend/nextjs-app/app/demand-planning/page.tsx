@@ -12,16 +12,34 @@ import { AdjustmentData } from './components/AdjustmentModal';
 
 export default function DemandPlanningPage() {
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
-  const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>(['Q1-2025', 'Q2-2025', 'Q3-2025', 'Q4-2025']);
+  // Initialize with all daily periods from Jan 1 to Apr 1, 2025
+  const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
-  // Demo time periods
-  const timePeriods: TimePeriod[] = [
-    { id: 'Q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', type: 'quarter' },
-    { id: 'Q2-2025', name: 'Q2 2025', startDate: '2025-04-01', endDate: '2025-06-30', type: 'quarter' },
-    { id: 'Q3-2025', name: 'Q3 2025', startDate: '2025-07-01', endDate: '2025-09-30', type: 'quarter' },
-    { id: 'Q4-2025', name: 'Q4 2025', startDate: '2025-10-01', endDate: '2025-12-31', type: 'quarter' },
-  ];
+  // Generate daily periods for the full range (matches useForecast hook)
+  const timePeriods: TimePeriod[] = (() => {
+    const periods: TimePeriod[] = [];
+    const startDate = new Date('2025-01-01');
+    const endDate = new Date('2025-04-01');
+
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      periods.push({
+        id: `day-${dateStr}`,
+        name: currentDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
+        startDate: dateStr,
+        endDate: dateStr,
+        type: 'day'
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return periods;
+  })();
 
   // Initialize with some demo selections for visualization
   useEffect(() => {
@@ -37,8 +55,11 @@ export default function DemandPlanningPage() {
       }
     ]);
 
-    console.log("Page component mount - initial time periods:", selectedTimePeriods);
-  }, [selectedTimePeriods]);
+    // Select all daily periods for the full date range
+    const allPeriodIds = timePeriods.map(period => period.id);
+    setSelectedTimePeriods(allPeriodIds);
+    console.log("Page component mount - setting all daily periods:", allPeriodIds.length);
+  }, []); // Empty dependency array to run only once
 
   // Fetch forecast data based on selections
   const {

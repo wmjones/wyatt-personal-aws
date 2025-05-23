@@ -102,8 +102,8 @@ export default function TimeSeriesChart({
       .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Find "today" in the data - May 20, 2025 to match screenshot
-    const today = new Date(2025, 4, 20); // May 20, 2025
+    // Find "today" in the data - February 15, 2025 (middle of the range)
+    const today = new Date(2025, 1, 15); // February 15, 2025
     const todayXPosition = xScale(today);
 
     // Add today vertical line - pinkish red with Today pill
@@ -139,9 +139,9 @@ export default function TimeSeriesChart({
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
-      .ticks(width > 600 ? 6 : 5)
+      .ticks(d3.timeMonth.every(1)) // Monthly ticks for 3-month view
       .tickSize(0) // Remove tick marks
-      .tickFormat(() => ''); // Empty labels since we handle them separately with custom weekday display
+      .tickFormat(() => ''); // Empty labels since we handle them separately with custom month display
 
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
