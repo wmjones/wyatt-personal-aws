@@ -9,7 +9,7 @@ The D3 Dashboard is an interactive data visualization platform that allows users
 ### Frontend (Vercel)
 
 - **Next.js Application**: Server-side rendering and static generation
-- **React Components**: Interactive UI with D3.js visualizations
+- **React Server Components**: Optimized server-side rendering with interactive D3.js visualizations
 - **WebSocket Client**: Real-time collaboration features
 - **API Client**: Secure communication with AWS backend
 - **State Management**: Context API for application state
@@ -20,7 +20,7 @@ The D3 Dashboard is an interactive data visualization platform that allows users
 - **Lambda Functions**: Serverless compute for business logic
 - **DynamoDB**: NoSQL database for data storage
 - **Cognito**: User authentication and authorization
-- **S3**: Static asset storage for exports
+- **S3**: Data storage for exports and user uploads
 
 ## Implementation Details
 

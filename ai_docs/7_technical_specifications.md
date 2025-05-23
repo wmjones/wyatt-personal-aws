@@ -34,9 +34,9 @@ This document provides detailed technical specifications for the hybrid architec
 │                    AWS Infrastructure                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┬──────────────┬───────────────────────┐    │
-│  │ API Gateway │  WebSocket   │ CloudFront (Static)   │    │
+│  │ API Gateway │  WebSocket   │    S3 Buckets         │    │
 │  ├─────────────┼──────────────┼───────────────────────┤    │
-│  │   Lambda    │   Lambda     │    S3 Buckets         │    │
+│  │   Lambda    │   Lambda     │  (Data Storage)       │    │
 │  │  Functions  │   Handlers   │  (User uploads)       │    │
 │  ├─────────────┼──────────────┼───────────────────────┤    │
 │  │  DynamoDB   │  DynamoDB    │    Cognito            │    │
@@ -58,8 +58,8 @@ This document provides detailed technical specifications for the hybrid architec
 
 - **Framework**: Next.js 14.0+ with App Router
 - **Language**: TypeScript 5.0+
-- **UI Library**: React 18.0+
-- **Styling**: Tailwind CSS 3.0+
+- **UI Library**: React 18.0+ with Server Components
+- **Styling**: Tailwind CSS v4
 - **State Management**: Context API / Zustand
 - **Data Visualization**: D3.js 7.0+
 - **HTTP Client**: Axios / Fetch API
