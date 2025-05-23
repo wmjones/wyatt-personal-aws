@@ -10,8 +10,6 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   baselineData: ForecastDataPoint[];
   adjustedData?: ForecastDataPoint[];
   timePeriods: TimePeriod[];
-  startDate?: string;
-  endDate?: string;
   className?: string;
   showY05?: boolean;
   showY50?: boolean;
@@ -24,8 +22,6 @@ export default function TimeSeriesChart({
   baselineData,
   adjustedData,
   timePeriods,
-  startDate,
-  endDate,
   width = 600,
   height = 400,
   margin = { top: 20, right: 30, bottom: 50, left: 60 },
@@ -45,24 +41,15 @@ export default function TimeSeriesChart({
   // Zoom and brush state
   const [zoomDomain, setZoomDomain] = useState<[Date, Date] | null>(null);
 
-  // Process the data for D3 with date filtering
-  const filteredTimePeriods = useMemo(() => {
-    if (!startDate || !endDate) return timePeriods;
-
-    return timePeriods.filter(period => {
-      const periodDate = period.startDate;
-      return periodDate >= startDate && periodDate <= endDate;
-    });
-  }, [timePeriods, startDate, endDate]);
-
-  const baselineDataset = createChartDataset(baselineData, filteredTimePeriods);
+  // Process the data for D3
+  const baselineDataset = createChartDataset(baselineData, timePeriods);
 
   // Use useMemo to avoid recreating adjustedDataset on each render
   const adjustedDataset = useMemo(() => {
     return adjustedData
-      ? createChartDataset(adjustedData, filteredTimePeriods)
+      ? createChartDataset(adjustedData, timePeriods)
       : [];
-  }, [adjustedData, filteredTimePeriods]);
+  }, [adjustedData, timePeriods]);
 
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {

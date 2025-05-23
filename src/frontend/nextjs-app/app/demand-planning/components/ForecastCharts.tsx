@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ForecastSeries } from '@/app/types/demand-planning';
 import TimeSeriesChart from './charts/TimeSeriesChart';
 // ComparisonChart is imported but not used yet
@@ -16,71 +16,73 @@ export default function ForecastCharts({
   forecastData,
   className = ''
 }: ForecastChartsProps) {
-  // Date range selection state
-  const [startDate, setStartDate] = useState('2025-01-01');
-  const [endDate, setEndDate] = useState('2025-04-01');
+  // Get the lowest inventory item ID and set as default
+  const defaultInventoryItemId = useMemo(() => {
+    if (!forecastData.inventoryItems || forecastData.inventoryItems.length === 0) {
+      return null;
+    }
+    // Sort inventory items by ID and get the lowest one
+    const sortedItems = [...forecastData.inventoryItems].sort((a, b) =>
+      parseInt(a.id) - parseInt(b.id)
+    );
+    return sortedItems[0].id;
+  }, [forecastData.inventoryItems]);
 
-  // Toggle state for forecast data series (using actual column names)
-  const [toggles, setToggles] = useState({
-    y_05: true,   // Lower confidence interval
-    y_50: true,   // Median forecast
-    y_95: true,   // Upper confidence interval
-    edited: true,
-    actual: true
-  });
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(null);
 
+  // Update selected inventory item when default changes
+  useEffect(() => {
+    if (defaultInventoryItemId && !selectedInventoryItemId) {
+      setSelectedInventoryItemId(defaultInventoryItemId);
+    }
+  }, [defaultInventoryItemId, selectedInventoryItemId]);
 
-  // Toggle data series display
-  const handleToggle = (series: keyof typeof toggles) => {
-    setToggles(prev => ({
-      ...prev,
-      [series]: !prev[series]
-    }));
+  // Filter data by selected inventory item
+  const filteredBaselineData = useMemo(() => {
+    if (!selectedInventoryItemId) return forecastData.baseline;
+    return forecastData.baseline.filter(item =>
+      item.inventoryItemId === selectedInventoryItemId
+    );
+  }, [forecastData.baseline, selectedInventoryItemId]);
+
+  const filteredAdjustedData = useMemo(() => {
+    if (!selectedInventoryItemId || !forecastData.adjusted) return forecastData.adjusted;
+    return forecastData.adjusted.filter(item =>
+      item.inventoryItemId === selectedInventoryItemId
+    );
+  }, [forecastData.adjusted, selectedInventoryItemId]);
+
+  // Handle inventory item selection
+  const handleInventoryItemChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedInventoryItemId(event.target.value);
   };
 
-  // Handle date changes
-  const handleStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setStartDate(event.target.value);
-  };
-
-  const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEndDate(event.target.value);
-  };
 
   return (
     <div className={`bg-dp-surface-primary border border-dp-frame-border rounded-lg shadow-dp-medium ${className}`}>
       <div className="p-4 border-b border-dp-frame-border">
-        {/* Main control container */}
+        {/* Control bar with inventory dropdown and view toggles */}
         <div className="flex justify-between items-center">
-          {/* LEFT AREA: Date range selectors */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <label htmlFor="start-date" className="text-sm font-medium text-dp-text-primary">Start Date:</label>
-              <input
-                type="date"
-                id="start-date"
-                value={startDate}
-                onChange={handleStartDateChange}
-                className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                min="2025-01-01"
-                max="2025-12-31"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <label htmlFor="end-date" className="text-sm font-medium text-dp-text-primary">End Date:</label>
-              <input
-                type="date"
-                id="end-date"
-                value={endDate}
-                onChange={handleEndDateChange}
-                className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                min="2025-01-01"
-                max="2025-12-31"
-              />
-            </div>
+          {/* LEFT: Inventory Item Dropdown */}
+          <div className="flex items-center space-x-2">
+            <label htmlFor="inventory-item-select" className="text-sm font-medium text-dp-text-primary">
+              Inventory Item:
+            </label>
+            <select
+              id="inventory-item-select"
+              value={selectedInventoryItemId || ''}
+              onChange={handleInventoryItemChange}
+              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+            >
+              {forecastData.inventoryItems.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.name || `Item ${item.id}`}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* RIGHT AREA: View toggles matching screenshot exactly */}
+          {/* RIGHT: View toggles */}
           <div className="flex items-center">
             <div className="flex border border-dp-frame-border rounded-md overflow-hidden">
               <button className="p-2 border-r border-dp-frame-border bg-white">
@@ -98,93 +100,6 @@ export default function ForecastCharts({
         </div>
       </div>
 
-      {/* Series toggles with actual forecast column names */}
-      <div className="px-4 py-3 border-b border-dp-frame-border flex flex-wrap gap-x-8 gap-y-2">
-        {/* y_05 Toggle (Lower Confidence Interval) */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-y_05"
-            id="toggle-y_05"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.y_05}
-            onChange={() => handleToggle('y_05')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 border-b-2 border-dashed border-dp-chart-forecasted mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_05 (Lower)</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="5th percentile forecast">i</span>
-          </div>
-        </label>
-
-        {/* y_50 Toggle (Median Forecast) */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-y_50"
-            id="toggle-y_50"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.y_50}
-            onChange={() => handleToggle('y_50')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-forecasted mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_50 (Median)</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="50th percentile forecast">i</span>
-          </div>
-        </label>
-
-        {/* y_95 Toggle (Upper Confidence Interval) */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-y_95"
-            id="toggle-y_95"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.y_95}
-            onChange={() => handleToggle('y_95')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 border-b-2 border-dotted border-dp-chart-forecasted mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">y_95 (Upper)</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="95th percentile forecast">i</span>
-          </div>
-        </label>
-
-        {/* Edited Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-edited"
-            id="toggle-edited"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.edited}
-            onChange={() => handleToggle('edited')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-edited mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">Edited</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="Manually adjusted forecast">i</span>
-          </div>
-        </label>
-
-        {/* Actual Toggle */}
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            name="toggle-actual"
-            id="toggle-actual"
-            className="form-checkbox text-primary rounded border-dp-border-medium h-4 w-4 mr-1.5"
-            checked={toggles.actual}
-            onChange={() => handleToggle('actual')}
-          />
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-0.5 bg-dp-chart-actual mr-1.5"></span>
-            <span className="chart-legend-primary text-xs text-dp-text-secondary">Actual</span>
-            <span className="inline-block w-4 h-4 ml-1 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-600 cursor-help" title="Actual observed values">i</span>
-          </div>
-        </label>
-      </div>
 
       {/* Chart display */}
       <div className="p-4">
@@ -193,16 +108,14 @@ export default function ForecastCharts({
             <TimeSeriesChart
               width={width}
               height={height}
-              baselineData={forecastData.baseline}
-              adjustedData={forecastData.adjusted}
+              baselineData={filteredBaselineData}
+              adjustedData={filteredAdjustedData}
               timePeriods={forecastData.timePeriods}
-              startDate={startDate}
-              endDate={endDate}
-              showY05={toggles.y_05}
-              showY50={toggles.y_50}
-              showY95={toggles.y_95}
-              showEdited={toggles.edited}
-              showActual={toggles.actual}
+              showY05={true}
+              showY50={true}
+              showY95={true}
+              showEdited={true}
+              showActual={true}
             />
           )}
         </ResponsiveChartWrapper>

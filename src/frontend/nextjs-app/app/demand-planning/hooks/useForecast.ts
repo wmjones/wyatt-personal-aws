@@ -77,32 +77,54 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       ) / 10));
       console.log("useForecast: Calculated base value:", baseValue);
 
-      // Generate random baseline data with more realistic daily variation
-      const baseline: ForecastDataPoint[] = periods.map((period, index) => {
-        // Simulate seasonal trends (slight increase over time)
-        const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
+      // Create sample inventory items (mimicking the simulation data)
+      const inventoryItems = [
+        { id: '1', name: 'Item 1' },
+        { id: '5', name: 'Item 5' },
+        { id: '12', name: 'Item 12' },
+        { id: '25', name: 'Item 25' },
+        { id: '50', name: 'Item 50' },
+        { id: '100', name: 'Item 100' },
+        { id: '250', name: 'Item 250' },
+        { id: '500', name: 'Item 500' },
+      ];
 
-        // Add weekly patterns (higher on weekends)
-        const date = new Date(period.startDate);
-        const dayOfWeek = date.getDay();
-        const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
+      // Generate baseline data for each inventory item with different characteristics
+      const baseline: ForecastDataPoint[] = [];
 
-        // Add realistic daily variation
-        const randomFactor = 0.85 + (Math.random() * 0.3);
+      inventoryItems.forEach(item => {
+        // Different base values for different items
+        const itemBaseValue = baseValue * (0.5 + Math.random() * 1.5);
 
-        return {
-          periodId: period.id,
-          value: Math.round(baseValue * seasonalTrend * weekendBoost * randomFactor),
-        };
+        periods.forEach((period, index) => {
+          // Simulate seasonal trends (slight increase over time)
+          const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
+
+          // Add weekly patterns (higher on weekends)
+          const date = new Date(period.startDate);
+          const dayOfWeek = date.getDay();
+          const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
+
+          // Add realistic daily variation
+          const randomFactor = 0.85 + (Math.random() * 0.3);
+
+          baseline.push({
+            periodId: period.id,
+            value: Math.round(itemBaseValue * seasonalTrend * weekendBoost * randomFactor),
+            inventoryItemId: item.id,
+          });
+        });
       });
+
       console.log("useForecast: Generated baseline data points:", baseline.length);
 
-      // Create the forecast series without adjustments initially
+      // Create the forecast series with inventory items
       const mockForecast: ForecastSeries = {
         id: `forecast-${Date.now()}`,
         hierarchySelections,
         timePeriods: periods,
         baseline,
+        inventoryItems,
         lastUpdated: new Date().toISOString(),
       };
       console.log("useForecast: Created mock forecast data", {
