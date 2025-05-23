@@ -7,15 +7,17 @@ import {
   TimePeriod,
   HierarchySelection
 } from '@/app/types/demand-planning';
+import { FilterSelections } from '../components/FilterSidebar';
 import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
 
 interface UseForecastProps {
   hierarchySelections: HierarchySelection[];
   timePeriodIds: string[];
+  filterSelections?: FilterSelections;
 }
 
-export default function useForecast({ hierarchySelections, timePeriodIds }: UseForecastProps) {
+export default function useForecast({ hierarchySelections, timePeriodIds, filterSelections }: UseForecastProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastSeries | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,31 +91,73 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
         { id: '500', name: 'Item 500' },
       ];
 
-      // Generate baseline data for each inventory item with different characteristics
-      const baseline: ForecastDataPoint[] = [];
+      // Define available filter values (matching FilterSidebar exactly)
+      const availableStates = ['CA', 'TX', 'FL', 'NY', 'IL'];
+      const availableDMAs = ['ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQR', 'STU', 'VWX', 'YZA', 'BCD',
+                             'EFG', 'HIJ', 'KLM', 'NOP', 'QRS', 'TUV', 'WXY', 'ZAB', 'CDE', 'FGH',
+                             'IJK', 'LMN', 'OPQ', 'RST', 'UVW', 'XYZ', 'ABD', 'CEF', 'GHK', 'LMQ'];
+      const availableDCs = Array.from({ length: 60 }, (_, i) => String(i + 1));
+
+      // Generate baseline data for each inventory item with state/DMA/DC combinations
+      const allBaselineData: ForecastDataPoint[] = [];
 
       inventoryItems.forEach(item => {
-        // Different base values for different items
-        const itemBaseValue = baseValue * (0.5 + Math.random() * 1.5);
+        availableStates.forEach((state, stateIndex) => {
+          // Use 2-3 DMAs per state for manageable data size
+          const stateSpecificDMAs = availableDMAs.slice(stateIndex * 3, (stateIndex + 1) * 3);
 
-        periods.forEach((period, index) => {
-          // Simulate seasonal trends (slight increase over time)
-          const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
+          stateSpecificDMAs.forEach((dmaId, dmaIndex) => {
+            // Use 2 DCs per DMA for manageable data size
+            const dmaSpecificDCs = availableDCs.slice(dmaIndex * 2, (dmaIndex + 1) * 2);
 
-          // Add weekly patterns (higher on weekends)
-          const date = new Date(period.startDate);
-          const dayOfWeek = date.getDay();
-          const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
+            dmaSpecificDCs.forEach(dcId => {
+              // Different base values for different combinations
+              const itemBaseValue = baseValue * (0.5 + Math.random() * 1.5);
 
-          // Add realistic daily variation
-          const randomFactor = 0.85 + (Math.random() * 0.3);
+              periods.forEach((period, index) => {
+                // Simulate seasonal trends (slight increase over time)
+                const seasonalTrend = 1 + (index * 0.001); // Very gradual increase
 
-          baseline.push({
-            periodId: period.id,
-            value: Math.round(itemBaseValue * seasonalTrend * weekendBoost * randomFactor),
-            inventoryItemId: item.id,
+                // Add weekly patterns (higher on weekends)
+                const date = new Date(period.startDate);
+                const dayOfWeek = date.getDay();
+                const weekendBoost = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1.0;
+
+                // Add realistic daily variation
+                const randomFactor = 0.85 + (Math.random() * 0.3);
+
+                allBaselineData.push({
+                  periodId: period.id,
+                  value: Math.round(itemBaseValue * seasonalTrend * weekendBoost * randomFactor),
+                  inventoryItemId: item.id,
+                  state,
+                  dmaId,
+                  dcId,
+                });
+              });
+            });
           });
         });
+      });
+
+      // Filter baseline data based on filter selections
+      const baseline = allBaselineData.filter(dataPoint => {
+        // If no filters are selected, include all data
+        if (!filterSelections) return true;
+
+        const { states, dmaIds, dcIds } = filterSelections;
+
+        // If no specific filters are active, include all data
+        if (states.length === 0 && dmaIds.length === 0 && dcIds.length === 0) {
+          return true;
+        }
+
+        // Check each filter - if filter is active, data point must match
+        const stateMatch = states.length === 0 || states.includes(dataPoint.state || '');
+        const dmaMatch = dmaIds.length === 0 || dmaIds.includes(dataPoint.dmaId || '');
+        const dcMatch = dcIds.length === 0 || dcIds.includes(dataPoint.dcId || '');
+
+        return stateMatch && dmaMatch && dcMatch;
       });
 
       console.log("useForecast: Generated baseline data points:", baseline.length);
@@ -142,7 +186,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
       console.log("useForecast: Completed fetch, setting isLoading to false");
       setIsLoading(false);
     }
-  }, [hierarchySelections, timePeriodIds, mockTimePeriods]);
+  }, [hierarchySelections, timePeriodIds, mockTimePeriods, filterSelections]);
 
   // Trigger the fetch operation when inputs change
   useEffect(() => {
@@ -154,7 +198,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds }: UseF
     });
 
     fetchForecast();
-  }, [fetchForecast, hierarchySelections, timePeriodIds]);
+  }, [fetchForecast, hierarchySelections, timePeriodIds, filterSelections]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {

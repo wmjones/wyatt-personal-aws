@@ -25,27 +25,11 @@ const US_STATES: FilterOption[] = [
 ];
 
 // Generate DMA options (based on data requirements - 30 unique 3-letter codes)
-// Using deterministic generation for consistency
-const generateDMACodes = (): string[] => {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const codes: string[] = [];
-  let seed = 42; // Deterministic seed
+// Using consistent codes with forecast data generation
+const DMA_CODES = ['ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQR', 'STU', 'VWX', 'YZA', 'BCD',
+                   'EFG', 'HIJ', 'KLM', 'NOP', 'QRS', 'TUV', 'WXY', 'ZAB', 'CDE', 'FGH',
+                   'IJK', 'LMN', 'OPQ', 'RST', 'UVW', 'XYZ', 'ABD', 'CEF', 'GHK', 'LMQ'];
 
-  const seededRandom = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-
-  for (let i = 0; i < 30; i++) {
-    const code = Array.from({ length: 3 }, () =>
-      letters[Math.floor(seededRandom() * letters.length)]
-    ).join('');
-    codes.push(code);
-  }
-  return codes;
-};
-
-const DMA_CODES = generateDMACodes();
 const DMA_OPTIONS: FilterOption[] = DMA_CODES.map((code, i) => ({
   value: code,
   label: `${code} (DMA ${String(i + 1).padStart(3, '0')})`

@@ -18,6 +18,9 @@ export interface ForecastDataPoint {
   periodId: string;
   value: number;
   inventoryItemId?: string;
+  state?: string;
+  dmaId?: string;
+  dcId?: string;
   metadata?: Record<string, unknown>;
 }
 

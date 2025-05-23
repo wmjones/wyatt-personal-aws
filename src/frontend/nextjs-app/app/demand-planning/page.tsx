@@ -80,7 +80,8 @@ export default function DemandPlanningPage() {
     refreshForecast
   } = useForecast({
     hierarchySelections: selectedHierarchies,
-    timePeriodIds: selectedTimePeriods
+    timePeriodIds: selectedTimePeriods,
+    filterSelections
   });
 
   // Fetch adjustment history
