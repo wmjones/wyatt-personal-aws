@@ -65,6 +65,11 @@
   /* UI state colors */
   --dp-ui-positive: #059669;
   --dp-ui-negative: #DC2626;
+
+  /* Chart brush colors */
+  --dp-chart-brush-fill: #3B82F6;
+  --dp-chart-brush-stroke: #3B82F6;
+  --dp-chart-brush-handle: #1E40AF;
 }
 
 @theme inline {

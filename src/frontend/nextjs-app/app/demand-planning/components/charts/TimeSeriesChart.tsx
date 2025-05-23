@@ -341,6 +341,13 @@ export default function TimeSeriesChart({
     // Add brush for interactive zooming
     const brush = d3.brushX()
       .extent([[0, 0], [innerWidth, innerHeight]])
+      .on('start brush', (event) => {
+        // Hide hover elements during brushing
+        if (event.selection) {
+          hoverGroup.style('opacity', 0);
+          setTooltipVisible(false);
+        }
+      })
       .on('end', (event) => {
         const selection = event.selection;
         if (!selection) return;
@@ -355,8 +362,33 @@ export default function TimeSeriesChart({
 
     brushGroup.call(brush);
 
+    // Apply brush styles after D3 creates the brush elements
+    // Use a small timeout to ensure D3 has finished creating the elements
+    setTimeout(() => {
+      // Style the brush selection area (the gray rectangle when dragging)
+      svg.selectAll('.brush .selection')
+        .style('fill', 'var(--dp-chart-brush-fill, #3B82F6)')
+        .style('fill-opacity', 0.15)
+        .style('stroke', 'var(--dp-chart-brush-stroke, #3B82F6)')
+        .style('stroke-width', 1)
+        .style('stroke-opacity', 0.4);
+
+      // Style the brush overlay (invisible area for interaction)
+      svg.selectAll('.brush .overlay')
+        .style('cursor', 'crosshair');
+
+      // Style the brush handles (resize handles at edges)
+      svg.selectAll('.brush .handle')
+        .style('fill', 'var(--dp-chart-brush-handle, #1E40AF)')
+        .style('fill-opacity', 0.8);
+    }, 0);
+
     // Add hover events to the entire chart area
     svg.on('mousemove', function(event) {
+      // Don't show hover if actively brushing
+      const isBrushing = d3.select('.brush .selection').node() && d3.select('.brush .selection').style('display') !== 'none';
+      if (isBrushing) return;
+
       const [mouseX] = d3.pointer(event, g.node());
 
       // Only show hover if mouse is within chart bounds
