@@ -17,7 +17,7 @@ export default function AboutPage() {
           <p className="text-muted-foreground mb-4">
             The D3 Dashboard & Productivity System combines powerful data visualization tools
             with automated productivity workflows to help teams make data-driven decisions
-            and streamline their workflows.
+            and streamline their workflows. TODO
           </p>
         </div>
 
