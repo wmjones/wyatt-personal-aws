@@ -120,12 +120,12 @@ resource "aws_lambda_function" "athena_query" {
   function_name = "${var.project_name}-athena-query-${var.environment}"
   role          = aws_iam_role.athena_lambda_role.arn
   handler       = "index.handler"
-  runtime       = "nodejs18.x"
+  runtime       = "nodejs20.x"
   timeout       = 30
   memory_size   = 256
 
-  filename         = local.lambda_zip_path
-  source_code_hash = filebase64sha256(local.lambda_zip_path)
+  filename         = local.athena_lambda_zip_path
+  source_code_hash = filebase64sha256(local.athena_lambda_zip_path)
 
   environment {
     variables = {

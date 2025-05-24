@@ -16,6 +16,13 @@ jobs:
               with:
                   python-version: 3.12
 
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: 'npm'
+                  cache-dependency-path: src/lambda/athena/package-lock.json
+
             - name: Create target directory
               run: mkdir -p deploy/visualization
 
@@ -34,15 +41,29 @@ jobs:
                   find src/system_prompts -type f -exec cp {} ./deploy/ \;
                 fi
 
-            - name: Install dependencies
+            - name: Install Python dependencies
               run: pip install -r requirements.txt -t ./deploy
 
-            - name: Zip dependencies
+            - name: Build Node.js Athena Lambda package
+              run: |
+                cd src/lambda/athena
+                npm ci --only=production
+                zip -r9 athena-lambda.zip . -x "*.git*" -x "*.zip" -x "node_modules/.cache/*" -x "package-lock.json"
+                # Copy to main directory for Terraform
+                cp athena-lambda.zip ../../../main/
+
+            - name: Zip Python dependencies
               run: zip -r9 ./deployment_package.zip ./
               working-directory: ./deploy
 
-            - name: Upload artifact
+            - name: Upload Python deployment package
               uses: actions/upload-artifact@v4
               with:
                   name: deployment-package
                   path: ./deploy/deployment_package.zip
+
+            - name: Upload Athena Lambda package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: athena-lambda-package
+                  path: ./main/athena-lambda.zip

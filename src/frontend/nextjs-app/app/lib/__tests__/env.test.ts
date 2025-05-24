@@ -24,9 +24,7 @@ describe('Environment Configuration', () => {
         NEXT_PUBLIC_USER_POOL_CLIENT_ID: 'test-client-id',
         DATABASE_URL: 'postgres://test',
         DATABASE_URL_UNPOOLED: 'postgres://test-direct',
-        TODOIST_API_KEY: 'test-todoist-key',
-        OPENAI_API_KEY: 'test-openai-key',
-        NOTION_API_KEY: 'test-notion-key',
+        AWS_API_GATEWAY_URL: 'https://test.execute-api.us-east-1.amazonaws.com',
       };
 
       expect(() => validateEnv()).not.toThrow();
@@ -49,6 +47,21 @@ describe('Environment Configuration', () => {
         NEXT_PUBLIC_USER_POOL_CLIENT_ID: 'test-client-id',
       };
       // No database or API keys required
+
+      expect(() => validateEnv()).not.toThrow();
+    });
+
+    test('should pass validation without external API keys in production', () => {
+      process.env = {
+        NODE_ENV: 'production',
+        NEXT_PUBLIC_AWS_REGION: 'us-east-1',
+        NEXT_PUBLIC_USER_POOL_ID: 'test-pool-id',
+        NEXT_PUBLIC_USER_POOL_CLIENT_ID: 'test-client-id',
+        DATABASE_URL: 'postgres://test',
+        DATABASE_URL_UNPOOLED: 'postgres://test-direct',
+        AWS_API_GATEWAY_URL: 'https://test.execute-api.us-east-1.amazonaws.com',
+      };
+      // External API keys (TODOIST, OPENAI, NOTION) are optional
 
       expect(() => validateEnv()).not.toThrow();
     });
