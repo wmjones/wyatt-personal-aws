@@ -76,20 +76,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: src/frontend/nextjs-app/package-lock.json
 
-      # Step 4: Cache Vercel CLI
-      - name: Cache Vercel CLI
-        id: cache-vercel
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-vercel-cli-${{ hashFiles('**/package-lock.json') }}
-
-      # Step 5: Install dependencies
+      # Step 4: Install dependencies (includes Vercel CLI)
       - name: Install dependencies
         working-directory: src/frontend/nextjs-app
         run: npm ci
 
-      # Step 6: Run linter and type check
+      # Step 5: Run linter and type check
       - name: Run linter
         working-directory: src/frontend/nextjs-app
         run: npm run lint
@@ -98,32 +90,27 @@ jobs:
         working-directory: src/frontend/nextjs-app
         run: npx tsc --noEmit
 
-      # Step 7: Install Vercel CLI (only if not cached)
-      - name: Install Vercel CLI
-        if: steps.cache-vercel.outputs.cache-hit != 'true'
-        run: npm install --global vercel@latest
-
-      # Step 8: Pull Vercel Environment
+      # Step 6: Pull Vercel Environment
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 9: Build with environment variables
+      # Step 7: Build with environment variables
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
         env:
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: |
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 10: Deploy with improved URL capture and alias
+      # Step 8: Deploy with improved URL capture and alias
       - name: Deploy Project Artifacts to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
           # Deploy and capture URL
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
+          DEPLOYMENT_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
             --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
             --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
 
@@ -132,10 +119,10 @@ jobs:
 
           # Set alias for easier access
           ALIAS="pr-${{ github.event.number }}-${{ github.repository_owner }}.vercel.app"
-          vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
+          npx vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
           echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
 
-      # Step 11: Run Database Migrations with error handling
+      # Step 9: Run Database Migrations with error handling
       - name: Run Database Migrations
         working-directory: src/frontend/nextjs-app
         timeout-minutes: 10
@@ -156,7 +143,7 @@ jobs:
           AWS_API_GATEWAY_URL: https://v1zx8vrzzj.execute-api.us-east-2.amazonaws.com
           NODE_ENV: development
 
-      # Step 12: Comment with enhanced security (no database URLs)
+      # Step 10: Comment with enhanced security (no database URLs)
       - name: Comment PR with Preview Info
         uses: actions/github-script@v7
         with:
