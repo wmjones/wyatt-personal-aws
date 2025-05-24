@@ -13,10 +13,12 @@ export const envSchema = {
   DATABASE_URL: process.env.DATABASE_URL,
   DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
 
-  // External APIs
+  // External APIs (optional - used by AWS Lambda backend, not Next.js frontend)
   TODOIST_API_KEY: process.env.TODOIST_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   NOTION_API_KEY: process.env.NOTION_API_KEY,
+
+  // AWS API Gateway (required for backend communication)
   AWS_API_GATEWAY_URL: process.env.AWS_API_GATEWAY_URL,
 
   // Application
@@ -37,9 +39,6 @@ const requiredVariables = {
     'NEXT_PUBLIC_USER_POOL_CLIENT_ID',
     'DATABASE_URL',
     'DATABASE_URL_UNPOOLED',
-    'TODOIST_API_KEY',
-    'OPENAI_API_KEY',
-    'NOTION_API_KEY',
     'AWS_API_GATEWAY_URL',
   ],
   development: [

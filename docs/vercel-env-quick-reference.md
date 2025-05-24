@@ -1,6 +1,6 @@
 # Vercel Environment Variables - Quick Reference
 
-## Copy-Paste Ready Values
+## Required Variables for Vercel
 
 ### AWS Configuration
 ```
@@ -16,11 +16,14 @@ DATABASE_URL=postgresql://neondb_owner:npg_Inarx4C1bVmv@ep-snowy-dust-a5rl14da-p
 DATABASE_URL_UNPOOLED=postgresql://neondb_owner:npg_Inarx4C1bVmv@ep-snowy-dust-a5rl14da.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
 
-### External APIs (Need to obtain)
+## Optional Variables (Not Required for Vercel)
+
+These are used by AWS Lambda functions, not the Next.js frontend:
+
 ```
-TODOIST_API_KEY=[Get from https://todoist.com/app/settings/integrations/developer]
-OPENAI_API_KEY=[Get from https://platform.openai.com/api-keys]
-NOTION_API_KEY=[Get from https://www.notion.so/my-integrations]
+TODOIST_API_KEY=[Optional - handled by AWS backend]
+OPENAI_API_KEY=[Optional - handled by AWS backend]
+NOTION_API_KEY=[Optional - handled by AWS backend]
 ```
 
 ## Vercel Settings
@@ -30,10 +33,4 @@ NOTION_API_KEY=[Get from https://www.notion.so/my-integrations]
 
 ## Quick Links
 - [Vercel Dashboard](https://vercel.com/dashboard)
-- [Todoist Developer](https://todoist.com/app/settings/integrations/developer)
-- [OpenAI API Keys](https://platform.openai.com/api-keys)
-- [Notion Integrations](https://www.notion.so/my-integrations)
-
-
-DATABASE_URL	postgresql://neondb_owner:******@ep-snowy-dust-a5rl14da-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
-DATABASE_URL_UNPOOLED	postgresql://neondb_owner:******@ep-snowy-dust-a5rl14da.us-east-2.aws.neon.tech/neondb?sslmode=require
+- [Neon Console](https://console.neon.tech) - For database URL updates

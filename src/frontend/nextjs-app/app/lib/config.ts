@@ -31,21 +31,27 @@ export const config = {
     urlUnpooled: getEnvVar('DATABASE_URL_UNPOOLED'),
   },
 
+  // External APIs (optional - handled by AWS Lambda backend)
   external: {
     todoist: {
-      apiKey: getEnvVar('TODOIST_API_KEY'),
+      apiKey: getEnvVar('TODOIST_API_KEY'), // Optional: Used by AWS Lambda, not Next.js
       baseUrl: 'https://api.todoist.com/rest/v2',
     },
     openai: {
-      apiKey: getEnvVar('OPENAI_API_KEY'),
+      apiKey: getEnvVar('OPENAI_API_KEY'), // Optional: Used by AWS Lambda, not Next.js
       baseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4-turbo-preview',
     },
     notion: {
-      apiKey: getEnvVar('NOTION_API_KEY'),
+      apiKey: getEnvVar('NOTION_API_KEY'), // Optional: Used by AWS Lambda, not Next.js
       baseUrl: 'https://api.notion.com/v1',
       version: '2022-06-28',
     },
+  },
+
+  // AWS Backend
+  aws: {
+    apiGatewayUrl: getEnvVar('AWS_API_GATEWAY_URL'),
   },
 
   analytics: {
