@@ -57,6 +57,18 @@ export function validateEnv() {
     return;
   }
 
+  // Debug environment variables (Vercel debugging)
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    console.log('Environment debug:', {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: !!process.env.VERCEL,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      DATABASE_URL_SET: !!process.env.DATABASE_URL,
+      DATABASE_URL_UNPOOLED_SET: !!process.env.DATABASE_URL_UNPOOLED,
+      AWS_API_GATEWAY_URL_SET: !!process.env.AWS_API_GATEWAY_URL,
+    });
+  }
+
   const env = process.env.NODE_ENV as keyof typeof requiredVariables;
   const required = requiredVariables[env] || requiredVariables.development;
 
@@ -69,6 +81,13 @@ export function validateEnv() {
   }
 
   if (missing.length > 0) {
+    console.error('Missing environment variables details:', {
+      missing,
+      allEnvKeys: Object.keys(process.env).filter(key =>
+        key.includes('DATABASE') || key.includes('AWS') || key.includes('NEXT_PUBLIC')
+      )
+    });
+
     throw new Error(
       `Missing required environment variables:\n${missing.join('\n')}\n\n` +
       `Please check your .env files and ensure all required variables are set.`

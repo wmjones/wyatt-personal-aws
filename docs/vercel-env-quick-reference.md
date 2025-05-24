@@ -18,18 +18,39 @@ DATABASE_URL_UNPOOLED=postgresql://neondb_owner:npg_Inarx4C1bVmv@ep-snowy-dust-a
 
 ## Optional Variables (Not Required for Vercel)
 
-These are used by AWS Lambda functions, not the Next.js frontend:
+**These are NOT needed for Vercel deployment** - they are used by AWS Lambda functions, not the Next.js frontend.
 
-```
-TODOIST_API_KEY=[Optional - handled by AWS backend]
-OPENAI_API_KEY=[Optional - handled by AWS backend]
-NOTION_API_KEY=[Optional - handled by AWS backend]
-```
+❌ **Do NOT add these to Vercel:**
+- TODOIST_API_KEY
+- OPENAI_API_KEY
+- NOTION_API_KEY
+
+*If you previously added these with placeholder values like `[Optional - handled by AWS backend]`, please remove them from your Vercel environment variables.*
 
 ## Vercel Settings
 - **Root Directory**: `src/frontend/nextjs-app`
 - **Framework Preset**: Next.js
 - **Apply to**: ✓ Production, ✓ Preview, ✓ Development
+
+## Troubleshooting
+
+### If you previously set placeholder values:
+
+If you accidentally set environment variables to placeholder text like:
+- `TODOIST_API_KEY=[Optional - handled by AWS backend]`
+- `OPENAI_API_KEY=[Optional - handled by AWS backend]`
+- `NOTION_API_KEY=[Optional - handled by AWS backend]`
+
+**Please remove these variables entirely from Vercel:**
+1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+2. Delete any variables with placeholder/comment values
+3. Only keep the 6 required variables listed above
+
+### Environment Variable Scope
+Make sure each required variable is enabled for:
+- ✅ Production
+- ✅ **Preview** (this is crucial for branch deployments)
+- ✅ Development
 
 ## Quick Links
 - [Vercel Dashboard](https://vercel.com/dashboard)

@@ -6,14 +6,17 @@
   "installCommand": "npm install",
   "ignoreCommand": "node skip-build.js",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": true
   },
   "github": {
-    "silent": true
+    "silent": false
   },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
     }
+  },
+  "env": {
+    "NODE_ENV": "production"
   }
 }
