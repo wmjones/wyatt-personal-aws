@@ -52,6 +52,19 @@ jobs:
           api_key: ${{ secrets.NEON_API_KEY }}
           username: neondb_owner
 
+      # Step 1.5: Verify Neon outputs
+      - name: Verify Neon outputs
+        run: |
+          if [ -z "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" ]; then
+            echo "Error: db_url_with_pooler is empty"
+            exit 1
+          fi
+          if [ -z "${{ steps.create_neon_branch.outputs.db_url }}" ]; then
+            echo "Error: db_url is empty"
+            exit 1
+          fi
+          echo "✅ Neon branch created successfully with valid database URLs"
+
       # Step 2: Checkout code
       - uses: actions/checkout@v4
 
@@ -95,14 +108,14 @@ jobs:
         working-directory: src/frontend/nextjs-app
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 9: Build with --build-env flag (simplified)
+      # Step 9: Build with environment variables
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
+        env:
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: |
-          vercel build \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --build-env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --build-env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}"
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
       # Step 10: Deploy with improved URL capture and alias
       - name: Deploy Project Artifacts to Vercel
