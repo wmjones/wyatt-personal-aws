@@ -30,10 +30,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: Download Python deployment package
         uses: actions/download-artifact@v4
         with:
           name: deployment-package
+          path: ./main/
+
+      - name: Download Athena Lambda package
+        uses: actions/download-artifact@v4
+        with:
+          name: athena-lambda-package
           path: ./main/
 
       - name: Debug - List Files

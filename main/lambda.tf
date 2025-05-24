@@ -1,5 +1,6 @@
 locals {
-  lambda_zip_path = "${path.module}/deployment_package.zip"
+  lambda_zip_path        = "${path.module}/deployment_package.zip"
+  athena_lambda_zip_path = "${path.module}/athena-lambda.zip"
 
   # Common lambda policy statements
   s3_datalake_policy = {
