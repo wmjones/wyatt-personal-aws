@@ -67,11 +67,11 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const [error, setError] = useState<string | null>(null);
 
   // Mock time periods with useMemo to avoid recreation on each render
-  // Updated to show full date range from 2025-01-01 to 2025-04-01
+  // Updated to show full date range from 2025-01-01 to 2025-03-31 (matching actual data)
   const mockTimePeriods = useMemo<TimePeriod[]>(() => {
     const periods: TimePeriod[] = [];
     const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-04-01');
+    const endDate = new Date('2025-03-31');
 
     // Generate daily periods for the full range
     const currentDate = new Date(startDate);
