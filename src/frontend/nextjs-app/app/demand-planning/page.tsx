@@ -21,7 +21,7 @@ export default function DemandPlanningPage() {
 
   // Keep hierarchy selections for backward compatibility with useForecast hook
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
-  // Initialize with all daily periods from Jan 1 to Apr 1, 2025
+  // Initialize with all daily periods from Jan 1 to Mar 31, 2025
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
@@ -29,7 +29,7 @@ export default function DemandPlanningPage() {
   const timePeriods: TimePeriod[] = (() => {
     const periods: TimePeriod[] = [];
     const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-04-01');
+    const endDate = new Date('2025-03-31');
 
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
