@@ -1,6 +1,6 @@
 # Project Documentation
 
-This directory contains comprehensive documentation for the D3 Dashboard & Productivity System project.
+This directory contains comprehensive documentation for the D3 Dashboard project.
 
 ## Table of Contents
 
@@ -16,29 +16,23 @@ This directory contains comprehensive documentation for the D3 Dashboard & Produ
    - Implementation status
    - Next steps
 
-3. [Productivity System](./3_productivity_system.md)
-   - System overview
-   - Architecture components
-   - Implementation status
-   - Configuration requirements
-
-4. [Terraform Modules](./4_terraform_modules.md)
+3. [Terraform Modules](./4_terraform_modules.md)
    - Module overview
    - Module interactions
    - Configuration options
 
-5. [Environment Configuration](./5_environment_configuration.md)
+4. [Environment Configuration](./5_environment_configuration.md)
    - Environment structure
    - Deployment instructions
    - Best practices
 
-6. [Implementation Roadmap](./6_implementation_roadmap.md)
+5. [Implementation Roadmap](./6_implementation_roadmap.md)
    - Current status
    - Phase 2 (In Progress)
    - Phase 3 (Planned)
    - Future enhancements
 
-7. [Technical Specifications](./7_technical_specifications.md)
+6. [Technical Specifications](./7_technical_specifications.md)
    - AWS services used
    - Frontend technologies
    - Backend technologies

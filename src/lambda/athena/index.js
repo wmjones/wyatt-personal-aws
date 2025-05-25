@@ -213,8 +213,8 @@ exports.handler = async (event) => {
             business_date,
             AVG(y_50) as avg_forecast
           FROM ${FORECAST_TABLE_NAME}
-          WHERE business_date BETWEEN '${filters.start_date}' AND
-            '${filters.end_date || filters.start_date}'
+          WHERE business_date BETWEEN DATE '${filters.start_date}' AND
+            DATE '${filters.end_date || filters.start_date}'
           ${filters.state ? `AND state = '${filters.state}'` : ''}
           GROUP BY business_date
           ORDER BY business_date

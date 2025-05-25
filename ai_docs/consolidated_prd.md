@@ -1,13 +1,13 @@
-# Product Requirements Document: D3 Dashboard & Productivity System (Hybrid Architecture)
+# Product Requirements Document: D3 Dashboard (Hybrid Architecture)
 
 ## Executive Summary
 
-This PRD defines the implementation of a hybrid architecture for the D3 Dashboard & Productivity System. The solution leverages Vercel's modern frontend hosting platform while maintaining existing AWS backend infrastructure. This approach provides an optimal balance between developer experience, performance, and cost efficiency while avoiding the risks and expenses of a full platform migration.
+This PRD defines the implementation of a hybrid architecture for the D3 Dashboard. The solution leverages Vercel's modern frontend hosting platform while maintaining existing AWS backend infrastructure. This approach provides an optimal balance between developer experience, performance, and cost efficiency while avoiding the risks and expenses of a full platform migration.
 
 ## Product Overview
 
 ### Vision
-Create a modern, performant web application that combines interactive data visualizations with automated productivity workflows, using a hybrid architecture that maximizes the strengths of both Vercel and AWS platforms.
+Create a modern, performant web application for interactive data visualizations with real-time collaboration, using a hybrid architecture that maximizes the strengths of both Vercel and AWS platforms.
 
 ### Goals
 1. Modernize frontend technology stack with Next.js 14
@@ -68,11 +68,6 @@ Create a modern, performant web application that combines interactive data visua
 3. As a team member, I can comment on specific visualizations
 4. As a team member, I can track change history
 
-### Productivity Integration
-1. As a project manager, I can view task status from Todoist
-2. As a project manager, I can see AI-enriched task descriptions
-3. As a project manager, I can export reports to Notion
-4. As a project manager, I can schedule automated workflows
 
 ## Functional Requirements
 
@@ -148,13 +143,6 @@ Create a modern, performant web application that combines interactive data visua
 - Connection state management
 - Optimistic UI updates
 
-#### External Services
-- Todoist API for task management
-- OpenAI API for text enrichment
-- Notion API for documentation
-- Error handling for API failures
-- Rate limit management
-
 ## Technical Architecture
 
 ### System Design
@@ -214,12 +202,6 @@ Create a modern, performant web application that combines interactive data visua
    - WebSocket broadcasts change
    - All clients receive update
 
-3. **Productivity Workflow**
-   - EventBridge triggers Step Function
-   - Lambda fetches from Todoist
-   - OpenAI enriches content
-   - Results saved to Notion
-   - Status displayed on dashboard
 
 ## Non-Functional Requirements
 
@@ -294,19 +276,14 @@ Create a modern, performant web application that combines interactive data visua
 - Presence indicators
 - Conflict resolution
 
-### Phase 7: Productivity (Week 13)
-- External API integration
-- Workflow monitoring
-- Dashboard creation
-- Notification system
 
-### Phase 8: Optimization (Week 14)
+### Phase 7: Optimization (Week 13-14)
 - Performance tuning
 - Bundle optimization
 - Monitoring setup
 - Security audit
 
-### Phase 9: Launch (Week 15)
+### Phase 8: Launch (Week 15)
 - Production deployment
 - User migration
 - Documentation
@@ -383,7 +360,7 @@ Create a modern, performant web application that combines interactive data visua
 
 ## Conclusion
 
-The hybrid architecture approach provides an optimal solution for modernizing the D3 Dashboard & Productivity System. By leveraging Vercel's frontend capabilities while maintaining AWS backend services, we achieve improved performance, developer experience, and cost efficiency without the risks of a full platform migration.
+The hybrid architecture approach provides an optimal solution for modernizing the D3 Dashboard. By leveraging Vercel's frontend capabilities while maintaining AWS backend services, we achieve improved performance, developer experience, and cost efficiency without the risks of a full platform migration.
 
 ## Appendices
 

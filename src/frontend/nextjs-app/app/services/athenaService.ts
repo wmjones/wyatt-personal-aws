@@ -124,10 +124,10 @@ class AthenaService {
         }
       }
       if (filters.startDate) {
-        conditions.push(`business_date >= '${filters.startDate}'`);
+        conditions.push(`business_date >= DATE '${filters.startDate}'`);
       }
       if (filters.endDate) {
-        conditions.push(`business_date <= '${filters.endDate}'`);
+        conditions.push(`business_date <= DATE '${filters.endDate}'`);
       }
     }
 

@@ -1,8 +1,8 @@
-# Project Overview: D3 Dashboard & Productivity System (Hybrid Architecture)
+# Project Overview: D3 Dashboard (Hybrid Architecture)
 
 ## Executive Summary
 
-This project implements a hybrid architecture for the D3 Dashboard & Productivity System, combining Vercel's modern frontend hosting capabilities with AWS's robust backend infrastructure. This approach allows us to leverage the best of both platforms while avoiding costly migrations and maintaining proven infrastructure.
+This project implements a hybrid architecture for the D3 Dashboard, combining Vercel's modern frontend hosting capabilities with AWS's robust backend infrastructure. This approach allows us to leverage the best of both platforms while avoiding costly migrations and maintaining proven infrastructure.
 
 ## Architecture Overview
 
@@ -22,7 +22,6 @@ The system is split into two distinct deployment targets:
    - DynamoDB for data persistence
    - API Gateway for HTTP/WebSocket connections
    - Cognito for authentication
-   - Step Functions for workflow orchestration
    - S3 for data storage and file uploads
 
 ### Integration Points
@@ -50,18 +49,6 @@ The dashboard provides interactive data visualizations with real-time collaborat
   - WebSocket connections for real-time updates
   - History tracking for all changes
   - User-specific data isolation
-
-### Productivity Workflow System
-
-Automated task enrichment pipeline:
-
-- **AWS Step Functions**: Orchestrates the workflow
-- **Lambda Functions**:
-  - `getTodoist`: Fetches tasks from Todoist API
-  - `putChatGPT`: Enriches tasks using OpenAI API
-  - `putNotion`: Saves enriched data to Notion
-- **EventBridge**: Scheduled execution triggers
-- **S3**: Intermediate data storage
 
 ## Development Approach
 
@@ -258,14 +245,13 @@ This project includes comprehensive documentation:
 
 1. **Project Overview** (this document)
 2. **D3 Dashboard Details**
-3. **Productivity System Architecture**
-4. **Terraform Module Reference**
-5. **Environment Configuration Guide**
-6. **Implementation Roadmap**
-7. **Technical Specifications**
-8. **Migration Guide** (hybrid approach)
-9. **API Documentation**
-10. **Deployment Procedures**
+3. **Terraform Module Reference**
+4. **Environment Configuration Guide**
+5. **Implementation Roadmap**
+6. **Technical Specifications**
+7. **Migration Guide** (hybrid approach)
+8. **API Documentation**
+9. **Deployment Procedures**
 
 ## Support and Maintenance
 
