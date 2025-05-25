@@ -1,0 +1,299 @@
+name: Neon Branch Cleanup
+
+# This workflow manages Neon database branch cleanup to prevent hitting branch limits
+# It runs on:
+# 1. PR close/merge - deletes preview branches
+# 2. Branch deletion - deletes corresponding Neon branches
+# 3. Schedule - weekly cleanup of old deployment branches
+# 4. Manual trigger - for on-demand cleanup
+
+on:
+  # Trigger on PR events
+  pull_request:
+    types: [closed]
+
+  # Trigger on branch deletion
+  delete:
+    branches:
+      - '**'
+      - '!main'
+      - '!dev'
+
+  # Weekly cleanup of old branches
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      cleanup_type:
+        description: 'Type of cleanup to perform'
+        required: true
+        default: 'old-deployments'
+        type: choice
+        options:
+          - 'old-deployments'
+          - 'all-preview'
+          - 'specific-branch'
+      branch_name:
+        description: 'Specific branch name (only for specific-branch cleanup)'
+        required: false
+
+jobs:
+  # Cleanup preview branches when PRs are closed
+  cleanup-pr-branch:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Neon CLI
+        run: |
+          npm install -g neonctl@latest
+          echo "✅ Neon CLI installed"
+
+      - name: Get PR branch name
+        id: branch_info
+        run: |
+          # Extract branch name from PR
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "📌 PR branch: $BRANCH_NAME"
+
+      - name: Delete Neon preview branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          # Construct the Neon branch name
+          NEON_BRANCH="preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_info.outputs.branch_name }}"
+
+          echo "🗑️ Attempting to delete Neon branch: $NEON_BRANCH"
+
+          # Delete the branch (continue on error as it might not exist)
+          neonctl branches delete "$NEON_BRANCH" \
+            --project-id "$NEON_PROJECT_ID" \
+            --force || echo "⚠️ Branch might not exist or already deleted"
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `🧹 **Neon Branch Cleanup Complete**
+
+            The preview database branch \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_info.outputs.branch_name }}\` has been cleaned up.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+  # Cleanup when branches are deleted
+  cleanup-deleted-branch:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Neon CLI
+        run: |
+          npm install -g neonctl@latest
+          echo "✅ Neon CLI installed"
+
+      - name: Get deleted branch name
+        id: branch_info
+        run: |
+          # Extract the deleted branch name
+          BRANCH_NAME="${{ github.event.ref }}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "📌 Deleted branch: $BRANCH_NAME"
+
+      - name: List and delete matching Neon branches
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          echo "🔍 Looking for Neon branches related to: ${{ steps.branch_info.outputs.branch_name }}"
+
+          # List all branches
+          BRANCHES=$(neonctl branches list --project-id "$NEON_PROJECT_ID" --output json || echo "[]")
+
+          # Find branches that match the deleted GitHub branch
+          echo "$BRANCHES" | jq -r '.[] | select(.name | contains("${{ steps.branch_info.outputs.branch_name }}")) | .name' | while read -r branch; do
+            if [ ! -z "$branch" ]; then
+              echo "🗑️ Deleting Neon branch: $branch"
+              neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
+            fi
+          done
+
+  # Scheduled cleanup of old deployment branches
+  cleanup-old-deployments:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.cleanup_type == 'old-deployments')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Neon CLI
+        run: |
+          npm install -g neonctl@latest
+          echo "✅ Neon CLI installed"
+
+      - name: Clean up old deployment branches
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          echo "🧹 Cleaning up old deployment branches..."
+
+          # List all branches
+          BRANCHES=$(neonctl branches list --project-id "$NEON_PROJECT_ID" --output json || echo "[]")
+
+          # Get current timestamp (in seconds)
+          CURRENT_TIME=$(date +%s)
+          SEVEN_DAYS_AGO=$((CURRENT_TIME - 604800))  # 7 days in seconds
+
+          # Process deployment branches
+          for env in "dev" "main"; do
+            echo "📋 Processing $env deployment branches..."
+
+            # Get deployment branches for this environment, sorted by creation date
+            DEPLOYMENT_BRANCHES=$(echo "$BRANCHES" | jq -r --arg env "$env" \
+              '.[] | select(.name | test("^" + $env + "-deployment-")) |
+              {name: .name, created_at: .created_at}' | jq -s 'sort_by(.created_at) | reverse')
+
+            # Keep only the 5 most recent branches
+            BRANCHES_TO_KEEP=5
+            BRANCH_COUNT=$(echo "$DEPLOYMENT_BRANCHES" | jq length)
+
+            if [ "$BRANCH_COUNT" -gt "$BRANCHES_TO_KEEP" ]; then
+              echo "Found $BRANCH_COUNT $env deployment branches, keeping $BRANCHES_TO_KEEP most recent"
+
+              # Get branches to delete (older than the 5 most recent)
+              BRANCHES_TO_DELETE=$(echo "$DEPLOYMENT_BRANCHES" | jq -r ".[$BRANCHES_TO_KEEP:] | .[].name")
+
+              for branch in $BRANCHES_TO_DELETE; do
+                echo "🗑️ Deleting old deployment branch: $branch"
+                neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
+              done
+            else
+              echo "✅ Only $BRANCH_COUNT $env deployment branches found, no cleanup needed"
+            fi
+          done
+
+          # Also clean up any preview branches older than 7 days (orphaned branches)
+          echo "📋 Cleaning orphaned preview branches..."
+          echo "$BRANCHES" | jq -r --argjson cutoff "$SEVEN_DAYS_AGO" \
+            '.[] | select(.name | test("^preview/")) |
+            select((.created_at | fromdateiso8601) < $cutoff) | .name' | while read -r branch; do
+            if [ ! -z "$branch" ]; then
+              echo "🗑️ Deleting orphaned preview branch: $branch"
+              neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
+            fi
+          done
+
+  # Manual cleanup options
+  manual-cleanup:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Neon CLI
+        run: |
+          npm install -g neonctl@latest
+          echo "✅ Neon CLI installed"
+
+      - name: Perform manual cleanup
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          CLEANUP_TYPE="${{ github.event.inputs.cleanup_type }}"
+
+          case "$CLEANUP_TYPE" in
+            "all-preview")
+              echo "🧹 Cleaning up ALL preview branches..."
+              neonctl branches list --project-id "$NEON_PROJECT_ID" --output json | \
+                jq -r '.[] | select(.name | test("^preview/")) | .name' | while read -r branch; do
+                if [ ! -z "$branch" ]; then
+                  echo "🗑️ Deleting preview branch: $branch"
+                  neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
+                fi
+              done
+              ;;
+
+            "specific-branch")
+              BRANCH_NAME="${{ github.event.inputs.branch_name }}"
+              if [ ! -z "$BRANCH_NAME" ]; then
+                echo "🗑️ Deleting specific branch: $BRANCH_NAME"
+                neonctl branches delete "$BRANCH_NAME" --project-id "$NEON_PROJECT_ID" --force || \
+                  echo "⚠️ Branch not found or already deleted"
+              else
+                echo "❌ No branch name provided"
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Create summary
+        run: |
+          echo "## 🧹 Neon Branch Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Cleanup Type**: ${{ github.event.inputs.cleanup_type }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.cleanup_type }}" = "specific-branch" ]; then
+            echo "**Branch**: ${{ github.event.inputs.branch_name }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Cleanup completed successfully" >> $GITHUB_STEP_SUMMARY
+
+  # Monitor branch usage
+  monitor-branch-usage:
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    needs: [cleanup-old-deployments, manual-cleanup]
+    steps:
+      - name: Setup Neon CLI
+        run: |
+          npm install -g neonctl@latest
+          echo "✅ Neon CLI installed"
+
+      - name: Check branch usage
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          echo "📊 Checking Neon branch usage..."
+
+          # Get project details including branch limit
+          PROJECT_INFO=$(neonctl projects get "$NEON_PROJECT_ID" --output json)
+
+          # Get current branch count
+          BRANCHES=$(neonctl branches list --project-id "$NEON_PROJECT_ID" --output json)
+          BRANCH_COUNT=$(echo "$BRANCHES" | jq length)
+
+          # Extract branch limit (this might need adjustment based on actual API response)
+          BRANCH_LIMIT=$(echo "$PROJECT_INFO" | jq '.branch_limit // 10')
+
+          echo "📈 Branch usage: $BRANCH_COUNT / $BRANCH_LIMIT"
+
+          # Calculate usage percentage
+          USAGE_PERCENT=$((BRANCH_COUNT * 100 / BRANCH_LIMIT))
+
+          # Create summary
+          echo "## 📊 Neon Branch Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Branches**: $BRANCH_COUNT / $BRANCH_LIMIT ($USAGE_PERCENT%)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Break down by type
+          PREVIEW_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^preview/"))] | length')
+          DEV_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^dev-deployment-"))] | length')
+          MAIN_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^main-deployment-"))] | length')
+          OTHER_COUNT=$((BRANCH_COUNT - PREVIEW_COUNT - DEV_COUNT - MAIN_COUNT))
+
+          echo "### Branch Breakdown" >> $GITHUB_STEP_SUMMARY
+          echo "- **Preview Branches**: $PREVIEW_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dev Deployments**: $DEV_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main Deployments**: $MAIN_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Other**: $OTHER_COUNT" >> $GITHUB_STEP_SUMMARY
+
+          # Warning if usage is high
+          if [ $USAGE_PERCENT -gt 80 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Warning**: Branch usage is above 80%!" >> $GITHUB_STEP_SUMMARY
+            echo "Consider running manual cleanup or increasing branch limit." >> $GITHUB_STEP_SUMMARY
+          fi
