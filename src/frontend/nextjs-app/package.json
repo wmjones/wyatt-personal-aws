@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "npx tsx scripts/init-database.ts",
-    "db:migrate": "npx tsx scripts/init-database.ts"
+    "db:migrate": "npx tsx scripts/init-database.ts",
+    "test:athena": "npx tsx scripts/test-athena-api.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.2",

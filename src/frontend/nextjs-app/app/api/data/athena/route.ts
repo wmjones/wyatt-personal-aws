@@ -32,21 +32,56 @@ export async function POST(request: NextRequest) {
     // Create the request to AWS API Gateway
     const apiUrl = `${awsApiGatewayUrl}/api/data/athena/query`;
 
-    // Forward the request to AWS API Gateway
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': request.headers.get('Authorization') || '',
-      },
-      body: JSON.stringify(body),
-    });
+    // Forward the request to AWS API Gateway with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': request.headers.get('Authorization') || '',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Request to AWS API Gateway timed out');
+        return NextResponse.json(
+          { error: 'Request timed out after 30 seconds' },
+          { status: 504 }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(timeoutId);
 
     // Handle errors
     if (!response.ok) {
-      const errorData = await response.json();
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = { error: 'Failed to parse error response' };
+      }
+
+      console.error('AWS API Gateway error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData,
+        apiUrl,
+        requestBody: body
+      });
+
       return NextResponse.json(
-        { error: errorData.error || 'Error executing Athena query' },
+        {
+          error: errorData.error || errorData.message || 'Error executing Athena query',
+          details: errorData
+        },
         { status: response.status }
       );
     }

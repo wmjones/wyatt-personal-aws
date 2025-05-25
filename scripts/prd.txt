@@ -1,402 +1,170 @@
-<context>
-# Overview
-This project implements a hybrid deployment strategy for the D3 Dashboard & Productivity System, leveraging Vercel for frontend hosting while maintaining AWS infrastructure for backend services. This approach combines Vercel's excellent frontend developer experience with the control and flexibility of AWS backend services, achieving cost optimization while preserving existing infrastructure investments. The system serves data analysts and project managers who need interactive visualizations and automated productivity workflows.
+# Demand Planning Dashboard - Product Requirements Document
 
-# Core Features
-## Hybrid Architecture
-- Vercel hosts Next.js frontend application with automatic deployments
-- AWS backend services remain Terraform-managed
-- API Gateway provides secure endpoint for frontend-backend communication
-- DynamoDB continues as primary database with optimized read patterns
-- Lambda functions maintain business logic and API endpoints
+## Overview
+This project implements a demand planning dashboard using a hybrid cloud architecture with Next.js on Vercel for the frontend and AWS infrastructure for backend services. The dashboard enables hierarchical forecast visualization and adjustments using D3.js for data visualization. The system uses Neon (serverless Postgres) for database operations, AWS services for authentication and data processing, and Terraform for infrastructure as code.
 
-## Next.js Frontend on Vercel
-- Converts React CRA application to Next.js 14 with App Router
-- Enables server-side rendering and static generation for better performance
-- Implements file-based routing to simplify navigation structure
-- Leverages Vercel's edge network for global content delivery
-- Utilizes environment variables for AWS endpoint configuration
+## Goals
+- Create an intuitive demand planning dashboard for forecast visualization and adjustment
+- Enable multi-dimensional hierarchical data analysis (Geography, Product, Customer, Campaign)
+- Provide real-time collaborative forecast adjustments with audit trails
+- Implement scalable cloud architecture with serverless components
+- Ensure high performance and cost optimization
+- Support data export and integration with external systems
 
-## AWS Backend Infrastructure
-- Maintains existing DynamoDB tables with proven data models
-- Preserves Lambda functions for business logic and API operations
-- Continues using API Gateway for HTTP and WebSocket connections
-- Keeps Cognito for authentication with JWT token validation
-- Retains Terraform management for infrastructure as code
+## User Stories
+- As a demand planner, I want to visualize forecasts at different hierarchy levels to understand demand patterns
+- As a demand planner, I want to make percentage or absolute adjustments to forecasts with immediate visual feedback
+- As a demand planner, I want to see adjustment history to understand who made changes and why
+- As a sales manager, I want to export forecast data for reporting and analysis
+- As a sales manager, I want to drill down from regional to customer-specific forecasts
+- As an admin, I want to manage user permissions and access controls
+- As a data analyst, I want to compare multiple forecast scenarios side by side
+- As a user, I want the dashboard to load quickly and respond instantly to interactions
 
-## Integration Strategy
-- Secure API communication between Vercel and AWS services
-- CORS configuration for cross-origin requests
-- Environment-based endpoint configuration
-- Automated deployment pipeline for both platforms
-- Comprehensive monitoring across hybrid stack
+## Functional Requirements
+- Hierarchical data visualization with D3.js charts (line charts, comparison views)
+- Multi-level filtering: Geography (Region > Market > Submarket), Product (Category > Subcategory > Item), Customer (Type > Group > Account), Campaign
+- Time period controls: Weekly, Monthly, Quarterly views with custom date ranges
+- Adjustment capabilities: Percentage-based or absolute value modifications
+- Adjustment history tracking with timestamps, user attribution, and comments
+- Data export functionality (CSV, Excel, JSON formats)
+- User authentication and role-based access control
+- Real-time updates when multiple users are viewing the same data
+- Responsive design for desktop and tablet devices
+- Keyboard shortcuts for common actions
 
-# User Experience
-## User Personas
-### Data Analyst
-- Creates and modifies D3.js visualizations
-- Collaborates with team members in real-time
-- Requires responsive interface and fast data updates
+## Non-Functional Requirements
+- Performance: Page load under 2 seconds, chart updates under 100ms
+- Scalability: Support 100+ concurrent users, handle datasets with millions of rows
+- Security: SOC2 compliant, encrypted data at rest and in transit
+- Availability: 99.9% uptime SLA
+- Browser Support: Chrome, Firefox, Safari, Edge (latest 2 versions)
+- Accessibility: WCAG 2.1 AA compliance
+- Monitoring: Real-time error tracking and performance metrics
+- Disaster Recovery: Automated backups, point-in-time recovery
+- Cost Optimization: Serverless architecture to minimize idle costs
 
-### Project Manager
-- Monitors task progress across tools
-- Benefits from automated workflow integration
-- Needs reliable data synchronization
+## Architecture Components
 
-### Developer
-- Deploys and maintains hybrid infrastructure
-- Values clear separation of concerns
-- Requires comprehensive monitoring tools
+### Frontend (Vercel)
+- Next.js 14 with App Router and React Server Components
+- D3.js for interactive data visualizations
+- Tailwind CSS v4 for styling
+- TypeScript for type safety
+- React Query for data fetching and caching
+- Zustand for state management
+- Vercel hosting with edge functions
 
-## Key User Flows
-### Visualization Creation
-1. User authenticates with Cognito through Next.js
-2. Navigates to visualization dashboard on Vercel
-3. Frontend makes API calls to AWS backend
-4. Lambda functions process data operations
-5. Real-time updates via WebSocket API
+### Database (Neon)
+- Serverless PostgreSQL for primary data storage
+- Database branching for preview environments
+- Connection pooling for efficiency
+- Optimized schema for time-series data
+- Automated migrations
 
-### Productivity Automation
-1. Step Functions orchestrate workflow in AWS
-2. Lambda functions fetch tasks from Todoist
-3. Tasks processed through ChatGPT for enrichment
-4. Enriched data saved to Notion
-5. Frontend displays consolidated information
+### Backend (AWS)
+- API Gateway HTTP API for RESTful endpoints
+- Lambda functions for business logic
+- Cognito for authentication
+- S3 for file storage
+- Athena for analytics queries
+- DynamoDB for caching
+- CloudWatch for monitoring
 
-## UI/UX Considerations
-- Maintain visual consistency across platforms
-- Optimize API calls for performance
-- Implement proper loading states
-- Handle cross-origin errors gracefully
-- Ensure mobile responsiveness
-</context>
-<PRD>
-# Technical Architecture
-## System Components
-### Frontend Layer (Vercel)
-- Next.js 14 with TypeScript
-- React Server Components for performance
-- Client components for interactivity
-- D3.js for data visualizations
-- Tailwind CSS for styling
-- Environment configuration for API endpoints
+### Infrastructure (Terraform)
+- Modular IaC approach
+- Environment-based configurations
+- Automated deployments
+- Security best practices
+- Cost allocation tags
 
-### Backend Layer (AWS)
-- Lambda functions for API logic
-- API Gateway for HTTP/WebSocket endpoints
-- DynamoDB for data persistence
-- Cognito for authentication services
-- Step Functions for workflow orchestration
-- S3 for static asset storage
+## Out of Scope
+- Mobile native applications (responsive web only)
+- Offline functionality
+- Machine learning forecasting (integration-ready but not implemented)
+- ERP system integration (API-ready but not implemented)
+- Multi-language support (English only initially)
+- Custom report builder
+- Email notifications
+- Data warehousing
 
-### Integration Layer
-- CORS-enabled API endpoints
-- JWT token validation
-- Environment-specific configurations
-- Secure API key management
-- Request/response logging
+## Logical Dependency Chain
+1. AWS account setup and Terraform initialization
+2. Core infrastructure provisioning (VPC, IAM, S3)
+3. Database setup (Neon configuration and schema)
+4. Authentication system (Cognito user pools)
+5. API Gateway and Lambda functions
+6. Frontend development environment
+7. Core UI components and layouts
+8. D3.js visualization components
+9. API integration and data flow
+10. User management features
+11. Export functionality
+12. Performance optimization
+13. Security hardening
+14. Monitoring and alerting
+15. Documentation and deployment
 
-## Data Models (Unchanged)
-### User Model
-```typescript
-interface User {
-  id: string
-  email: string
-  cognitoId: string
-  createdAt: Date
-}
-```
+## Development Roadmap
 
-### Visualization Model
-```typescript
-interface Visualization {
-  id: string
-  userId: string
-  name: string
-  parameters: Parameter[]
-  createdAt: Date
-  updatedAt: Date
-}
-```
+### Infrastructure Foundation
+- Set up AWS account and configure Terraform
+- Create VPC and networking components
+- Implement IAM roles and security groups
+- Configure S3 buckets for storage
+- Set up CloudWatch logging
 
-### Parameter Model
-```typescript
-interface Parameter {
-  id: string
-  visualizationId: string
-  mean: number
-  stdDev: number
-  updatedBy: string
-  history: ParameterHistory[]
-}
-```
+### Database and Authentication
+- Configure Neon serverless PostgreSQL
+- Create database schema for forecast data
+- Set up Cognito user pools
+- Implement JWT authentication flow
+- Create user management Lambda functions
 
-## APIs and Integrations
-### AWS API Endpoints
-- GET /api/visualizations - List user visualizations
-- GET /api/visualizations/{id} - Get specific visualization
-- POST /api/visualizations/{id}/parameters - Update parameters
-- GET /api/history - Get parameter change history
-- WebSocket endpoint for real-time updates
+### API Development
+- Create API Gateway HTTP API
+- Implement Lambda functions for CRUD operations
+- Add CORS configuration
+- Create data validation middleware
+- Implement error handling
 
-### External Integrations
-- Todoist API for task management
-- OpenAI API for task enrichment
-- Notion API for data storage
-- AWS Cognito for authentication
-
-### Frontend Configuration
-```javascript
-// Environment variables in Vercel
-const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_AWS_API_ENDPOINT,
-  region: process.env.NEXT_PUBLIC_AWS_REGION,
-  userPoolId: process.env.NEXT_PUBLIC_USER_POOL_ID,
-  clientId: process.env.NEXT_PUBLIC_USER_POOL_CLIENT_ID
-}
-```
-
-## Infrastructure Requirements
-### Development Environment
-- Node.js 18+ for Next.js frontend
-- AWS CLI for backend management
-- Terraform 1.6+ for infrastructure
-- Git for version control
-- Vercel CLI for frontend deployment
-
-### Production Environment
-- Vercel hosting for Next.js
-- AWS account with existing infrastructure
-- Terraform Cloud/state management
-- Environment variables configuration
-- Domain configuration for both platforms
-
-# Development Roadmap
-## Phase 1: Foundation Setup
-- Create Next.js project structure
-- Configure TypeScript and Tailwind
+### Frontend Foundation
+- Initialize Next.js project with TypeScript
+- Configure Tailwind CSS v4
 - Set up Vercel deployment
-- Update Terraform for CORS configuration
-- Create environment configuration service
+- Create layout components
+- Implement routing structure
 
-## Phase 2: Frontend Migration
-- Migrate React components to Next.js
-- Implement client-side routing
-- Set up global styles with Tailwind
-- Create reusable UI components
-- Configure build optimization
+### Core Features
+- Build D3.js visualization components
+- Create hierarchical filtering system
+- Implement forecast adjustment interface
+- Add adjustment history tracking
+- Create data export functionality
 
-## Phase 3: API Integration
-- Configure AWS API endpoints in frontend
-- Implement API client with error handling
-- Set up authentication flow with Cognito
-- Create request/response interceptors
-- Add comprehensive error logging
+### Enhancement and Optimization
+- Add caching layer with DynamoDB
+- Implement Athena for analytics
+- Optimize query performance
+- Add comprehensive error handling
+- Create admin dashboard
 
-## Phase 4: Authentication Integration
-- Integrate Cognito with Next.js
-- Implement JWT token management
-- Create protected route middleware
-- Add login/signup pages
-- Handle token refresh logic
-
-## Phase 5: Core Features Implementation
-- Migrate D3.js visualizations
-- Implement parameter controls
-- Add state management (Context/Redux)
-- Create loading and error states
-- Optimize API call patterns
-
-## Phase 6: Real-time Features
-- Set up WebSocket client
-- Implement connection management
-- Add reconnection logic
-- Create real-time parameter updates
-- Test multi-user collaboration
-
-## Phase 7: Productivity Features
-- Integrate Todoist API calls
-- Implement ChatGPT processing
-- Add Notion synchronization
-- Create scheduled job monitoring
-- Build productivity dashboard
-
-## Phase 8: Performance Optimization
-- Implement caching strategies
-- Optimize bundle sizes
-- Add lazy loading
-- Configure CDN settings
-- Monitor performance metrics
-
-## Phase 9: Production Deployment
-- Configure production environment
-- Set up monitoring and alerting
-- Implement error tracking
+### Testing and Deployment
+- Write unit and integration tests
+- Perform load testing
+- Security audit
 - Create deployment documentation
-- Plan maintenance procedures
+- Production deployment
 
-## Phase 10: Infrastructure Optimization
-- Review AWS resource usage
-- Optimize Lambda functions
-- Fine-tune DynamoDB capacity
-- Update Terraform configurations
-- Document best practices
+## Success Metrics
+- User adoption: 80% of target users actively using within 3 months
+- Performance: 95% of requests complete under 200ms
+- Reliability: 99.9% uptime achieved
+- User satisfaction: NPS score > 40
+- Cost efficiency: < $500/month for typical usage
+- Data accuracy: 99.99% adjustment tracking accuracy
+- Security: Zero security incidents
+- Feature completion: All core features delivered on schedule
 
-# Logical Dependency Chain
-## Foundation Requirements
-1. Vercel account and project setup required first
-2. AWS infrastructure must be CORS-enabled
-3. Environment variables configured before API calls
-4. Authentication flow established for protected routes
-
-## Integration Sequence
-1. Frontend deployment enables API testing
-2. CORS configuration allows cross-origin requests
-3. Authentication validates user access
-4. API integration completes functionality
-5. Real-time features enhance experience
-
-## Testing Checkpoints
-- Frontend deployable independently
-- API endpoints testable separately
-- Authentication flow verifiable
-- Performance metrics measurable
-- User acceptance testing required
-
-# Risks and Mitigations
-## Technical Challenges
-### Cross-Origin Resource Sharing
-- Risk: CORS configuration complexity
-- Mitigation: Comprehensive testing, proper headers, documentation
-
-### Network Latency
-- Risk: Increased latency between platforms
-- Mitigation: Edge caching, optimized API calls, regional deployment
-
-### Authentication Complexity
-- Risk: Token management across platforms
-- Mitigation: Robust refresh logic, proper error handling
-
-## Security Considerations
-### API Security
-- Implement rate limiting
-- Use API keys for external services
-- Validate all inputs
-- Log security events
-
-### Data Protection
-- Encrypt sensitive data
-- Use HTTPS everywhere
-- Implement least privilege
-- Regular security audits
-
-## Resource Constraints
-### Development Complexity
-- Mitigation: Clear documentation
-- Automated testing
-- Incremental deployment
-- Regular code reviews
-
-### Monitoring Requirements
-- Mitigation: Unified logging
-- Cross-platform dashboards
-- Alert configuration
-- Performance tracking
-
-# Implementation Details
-## Vercel Configuration
-```json
-{
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "outputDirectory": ".next"
-}
-```
-
-## AWS API Gateway CORS
-```json
-{
-  "AllowOrigins": ["https://your-app.vercel.app"],
-  "AllowMethods": ["GET", "POST", "PUT", "DELETE"],
-  "AllowHeaders": ["Content-Type", "Authorization"],
-  "ExposeHeaders": ["x-request-id"],
-  "MaxAge": 86400
-}
-```
-
-## Environment Variables
-```bash
-# Vercel Environment
-NEXT_PUBLIC_AWS_API_ENDPOINT=https://api.your-domain.com
-NEXT_PUBLIC_AWS_REGION=us-east-1
-NEXT_PUBLIC_USER_POOL_ID=us-east-1_xxxxx
-NEXT_PUBLIC_USER_POOL_CLIENT_ID=xxxxx
-
-# AWS Lambda Environment
-ALLOWED_ORIGINS=https://your-app.vercel.app
-CORS_MAX_AGE=86400
-```
-
-# Cost Analysis
-## Hybrid Approach Benefits
-- Frontend: Leverages Vercel's free/low-cost tiers
-- Backend: Maintains existing AWS infrastructure
-- Reduced CloudFront costs via Vercel CDN
-- Optimized Lambda invocations
-- No data migration costs
-
-## Estimated Monthly Costs
-- Vercel: $0-20 (depending on usage)
-- AWS API Gateway: $25-50
-- Lambda Functions: $10-30
-- DynamoDB: $150-300
-- Cognito: $0-15
-- Total: $185-415/month
-
-# Security Requirements
-## Frontend Security
-- Content Security Policy headers
-- XSS protection
-- Input sanitization
-- Secure cookie handling
-
-## Backend Security
-- API authentication required
-- Request validation
-- Rate limiting
-- Audit logging
-
-## Data Security
-- Encryption in transit (TLS)
-- Encryption at rest (DynamoDB)
-- Access control (IAM)
-- Regular backups
-
-# Appendix
-## Migration Benefits
-### Developer Experience
-- Improved frontend tooling
-- Faster deployment cycles
-- Better preview environments
-- Simplified debugging
-
-### Operational Benefits
-- Reduced complexity
-- Clear separation of concerns
-- Independent scaling
-- Flexible deployment
-
-## Technical Specifications
-### Browser Support
-- Chrome, Firefox, Safari, Edge (latest 2 versions)
-- Mobile responsive design
-- Progressive enhancement
-
-### Performance Targets
-- Time to First Byte: <200ms
-- First Contentful Paint: <1.5s
-- API Response: <300ms
-- WebSocket Latency: <100ms
-</PRD></content>
+## Appendix
+Technical specifications, API documentation, and detailed schemas are maintained in the project's technical documentation.

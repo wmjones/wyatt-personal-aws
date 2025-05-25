@@ -69,17 +69,6 @@ This project follows a "modules first" approach to infrastructure as code, using
 
 **Usage**: Hosts documentation and other static content
 
-## 7. Step Function Module
-
-**Purpose**: Orchestrates multi-step workflows
-
-**Key Components**:
-- Step Function state machine
-- IAM roles and permissions
-- Lambda function integrations
-- Error handling configurations
-
-**Usage**: Orchestrates the Productivity Workflow System automation steps
 
 ## Module Interactions
 
@@ -89,5 +78,4 @@ These modules work together to create the complete infrastructure:
 - **API Gateway** routes requests to **Lambda Functions** for processing
 - **Lambda Functions** read from and write to **DynamoDB** for data persistence
 - **Cognito** validates user credentials for both the **Frontend** and **API Gateway**
-- **Step Functions** orchestrates multiple **Lambda Functions** for workflow automation
 - **Static Site** provides documentation and supplementary content
