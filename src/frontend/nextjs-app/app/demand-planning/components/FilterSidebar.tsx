@@ -70,6 +70,17 @@ export default function FilterSidebar({
           dcIds: dcIds.length
         });
 
+        // Auto-select the first state if no selections exist
+        if (states.length > 0 && localSelections.states.length === 0) {
+          const autoSelection = {
+            ...localSelections,
+            states: [states[0]] // Select the first state
+          };
+          setLocalSelections(autoSelection);
+          onSelectionChange(autoSelection);
+          console.log('Auto-selected first state:', states[0]);
+        }
+
       } catch (error) {
         console.error('Error loading filter options:', error);
         setFilterError('Failed to load filter options. Please try refreshing the page.');
@@ -79,7 +90,7 @@ export default function FilterSidebar({
     };
 
     loadFilterOptions();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update local state when props change
   useEffect(() => {

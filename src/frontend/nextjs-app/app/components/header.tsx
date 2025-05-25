@@ -11,7 +11,6 @@ export default function Header() {
 
   const navItems = [
     { href: '/', label: 'Home' },
-    { href: '/demo', label: 'Demo' },
     { href: '/about', label: 'About' },
     ...(isAuthenticated ? [
       { href: '/dashboard', label: 'Dashboard' },

@@ -9,6 +9,7 @@ import { HierarchySelection } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import { AdjustmentData } from './components/AdjustmentModal';
+import CacheStatus from './components/CacheStatus';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -108,10 +109,11 @@ export default function DemandPlanningPage() {
                 <p className="text-dp-text-secondary mt-1">
                   {filterSelections.states.length > 0 || filterSelections.dmaIds.length > 0 || filterSelections.dcIds.length > 0
                     ? `Viewing forecast data for selected filters`
-                    : 'Select filters from the sidebar to view forecast data.'
+                    : 'Loading default view...'
                   }
                 </p>
               </div>
+              <CacheStatus />
             </div>
 
             {isLoadingForecast ? (
@@ -145,7 +147,11 @@ export default function DemandPlanningPage() {
               </div>
             ) : (
               <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
-                <p className="text-dp-text-tertiary">Select filters from the sidebar to view forecast data</p>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4 mx-auto"></div>
+                  <p className="text-dp-text-tertiary">Preparing your dashboard...</p>
+                  <p className="text-dp-text-tertiary text-sm mt-2">Loading data for the first available region</p>
+                </div>
               </div>
             )}
           </div>

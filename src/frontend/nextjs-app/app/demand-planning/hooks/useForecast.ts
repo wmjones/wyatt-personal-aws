@@ -12,6 +12,7 @@ import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
 import { hybridForecastService } from '@/app/services/hybridForecastService';
 import { AthenaQueryResponse } from '@/app/services/athenaService';
+import { forecastCache } from '@/app/lib/forecast-cache';
 
 interface UseForecastProps {
   hierarchySelections: HierarchySelection[];
@@ -163,6 +164,25 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     }
 
     console.log("useForecast: Starting real data fetch");
+
+    // Generate cache key
+    const cacheKey = forecastCache.generateKey({
+      states: filterSelections?.states,
+      dmaIds: filterSelections?.dmaIds,
+      dcIds: filterSelections?.dcIds,
+      startDate,
+      endDate
+    });
+
+    // Check cache first
+    const cachedData = forecastCache.get<ForecastSeries>(cacheKey);
+    if (cachedData) {
+      console.log("useForecast: Using cached data");
+      setForecastData(cachedData);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -269,6 +289,10 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       };
 
       setForecastData(realForecast);
+
+      // Cache the successful result
+      forecastCache.set(cacheKey, realForecast);
+      console.log("useForecast: Data cached for future use");
     } catch (error) {
       // Handle abort errors silently
       if (error instanceof Error && error.name === 'AbortError') {
