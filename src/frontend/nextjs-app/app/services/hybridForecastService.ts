@@ -2,11 +2,11 @@
  * Hybrid Forecast Service
  *
  * This service implements the hybrid architecture that intelligently routes
- * forecast data queries between cached data (hot path) and direct Athena queries (cold path).
+ * forecast data queries between cached data (hot path) and direct database queries (cold path).
  */
 
 import { forecastService } from './forecastService';
-import { ForecastSummary, ForecastByDate, AthenaQueryResponse } from './athenaService';
+import { ForecastSummary, ForecastByDate, QueryResponse } from '../types/forecast';
 import { cacheService } from './cacheService';
 import { cacheUtils, QueryFilters } from '../lib/cache-utils';
 
@@ -31,7 +31,7 @@ interface QueryMetrics {
   query_fingerprint: string;
   query_type: string;
   execution_time_ms: number;
-  data_source: 'cache' | 'athena';
+  data_source: 'cache' | 'database';
   cache_hit: boolean;
   error_occurred: boolean;
   user_id?: string;
@@ -86,12 +86,12 @@ class HybridForecastService {
         }
       }
 
-      // Cache miss or cold path - query Athena
-      const athenaResult = await forecastService.getForecastSummary(state);
+      // Cache miss or cold path - query database
+      const dbResult = await forecastService.getForecastSummary(state);
 
       // Cache the result if using hot path
       if (this.cacheEnabled && useHotPath) {
-        await this.cacheSummaryResult(queryType, filters, athenaResult);
+        await this.cacheSummaryResult(queryType, filters, dbResult);
       }
 
       // Record metrics
@@ -99,14 +99,14 @@ class HybridForecastService {
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: 'athena',
+        data_source: 'database',
         cache_hit: false,
         error_occurred: false,
         user_id: userId,
         filters,
       });
 
-      return athenaResult;
+      return dbResult;
 
     } catch (error) {
       // Record error metrics
@@ -114,7 +114,7 @@ class HybridForecastService {
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: useHotPath ? 'cache' : 'athena',
+        data_source: useHotPath ? 'cache' : 'database',
         cache_hit: false,
         error_occurred: true,
         user_id: userId,
@@ -164,12 +164,12 @@ class HybridForecastService {
         }
       }
 
-      // Cache miss or cold path - query Athena
-      const athenaResult = await forecastService.getForecastByDate(startDate, endDate, state);
+      // Cache miss or cold path - query database
+      const dbResult = await forecastService.getForecastByDate(startDate, endDate, state);
 
       // Cache the result if using hot path
       if (this.cacheEnabled && useHotPath) {
-        await this.cacheTimeseriesResult(queryType, filters, athenaResult);
+        await this.cacheTimeseriesResult(queryType, filters, dbResult);
       }
 
       // Record metrics
@@ -177,21 +177,21 @@ class HybridForecastService {
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: 'athena',
+        data_source: 'database',
         cache_hit: false,
         error_occurred: false,
         user_id: userId,
         filters,
       });
 
-      return athenaResult;
+      return dbResult;
 
     } catch (error) {
       await this.recordQueryMetrics({
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: useHotPath ? 'cache' : 'athena',
+        data_source: useHotPath ? 'cache' : 'database',
         cache_hit: false,
         error_occurred: true,
         user_id: userId,
@@ -208,20 +208,20 @@ class HybridForecastService {
   async executeQuery(
     customQuery: string,
     userId?: string
-  ): Promise<AthenaQueryResponse> {
+  ): Promise<QueryResponse> {
     const startTime = Date.now();
     const queryType = 'execute_query';
     const fingerprint = cacheUtils.generateFingerprint(queryType, { });
 
     try {
-      // Custom queries always bypass cache and go to Athena
+      // Custom queries always bypass cache and go to database
       const result = await forecastService.executeQuery(customQuery);
 
       await this.recordQueryMetrics({
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: 'athena',
+        data_source: 'database',
         cache_hit: false,
         error_occurred: false,
         user_id: userId,
@@ -234,7 +234,7 @@ class HybridForecastService {
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: 'athena',
+        data_source: 'database',
         cache_hit: false,
         error_occurred: true,
         user_id: userId,
@@ -250,7 +250,7 @@ class HybridForecastService {
   async getForecastData(
     filters?: QueryFilters,
     userId?: string
-  ): Promise<AthenaQueryResponse> {
+  ): Promise<QueryResponse> {
     const startTime = Date.now();
     const queryType = 'get_forecast_data';
     const normalizedFilters = cacheUtils.normalize(filters || {});
@@ -267,7 +267,7 @@ class HybridForecastService {
           query_fingerprint: fingerprint,
           query_type: queryType,
           execution_time_ms: Date.now() - startTime,
-          data_source: 'athena',
+          data_source: 'database',
           cache_hit: false,
           error_occurred: false,
           user_id: userId,
@@ -293,36 +293,36 @@ class HybridForecastService {
             filters: normalizedFilters,
           });
 
-          return cachedResult.data as AthenaQueryResponse;
+          return cachedResult.data as QueryResponse;
         }
       }
 
-      // Cache miss - query Athena and cache result
-      const athenaResult = await forecastService.getForecastData(filters);
+      // Cache miss - query database and cache result
+      const dbResult = await forecastService.getForecastData(filters);
 
       if (this.cacheEnabled && useHotPath) {
-        await this.cacheDataResult(queryType, normalizedFilters, athenaResult);
+        await this.cacheDataResult(queryType, normalizedFilters, dbResult);
       }
 
       await this.recordQueryMetrics({
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: 'athena',
+        data_source: 'database',
         cache_hit: false,
         error_occurred: false,
         user_id: userId,
         filters: normalizedFilters,
       });
 
-      return athenaResult;
+      return dbResult;
 
     } catch (error) {
       await this.recordQueryMetrics({
         query_fingerprint: fingerprint,
         query_type: queryType,
         execution_time_ms: Date.now() - startTime,
-        data_source: useHotPath ? 'cache' : 'athena',
+        data_source: useHotPath ? 'cache' : 'database',
         cache_hit: false,
         error_occurred: true,
         user_id: userId,
@@ -350,15 +350,15 @@ class HybridForecastService {
   /**
    * Get cached general data
    */
-  private async getCachedData(fingerprint: string): Promise<CacheEntry<AthenaQueryResponse> | null> {
+  private async getCachedData(fingerprint: string): Promise<CacheEntry<QueryResponse> | null> {
     // Try summary cache first, then timeseries cache
     const summaryResult = await cacheService.getCachedSummary(fingerprint);
     if (summaryResult) {
-      return summaryResult as unknown as CacheEntry<AthenaQueryResponse>;
+      return summaryResult as unknown as CacheEntry<QueryResponse>;
     }
 
     const timeseriesResult = await cacheService.getCachedTimeseries(fingerprint);
-    return timeseriesResult as unknown as CacheEntry<AthenaQueryResponse>;
+    return timeseriesResult as unknown as CacheEntry<QueryResponse>;
   }
 
   /**
@@ -389,7 +389,7 @@ class HybridForecastService {
   private async cacheDataResult(
     queryType: string,
     filters: QueryFilters,
-    data: AthenaQueryResponse
+    data: QueryResponse
   ): Promise<void> {
     // For general data, determine appropriate cache table based on content
     if (queryType.includes('summary')) {

@@ -1,14 +1,10 @@
-import { athenaService } from './athenaService';
 import { postgresForecastService } from './postgresForecastService';
 
-// Feature flag to switch between Athena and Postgres
-const USE_POSTGRES = process.env.NEXT_PUBLIC_USE_POSTGRES_FORECAST === 'true';
-
-// Export a unified forecast service that switches based on the feature flag
-export const forecastService = USE_POSTGRES ? {
-  // Map Postgres service methods to match Athena service interface
-  async executeQuery(_query: string) { // eslint-disable-line @typescript-eslint/no-unused-vars
-    throw new Error('Direct SQL queries not supported with Postgres service. Use specific methods instead.');
+// Export the Postgres forecast service directly
+export const forecastService = {
+  // Map Postgres service methods to match service interface
+  async executeQuery(query: string) {
+    return postgresForecastService.executeQuery(query);
   },
 
   async getForecastSummary(state?: string) {
@@ -72,7 +68,7 @@ export const forecastService = USE_POSTGRES ? {
   async getDashboardForecast(states: string[], dmaIds?: string[], dcIds?: number[], startDate?: string, endDate?: string) {
     return postgresForecastService.getDashboardForecast(states, dmaIds, dcIds, startDate, endDate);
   }
-} : athenaService;
+};
 
 // Export the service type
 export type ForecastService = typeof forecastService;

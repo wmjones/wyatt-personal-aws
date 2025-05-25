@@ -15,10 +15,17 @@ const pool = new Pool({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, filters } = body;
+    const { action, filters, query } = body;
 
     let result;
     switch (action) {
+      case 'execute_query':
+        if (!query) {
+          return NextResponse.json({ error: 'Query required' }, { status: 400 });
+        }
+        result = await executeRawQuery(query);
+        break;
+
       case 'get_forecast_data':
         result = await getForecastData(filters);
         break;
@@ -64,6 +71,11 @@ export async function POST(request: NextRequest) {
           { error: 'Invalid action' },
           { status: 400 }
         );
+    }
+
+    // For execute_query, return the full response format
+    if (action === 'execute_query') {
+      return NextResponse.json(result);
     }
 
     return NextResponse.json({ data: result });
@@ -114,28 +126,6 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     }
   }
 
-  if (filters?.dmaId) {
-    if (Array.isArray(filters.dmaId)) {
-      const placeholders = filters.dmaId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dma_id IN (${placeholders})`);
-      values.push(...filters.dmaId);
-    } else {
-      conditions.push(`dma_id = $${++paramCount}`);
-      values.push(filters.dmaId);
-    }
-  }
-
-  if (filters?.dcId) {
-    if (Array.isArray(filters.dcId)) {
-      const placeholders = filters.dcId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dc_id IN (${placeholders})`);
-      values.push(...filters.dcId);
-    } else {
-      conditions.push(`dc_id = $${++paramCount}`);
-      values.push(filters.dcId);
-    }
-  }
-
   if (filters?.startDate) {
     conditions.push(`business_date >= $${++paramCount}`);
     values.push(filters.startDate);
@@ -147,7 +137,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const limitClause = filters?.limit ? `LIMIT ${filters.limit}` : '';
+  const limit = filters?.limit || 10000;
 
   const query = `
     SELECT
@@ -162,8 +152,8 @@ async function getForecastData(filters: ForecastFilters | undefined) {
       y_95
     FROM forecast_data
     ${whereClause}
-    ORDER BY business_date DESC, restaurant_id, inventory_item_id
-    ${limitClause}
+    ORDER BY business_date DESC, state, restaurant_id
+    LIMIT ${limit}
   `;
 
   const result = await pool.query(query, values);
@@ -171,37 +161,30 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 }
 
 async function getForecastSummary(state?: string) {
-  let query: string;
-  let values: string[] = [];
+  const conditions: string[] = [];
+  const values: string[] = [];
+  let paramCount = 0;
 
   if (state) {
-    // Use materialized view for single state query
-    query = `
-      SELECT
-        state,
-        SUM(record_count) as record_count,
-        AVG(avg_forecast) as avg_forecast,
-        MIN(min_forecast_05) as min_forecast,
-        MAX(max_forecast_95) as max_forecast
-      FROM forecast_summary
-      WHERE state = $1
-      GROUP BY state
-    `;
-    values = [state];
-  } else {
-    // Use materialized view for all states
-    query = `
-      SELECT
-        state,
-        SUM(record_count) as record_count,
-        AVG(avg_forecast) as avg_forecast,
-        MIN(min_forecast_05) as min_forecast,
-        MAX(max_forecast_95) as max_forecast
-      FROM forecast_summary
-      GROUP BY state
-      ORDER BY state
-    `;
+    conditions.push(`state = $${++paramCount}`);
+    values.push(state);
   }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Use materialized view for better performance
+  const query = `
+    SELECT
+      state,
+      COUNT(*) as record_count,
+      AVG(avg_forecast) as avg_forecast,
+      MIN(min_forecast) as min_forecast,
+      MAX(max_forecast) as max_forecast
+    FROM forecast_summary
+    ${whereClause}
+    GROUP BY state
+    ORDER BY state
+  `;
 
   const result = await pool.query(query, values);
   return result.rows.map(row => ({
@@ -213,25 +196,23 @@ async function getForecastSummary(state?: string) {
   }));
 }
 
-interface DateFilters {
-  startDate?: string;
-  endDate?: string;
+async function getForecastByDate(filters: {
+  start_date?: string;
+  end_date?: string;
   state?: string;
-}
-
-async function getForecastByDate(filters: DateFilters | undefined) {
+}) {
   const conditions: string[] = [];
   const values: string[] = [];
   let paramCount = 0;
 
-  if (filters?.startDate) {
+  if (filters?.start_date) {
     conditions.push(`business_date >= $${++paramCount}`);
-    values.push(filters.startDate);
+    values.push(filters.start_date);
   }
 
-  if (filters?.endDate) {
+  if (filters?.end_date) {
     conditions.push(`business_date <= $${++paramCount}`);
-    values.push(filters.endDate);
+    values.push(filters.end_date);
   }
 
   if (filters?.state) {
@@ -378,6 +359,35 @@ async function refreshMaterializedView() {
     };
   } catch (error) {
     console.error('Error refreshing materialized view:', error);
+    throw error;
+  }
+}
+
+async function executeRawQuery(query: string) {
+  try {
+    // Only allow SELECT queries for safety
+    const cleanQuery = query.trim();
+    if (!cleanQuery.toLowerCase().startsWith('select')) {
+      throw new Error('Only SELECT queries are allowed');
+    }
+
+    const result = await pool.query(cleanQuery);
+
+    // Format response to match expected structure
+    return {
+      message: 'Query executed successfully',
+      data: {
+        columns: result.fields.map(field => field.name),
+        rows: result.rows.map(row => {
+          return result.fields.map(field => {
+            const value = row[field.name];
+            return value !== null ? String(value) : '';
+          });
+        })
+      }
+    };
+  } catch (error) {
+    console.error('Error executing raw query:', error);
     throw error;
   }
 }

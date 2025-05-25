@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { hybridForecastService } from '../services/hybridForecastService';
-import { ForecastSummary, ForecastByDate } from '../services/athenaService';
+import { ForecastSummary, ForecastByDate } from '../types/forecast';
 
 interface UseForecastDataOptions {
   autoFetch?: boolean;
@@ -148,9 +148,9 @@ export function useForecastData(
 }
 
 /**
- * Hook to execute custom Athena queries
+ * Hook to execute custom database queries
  */
-export function useAthenaQuery(
+export function useDatabaseQuery(
   query?: string,
   options: UseForecastDataOptions = {}
 ): ForecastDataState<{ columns: string[]; rows: string[][] }> & {

@@ -166,7 +166,11 @@ export default function DemandPlanningPage() {
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4 mx-auto"></div>
                   <p className="text-dp-text-tertiary">Preparing forecast data...</p>
-                  <p className="text-dp-text-tertiary text-sm mt-2">Loading all locations for the selected inventory item</p>
+                  <p className="text-dp-text-tertiary text-sm mt-2">
+                    {filterSelections.states.length === 0 && filterSelections.dmaIds.length === 0 && filterSelections.dcIds.length === 0
+                      ? "Aggregating data across all locations..."
+                      : "Loading forecast for selected locations..."}
+                  </p>
                 </div>
               </div>
             )}

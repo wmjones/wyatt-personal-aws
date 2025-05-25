@@ -11,7 +11,7 @@ import { FilterSelections } from '../components/FilterSidebar';
 import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
 import { hybridForecastService } from '@/app/services/hybridForecastService';
-import { AthenaQueryResponse } from '@/app/services/athenaService';
+import { QueryResponse } from '@/app/types/forecast';
 import { forecastCache } from '@/app/lib/forecast-cache';
 
 interface UseForecastProps {
@@ -21,17 +21,17 @@ interface UseForecastProps {
 }
 
 /**
- * Transform Athena query response to ForecastDataPoint array and generate periods from actual data
+ * Transform query response to ForecastDataPoint array and generate periods from actual data
  */
-function transformAthenaToForecastData(
-  athenaResponse: AthenaQueryResponse
+function transformQueryToForecastData(
+  queryResponse: QueryResponse
 ): { forecastData: ForecastDataPoint[], inventoryItems: { id: string, name: string }[], timePeriods: TimePeriod[] } {
   const forecastData: ForecastDataPoint[] = [];
   const inventoryItemsMap = new Map<string, string>();
   const datesSet = new Set<string>();
 
-  // Expected Athena columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
-  athenaResponse.data.rows.forEach(row => {
+  // Expected columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
+  queryResponse.data.rows.forEach(row => {
     const [businessDate, inventoryItemId, , state, dmaId, dcId, y50Value] = row;
 
     // Normalize business date format (handle both strings and Date objects)
@@ -96,7 +96,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get available date range from Athena on first load
+  // Get available date range from database on first load
   const getAvailableDateRange = useCallback(async () => {
     try {
       const response = await hybridForecastService.executeQuery(
@@ -195,7 +195,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     setError(null);
 
     try {
-      // Build filters for Athena query
+      // Build filters for database query
       const filters: {
         startDate: string;
         endDate: string;
@@ -209,7 +209,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       // Add location filters if specified
       if (filterSelections) {
         if (filterSelections.states.length > 0) {
-          // Pass all selected states to Athena
+          // Pass all selected states to database
           filters.state = filterSelections.states.length === 1
             ? filterSelections.states[0]
             : filterSelections.states;
@@ -220,28 +220,28 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
           filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
         }
 
-        // Note: athenaService doesn't currently support dmaIds or dcIds filters directly
-        // These are handled via client-side filtering after Athena query
+        // Note: databaseService doesn't currently support dmaIds or dcIds filters directly
+        // These are handled via client-side filtering after database query
       }
 
       console.log("useForecast: Querying with filters:", filters);
 
       // Query real data from hybrid service
-      const athenaResponse = await hybridForecastService.getForecastData(filters);
+      const queryResponse = await hybridForecastService.getForecastData(filters);
 
-      console.log("useForecast: Received Athena response:", {
-        columns: athenaResponse.data.columns,
-        rowCount: athenaResponse.data.rows.length
+      console.log("useForecast: Received query response:", {
+        columns: queryResponse.data.columns,
+        rowCount: queryResponse.data.rows.length
       });
 
       // Check if we got any data
-      if (!athenaResponse.data.rows || athenaResponse.data.rows.length === 0) {
+      if (!queryResponse.data.rows || queryResponse.data.rows.length === 0) {
         throw new Error('No forecast data found for the selected filters and date range. Try adjusting your filters or date range.');
       }
 
-      // Transform Athena data to forecast format - this now generates periods from actual data
-      const { forecastData: rawForecastData, inventoryItems, timePeriods } = transformAthenaToForecastData(
-        athenaResponse
+      // Transform query data to forecast format - this now generates periods from actual data
+      const { forecastData: rawForecastData, inventoryItems, timePeriods } = transformQueryToForecastData(
+        queryResponse
       );
 
       // Check if transformation yielded any data
@@ -356,17 +356,15 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       abortControllerRef.current = null;
     }
 
-    // Skip fetch if no filters are selected - wait for user to make selections
-    if (!filterSelections || (
-      filterSelections.states.length === 0 &&
-      filterSelections.dmaIds.length === 0 &&
-      filterSelections.dcIds.length === 0
-    )) {
-      console.log("useForecast: Skipping fetch - no filters selected");
+    // Skip fetch if no inventory item is selected
+    if (!filterSelections?.inventoryItemId) {
+      console.log("useForecast: Skipping fetch - no inventory item selected");
       setForecastData(null);
       setIsLoading(false);
       return;
     }
+
+    // No longer require location filters - we'll use aggregated queries for performance
 
     // Debounce the fetch operation by 300ms to avoid rapid API calls
     debounceTimerRef.current = setTimeout(() => {

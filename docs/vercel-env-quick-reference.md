@@ -16,6 +16,12 @@ DATABASE_URL=postgresql://neondb_owner:npg_Inarx4C1bVmv@ep-snowy-dust-a5rl14da-p
 DATABASE_URL_UNPOOLED=postgresql://neondb_owner:npg_Inarx4C1bVmv@ep-snowy-dust-a5rl14da.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
 
+### Performance Optimization (RECOMMENDED)
+```
+NEXT_PUBLIC_USE_POSTGRES_FORECAST=true
+```
+*This enables the optimized Postgres forecast service instead of direct Athena queries, reducing load times from 30+ seconds to 2-3 seconds.*
+
 ## Optional Variables (Not Required for Vercel)
 
 **These are NOT needed for Vercel deployment** - they are used by AWS Lambda functions, not the Next.js frontend.

@@ -1,5 +1,5 @@
 import { forecastCache } from '@/app/lib/forecast-cache';
-import { athenaService } from '@/app/services/athenaService';
+import { forecastService } from '@/app/services/forecastService';
 
 /**
  * Preload common forecast views in the background
@@ -8,7 +8,7 @@ import { athenaService } from '@/app/services/athenaService';
 export async function preloadCommonViews() {
   try {
     // Get available states
-    const states = await athenaService.getDistinctStates();
+    const states = await forecastService.getDistinctStates();
 
     if (states.length === 0) {
       console.log('No states available for preloading');

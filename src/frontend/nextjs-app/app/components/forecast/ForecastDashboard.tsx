@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAthenaQuery } from '../../hooks/useForecastData';
+import { useDatabaseQuery } from '../../hooks/useForecastData';
 import ForecastChart from './ForecastChart';
 import ForecastSummary from './ForecastSummary';
 
@@ -23,7 +23,7 @@ export default function ForecastDashboard() {
       SUM(y_05) as y_05,
       SUM(y_50) as y_50,
       SUM(y_95) as y_95
-    FROM forecast
+    FROM forecast_data
     WHERE business_date BETWEEN '${startDate}' AND '${endDate}'
     ${selectedState ? `AND state = '${selectedState}'` : ''}
     GROUP BY business_date
@@ -38,7 +38,7 @@ export default function ForecastDashboard() {
       AVG(y_50) as avg_forecast,
       MIN(y_05) as min_forecast,
       MAX(y_95) as max_forecast
-    FROM forecast
+    FROM forecast_data
     WHERE business_date BETWEEN '${startDate}' AND '${endDate}'
     GROUP BY state
     ORDER BY state
@@ -50,17 +50,17 @@ export default function ForecastDashboard() {
     loading: aggregatedLoading,
     error: aggregatedError,
     refetch: refetchAggregated
-  } = useAthenaQuery(aggregatedQuery);
+  } = useDatabaseQuery(aggregatedQuery);
 
   const {
     data: summaryData,
     loading: summaryLoading,
     error: summaryError,
     refetch: refetchSummary
-  } = useAthenaQuery(summaryQuery);
+  } = useDatabaseQuery(summaryQuery);
 
   // Transform aggregated data for the chart
-  const chartData = aggregatedData ? aggregatedData.rows.map((row) => ({
+  const chartData = aggregatedData ? aggregatedData.rows.map((row: string[]) => ({
     business_date: row[0],
     y_05: parseFloat(row[1]),
     y_50: parseFloat(row[2]),
@@ -68,7 +68,7 @@ export default function ForecastDashboard() {
   })) : [];
 
   // Transform summary data
-  const summaryTableData = summaryData ? summaryData.rows.map((row) => ({
+  const summaryTableData = summaryData ? summaryData.rows.map((row: string[]) => ({
     state: row[0],
     record_count: parseInt(row[1], 10),
     avg_forecast: parseFloat(row[2]),

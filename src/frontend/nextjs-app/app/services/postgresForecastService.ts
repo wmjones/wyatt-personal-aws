@@ -40,6 +40,40 @@ class PostgresForecastService {
   private readonly endpoint = '/api/data/postgres-forecast';
 
   /**
+   * Execute a raw SQL query against the forecast_data table
+   * This is mainly used for getting min/max dates
+   */
+  async executeQuery(query: string): Promise<{
+    message: string;
+    data: {
+      columns: string[];
+      rows: string[][];
+    };
+  }> {
+    // Only allow safe SELECT queries on forecast_data table
+    const cleanQuery = query.trim().toLowerCase();
+    if (!cleanQuery.startsWith('select') || cleanQuery.includes(';')) {
+      throw new Error('Only SELECT queries are allowed');
+    }
+
+    // Replace 'forecast' table name with 'forecast_data' for postgres
+    const postgresQuery = query.replace(/\bforecast\b/gi, 'forecast_data');
+
+    const response = await apiClient.post<{
+      message: string;
+      data: {
+        columns: string[];
+        rows: string[][];
+      };
+    }>(this.endpoint, {
+      action: 'execute_query',
+      query: postgresQuery
+    });
+
+    return response;
+  }
+
+  /**
    * Get forecast data with filters - optimized query
    */
   async getForecastData(filters?: ForecastFilters): Promise<PostgresForecastData[]> {
