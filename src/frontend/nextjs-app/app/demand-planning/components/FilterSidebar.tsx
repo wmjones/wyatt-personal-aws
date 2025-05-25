@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import MultiSelectFilter, { FilterOption } from './MultiSelectFilter';
+import { athenaService } from '@/app/services/athenaService';
 
 export interface FilterSelections {
   states: string[];
@@ -15,31 +16,7 @@ interface FilterSidebarProps {
   className?: string;
 }
 
-// Generate US state options (based on data requirements - 5 unique states)
-const US_STATES: FilterOption[] = [
-  { value: 'CA', label: 'California (CA)' },
-  { value: 'TX', label: 'Texas (TX)' },
-  { value: 'FL', label: 'Florida (FL)' },
-  { value: 'NY', label: 'New York (NY)' },
-  { value: 'IL', label: 'Illinois (IL)' },
-];
-
-// Generate DMA options (based on data requirements - 30 unique 3-letter codes)
-// Using consistent codes with forecast data generation
-const DMA_CODES = ['ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQR', 'STU', 'VWX', 'YZA', 'BCD',
-                   'EFG', 'HIJ', 'KLM', 'NOP', 'QRS', 'TUV', 'WXY', 'ZAB', 'CDE', 'FGH',
-                   'IJK', 'LMN', 'OPQ', 'RST', 'UVW', 'XYZ', 'ABD', 'CEF', 'GHK', 'LMQ'];
-
-const DMA_OPTIONS: FilterOption[] = DMA_CODES.map((code, i) => ({
-  value: code,
-  label: `${code} (DMA ${String(i + 1).padStart(3, '0')})`
-}));
-
-// Generate DC options (based on data requirements - 60 unique integer IDs)
-const DC_OPTIONS: FilterOption[] = Array.from({ length: 60 }, (_, i) => ({
-  value: String(i + 1),
-  label: `Distribution Center ${i + 1}`
-}));
+// Filter options will be loaded dynamically from Athena
 
 export default function FilterSidebar({
   selections,
@@ -47,6 +24,60 @@ export default function FilterSidebar({
   className = ''
 }: FilterSidebarProps) {
   const [localSelections, setLocalSelections] = useState<FilterSelections>(selections);
+
+  // Dynamic filter options loaded from Athena
+  const [stateOptions, setStateOptions] = useState<FilterOption[]>([]);
+  const [dmaOptions, setDmaOptions] = useState<FilterOption[]>([]);
+  const [dcOptions, setDcOptions] = useState<FilterOption[]>([]);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(true);
+  const [filterError, setFilterError] = useState<string | null>(null);
+
+  // Load filter options from Athena on component mount
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      setIsLoadingFilters(true);
+      setFilterError(null);
+
+      try {
+        console.log('Loading filter options from Athena...');
+
+        // Load states
+        const states = await athenaService.getDistinctStates();
+        setStateOptions(states.map(state => ({
+          value: state,
+          label: state
+        })));
+
+        // Load DMA IDs
+        const dmaIds = await athenaService.getDistinctDmaIds();
+        setDmaOptions(dmaIds.map(dmaId => ({
+          value: dmaId,
+          label: `DMA ${dmaId}`
+        })));
+
+        // Load DC IDs
+        const dcIds = await athenaService.getDistinctDcIds();
+        setDcOptions(dcIds.map(dcId => ({
+          value: dcId,
+          label: `Distribution Center ${dcId}`
+        })));
+
+        console.log('Filter options loaded successfully:', {
+          states: states.length,
+          dmaIds: dmaIds.length,
+          dcIds: dcIds.length
+        });
+
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+        setFilterError('Failed to load filter options. Please try refreshing the page.');
+      } finally {
+        setIsLoadingFilters(false);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
 
   // Update local state when props change
   useEffect(() => {
@@ -105,38 +136,64 @@ export default function FilterSidebar({
 
       {/* Filter Controls */}
       <div className="p-4 space-y-6">
-        {/* States Filter */}
-        <MultiSelectFilter
-          title="States"
-          options={US_STATES}
-          selectedValues={localSelections.states}
-          onChange={(values) => handleFilterChange('states', values)}
-          placeholder="Select states..."
-          searchPlaceholder="Search states..."
-          maxDisplayItems={2}
-        />
+        {/* Loading State */}
+        {isLoadingFilters && (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dp-cfa-red mx-auto mb-2"></div>
+            <p className="text-sm text-dp-text-secondary">Loading filter options...</p>
+          </div>
+        )}
 
-        {/* DMA Filter */}
-        <MultiSelectFilter
-          title="DMA (Designated Market Areas)"
-          options={DMA_OPTIONS}
-          selectedValues={localSelections.dmaIds}
-          onChange={(values) => handleFilterChange('dmaIds', values)}
-          placeholder="Select DMAs..."
-          searchPlaceholder="Search DMAs..."
-          maxDisplayItems={2}
-        />
+        {/* Error State */}
+        {filterError && (
+          <div className="text-center py-4">
+            <p className="text-sm text-red-600 mb-2">{filterError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-sm text-dp-cfa-red hover:underline"
+            >
+              Refresh Page
+            </button>
+          </div>
+        )}
 
-        {/* DC Filter */}
-        <MultiSelectFilter
-          title="Distribution Centers"
-          options={DC_OPTIONS}
-          selectedValues={localSelections.dcIds}
-          onChange={(values) => handleFilterChange('dcIds', values)}
-          placeholder="Select DCs..."
-          searchPlaceholder="Search DCs..."
-          maxDisplayItems={2}
-        />
+        {/* Filter Controls - only show when not loading and no error */}
+        {!isLoadingFilters && !filterError && (
+          <>
+            {/* States Filter */}
+            <MultiSelectFilter
+              title="States"
+              options={stateOptions}
+              selectedValues={localSelections.states}
+              onChange={(values) => handleFilterChange('states', values)}
+              placeholder="Select states..."
+              searchPlaceholder="Search states..."
+              maxDisplayItems={2}
+            />
+
+            {/* DMA Filter */}
+            <MultiSelectFilter
+              title="DMA (Designated Market Areas)"
+              options={dmaOptions}
+              selectedValues={localSelections.dmaIds}
+              onChange={(values) => handleFilterChange('dmaIds', values)}
+              placeholder="Select DMAs..."
+              searchPlaceholder="Search DMAs..."
+              maxDisplayItems={2}
+            />
+
+            {/* DC Filter */}
+            <MultiSelectFilter
+              title="Distribution Centers"
+              options={dcOptions}
+              selectedValues={localSelections.dcIds}
+              onChange={(values) => handleFilterChange('dcIds', values)}
+              placeholder="Select DCs..."
+              searchPlaceholder="Search DCs..."
+              maxDisplayItems={2}
+            />
+          </>
+        )}
       </div>
 
       {/* Selected Items Summary */}

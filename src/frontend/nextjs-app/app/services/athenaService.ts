@@ -143,6 +143,51 @@ class AthenaService {
 
     return this.executeQuery(query);
   }
+
+  /**
+   * Get distinct states from forecast data
+   */
+  async getDistinctStates(): Promise<string[]> {
+    const query = 'SELECT DISTINCT state FROM forecast WHERE state IS NOT NULL ORDER BY state';
+    const response = await this.executeQuery(query);
+    return response.data.rows.map(row => row[0]).filter(Boolean);
+  }
+
+  /**
+   * Get distinct DMA IDs from forecast data
+   */
+  async getDistinctDmaIds(): Promise<string[]> {
+    const query = 'SELECT DISTINCT dma_id FROM forecast WHERE dma_id IS NOT NULL ORDER BY dma_id';
+    const response = await this.executeQuery(query);
+    return response.data.rows.map(row => row[0]).filter(Boolean);
+  }
+
+  /**
+   * Get distinct distribution center IDs from forecast data
+   */
+  async getDistinctDcIds(): Promise<string[]> {
+    const query = 'SELECT DISTINCT dc_id FROM forecast WHERE dc_id IS NOT NULL ORDER BY dc_id';
+    const response = await this.executeQuery(query);
+    return response.data.rows.map(row => row[0]).filter(Boolean);
+  }
+
+  /**
+   * Get distinct inventory item IDs from forecast data
+   */
+  async getDistinctInventoryItems(): Promise<string[]> {
+    const query = 'SELECT DISTINCT inventory_item_id FROM forecast WHERE inventory_item_id IS NOT NULL ORDER BY inventory_item_id';
+    const response = await this.executeQuery(query);
+    return response.data.rows.map(row => row[0]).filter(Boolean);
+  }
+
+  /**
+   * Get distinct restaurant IDs from forecast data
+   */
+  async getDistinctRestaurants(): Promise<string[]> {
+    const query = 'SELECT DISTINCT restaurant_id FROM forecast WHERE restaurant_id IS NOT NULL ORDER BY restaurant_id';
+    const response = await this.executeQuery(query);
+    return response.data.rows.map(row => row[0]).filter(Boolean);
+  }
 }
 
 export const athenaService = new AthenaService();

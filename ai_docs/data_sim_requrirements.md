@@ -1,7 +1,7 @@
 # schema
 restaurant_id: string "5 integers 0 left pad between 00000 and 30000"
 inventory_item_id: string "integer between 1 and 2000"
-business_date: date "utc date between 2025-01-01 and 2025-04-01
+business_date: date "utc date between 2025-01-01 and 2025-03-31
 dma_id: string "3 letter code"
 dc_id: string "integer between 1 to 60"
 state: string "US state abreviation"

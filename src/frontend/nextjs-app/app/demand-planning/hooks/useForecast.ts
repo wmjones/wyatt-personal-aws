@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ForecastSeries,
   ForecastDataPoint,
@@ -20,30 +20,37 @@ interface UseForecastProps {
 }
 
 /**
- * Transform Athena query response to ForecastDataPoint array
+ * Transform Athena query response to ForecastDataPoint array and generate periods from actual data
  */
 function transformAthenaToForecastData(
-  athenaResponse: AthenaQueryResponse,
-  timePeriods: TimePeriod[]
-): { forecastData: ForecastDataPoint[], inventoryItems: { id: string, name: string }[] } {
+  athenaResponse: AthenaQueryResponse
+): { forecastData: ForecastDataPoint[], inventoryItems: { id: string, name: string }[], timePeriods: TimePeriod[] } {
   const forecastData: ForecastDataPoint[] = [];
   const inventoryItemsMap = new Map<string, string>();
+  const datesSet = new Set<string>();
 
   // Expected Athena columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
   athenaResponse.data.rows.forEach(row => {
     const [businessDate, inventoryItemId, , state, dmaId, dcId, y50Value] = row;
 
-    // Find matching time period
-    const matchingPeriod = timePeriods.find(period => period.startDate === businessDate);
-    if (!matchingPeriod) {
-      return; // Skip if date doesn't match our time period range
-    }
+    // Normalize business date format (handle both strings and Date objects)
+    const normalizedDate = typeof businessDate === 'string'
+      ? businessDate
+      : businessDate && typeof businessDate === 'object' && 'toISOString' in businessDate
+        ? (businessDate as Date).toISOString().split('T')[0]
+        : String(businessDate);
+
+    // Track unique dates
+    datesSet.add(normalizedDate);
 
     // Track inventory items
     inventoryItemsMap.set(inventoryItemId, `Item ${inventoryItemId}`);
 
+    // Generate period ID for this date
+    const periodId = `day-${normalizedDate}`;
+
     forecastData.push({
-      periodId: matchingPeriod.id,
+      periodId,
       value: parseFloat(y50Value) || 0,
       inventoryItemId,
       state,
@@ -52,56 +59,99 @@ function transformAthenaToForecastData(
     });
   });
 
+  // Generate time periods from actual dates in the data
+  const timePeriods: TimePeriod[] = Array.from(datesSet)
+    .sort()
+    .map(dateStr => {
+      const date = new Date(dateStr);
+      return {
+        id: `day-${dateStr}`,
+        name: date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }),
+        startDate: dateStr,
+        endDate: dateStr,
+        type: 'day' as const
+      };
+    });
+
   // Convert inventory items map to array
   const inventoryItems = Array.from(inventoryItemsMap.entries()).map(([id, name]) => ({
     id,
     name
   }));
 
-  return { forecastData, inventoryItems };
+  return { forecastData, inventoryItems, timePeriods };
 }
 
 export default function useForecast({ hierarchySelections, timePeriodIds, filterSelections }: UseForecastProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastSeries | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [availableDateRange, setAvailableDateRange] = useState<{ min: string; max: string } | null>(null);
 
-  // Mock time periods with useMemo to avoid recreation on each render
-  // Updated to show full date range from 2025-01-01 to 2025-04-01
-  const mockTimePeriods = useMemo<TimePeriod[]>(() => {
-    const periods: TimePeriod[] = [];
-    const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-04-01');
+  // Get available date range from Athena on first load
+  const getAvailableDateRange = useCallback(async () => {
+    try {
+      const response = await hybridForecastService.executeQuery(
+        'SELECT MIN(business_date) as min_date, MAX(business_date) as max_date FROM forecast'
+      );
 
-    // Generate daily periods for the full range
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      periods.push({
-        id: `day-${dateStr}`,
-        name: currentDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        }),
-        startDate: dateStr,
-        endDate: dateStr,
-        type: 'day'
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
+      if (response.data.rows.length > 0) {
+        const [minDate, maxDate] = response.data.rows[0];
+        const normalizedMin = typeof minDate === 'string' ? minDate : String(minDate);
+        const normalizedMax = typeof maxDate === 'string' ? maxDate : String(maxDate);
+
+        setAvailableDateRange({
+          min: normalizedMin,
+          max: normalizedMax
+        });
+
+        return { min: normalizedMin, max: normalizedMax };
+      }
+    } catch (error) {
+      console.error('Error getting date range:', error);
     }
-
-    return periods;
+    return null;
   }, []);
 
   // Create a memoized fetch function to avoid dependency issues
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
 
-    // Skip if no time periods are selected
+    // Get available date range first if we don't have it
+    let dateRange = availableDateRange;
+    if (!dateRange) {
+      dateRange = await getAvailableDateRange();
+      if (!dateRange) {
+        setError('Unable to determine available date range from database');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // If no time periods are selected, use the full available range
+    let startDate: string;
+    let endDate: string;
+
     if (timePeriodIds.length === 0) {
-      console.log("useForecast: No time periods selected, skipping data fetch");
-      setForecastData(null);
-      return;
+      console.log("useForecast: No time periods selected, using full date range");
+      startDate = dateRange.min;
+      endDate = dateRange.max;
+    } else {
+      // Extract dates from period IDs (format: "day-YYYY-MM-DD")
+      const selectedDates = timePeriodIds
+        .map(id => id.replace('day-', ''))
+        .filter(date => date.match(/^\d{4}-\d{2}-\d{2}$/))
+        .sort();
+
+      if (selectedDates.length === 0) {
+        throw new Error('No valid date periods selected');
+      }
+
+      startDate = selectedDates[0];
+      endDate = selectedDates[selectedDates.length - 1];
     }
 
     console.log("useForecast: Starting real data fetch");
@@ -109,15 +159,6 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     setError(null);
 
     try {
-      // Get time periods for date range
-      const periods = mockTimePeriods.filter(period => timePeriodIds.includes(period.id));
-      if (periods.length === 0) {
-        throw new Error('No valid time periods found');
-      }
-
-      const startDate = periods[0].startDate;
-      const endDate = periods[periods.length - 1].endDate;
-
       // Build filters for Athena query
       const filters: {
         startDate: string;
@@ -155,10 +196,9 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         throw new Error('No forecast data found for the selected filters and date range. Try adjusting your filters or date range.');
       }
 
-      // Transform Athena data to forecast format
-      const { forecastData: rawForecastData, inventoryItems } = transformAthenaToForecastData(
-        athenaResponse,
-        periods
+      // Transform Athena data to forecast format - this now generates periods from actual data
+      const { forecastData: rawForecastData, inventoryItems, timePeriods } = transformAthenaToForecastData(
+        athenaResponse
       );
 
       // Check if transformation yielded any data
@@ -205,14 +245,16 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         aggregatedDataPoints: baseline.length,
         uniqueItems: new Set(baseline.map(d => d.inventoryItemId)).size,
         uniquePeriods: new Set(baseline.map(d => d.periodId)).size,
-        inventoryItemCount: inventoryItems.length
+        inventoryItemCount: inventoryItems.length,
+        periodsGenerated: timePeriods.length,
+        dateRange: `${timePeriods[0]?.startDate} to ${timePeriods[timePeriods.length - 1]?.startDate}`
       });
 
       // Create the forecast series
       const realForecast: ForecastSeries = {
         id: `forecast-${Date.now()}`,
         hierarchySelections,
-        timePeriods: periods,
+        timePeriods, // Use the dynamically generated periods from actual data
         baseline,
         inventoryItems,
         lastUpdated: new Date().toISOString(),
@@ -226,7 +268,12 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       console.log("useForecast: Completed real data fetch");
       setIsLoading(false);
     }
-  }, [hierarchySelections, timePeriodIds, mockTimePeriods, filterSelections]);
+  }, [hierarchySelections, timePeriodIds, filterSelections, availableDateRange, getAvailableDateRange]);
+
+  // Load available date range on mount
+  useEffect(() => {
+    getAvailableDateRange();
+  }, [getAvailableDateRange]);
 
   // Trigger the fetch operation when inputs change
   useEffect(() => {
@@ -238,7 +285,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     });
 
     fetchForecast();
-  }, [fetchForecast, hierarchySelections, timePeriodIds, filterSelections]);
+  }, [fetchForecast, hierarchySelections, timePeriodIds]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {
@@ -395,6 +442,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     isLoading,
     forecastData,
     error,
+    availableDateRange,
     applyAdjustment,
     resetAdjustments,
     refreshForecast,

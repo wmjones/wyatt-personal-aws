@@ -43,9 +43,15 @@ export function formatDate(date: Date, periodType: TimePeriod['type']): string {
 }
 
 /**
- * Gets a date from a time period ID (assuming format like "Q1-2025" or "2025-01")
+ * Gets a date from a time period ID (assuming format like "day-2025-01-01", "Q1-2025" or "2025-01")
  */
 export function getDateFromPeriodId(periodId: string): Date {
+  // Handle day format (e.g., "day-2025-01-01")
+  if (periodId.startsWith('day-')) {
+    const dateStr = periodId.replace('day-', '');
+    return new Date(dateStr);
+  }
+
   // Handle quarter format (e.g., "Q1-2025")
   if (periodId.startsWith('Q')) {
     const [quarter, year] = periodId.replace('Q', '').split('-');
@@ -59,8 +65,14 @@ export function getDateFromPeriodId(periodId: string): Date {
     return new Date(parseInt(year), parseInt(month) - 1, 1);
   }
 
-  // Default case
-  return new Date();
+  // Handle full date format (e.g., "2025-01-01")
+  if (periodId.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return new Date(periodId);
+  }
+
+  // Default case - return epoch date instead of current date to avoid confusion
+  console.warn(`Unknown period ID format: ${periodId}`);
+  return new Date(0);
 }
 
 /**
