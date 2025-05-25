@@ -78,11 +78,23 @@ export function getDateFromPeriodId(periodId: string): Date {
 /**
  * Creates dataset for charts from forecast data points
  * Aggregates multiple data points for the same period (e.g., after filtering)
+ * Optimized for performance with large datasets
  */
 export function createChartDataset(
   dataPoints: ForecastDataPoint[],
   timePeriods: TimePeriod[]
 ): { date: Date; value: number; periodId: string }[] {
+  // Early return for empty data
+  if (!dataPoints || dataPoints.length === 0) {
+    return [];
+  }
+
+  // Create a Map for O(1) period lookup instead of O(n) find
+  const periodMap = new Map<string, TimePeriod>();
+  timePeriods.forEach(period => {
+    periodMap.set(period.id, period);
+  });
+
   // Group data points by period ID and sum their values
   const aggregatedData = dataPoints.reduce((acc, point) => {
     if (!acc[point.periodId]) {
@@ -99,7 +111,7 @@ export function createChartDataset(
 
   // Convert to chart data format
   return Object.values(aggregatedData).map(({ periodId, totalValue }) => {
-    const period = timePeriods.find(p => p.id === periodId);
+    const period = periodMap.get(periodId);
     const date = period
       ? new Date((new Date(period.startDate).getTime() + new Date(period.endDate).getTime()) / 2)
       : getDateFromPeriodId(periodId);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ForecastSeries,
   ForecastDataPoint,
@@ -91,6 +91,10 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const [error, setError] = useState<string | null>(null);
   const [availableDateRange, setAvailableDateRange] = useState<{ min: string; max: string } | null>(null);
 
+  // Add refs for managing requests and debouncing
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Get available date range from Athena on first load
   const getAvailableDateRange = useCallback(async () => {
     try {
@@ -119,6 +123,10 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   // Create a memoized fetch function to avoid dependency issues
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
+
+    // Create a new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     // Get available date range first if we don't have it
     let dateRange = availableDateRange;
@@ -262,11 +270,20 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
 
       setForecastData(realForecast);
     } catch (error) {
+      // Handle abort errors silently
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("useForecast: Fetch request was aborted");
+        return;
+      }
+
       console.error('Error fetching real forecast data:', error);
       setError(`Failed to fetch forecast data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      console.log("useForecast: Completed real data fetch");
-      setIsLoading(false);
+      // Only clear loading state if this wasn't aborted
+      if (abortControllerRef.current === abortController) {
+        console.log("useForecast: Completed real data fetch");
+        setIsLoading(false);
+      }
     }
   }, [hierarchySelections, timePeriodIds, filterSelections, availableDateRange, getAvailableDateRange]);
 
@@ -275,17 +292,58 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     getAvailableDateRange();
   }, [getAvailableDateRange]);
 
-  // Trigger the fetch operation when inputs change
+  // Trigger the fetch operation when inputs change with debouncing
   useEffect(() => {
     console.log("useForecast effect triggered with:", {
       hierarchySelections,
       timePeriodIds,
       selectionCount: hierarchySelections.length,
-      periodCount: timePeriodIds.length
+      periodCount: timePeriodIds.length,
+      hasFilters: filterSelections && (
+        filterSelections.states.length > 0 ||
+        filterSelections.dmaIds.length > 0 ||
+        filterSelections.dcIds.length > 0
+      )
     });
 
-    fetchForecast();
-  }, [fetchForecast, hierarchySelections, timePeriodIds]);
+    // Cancel any pending debounced calls
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Cancel any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // Skip fetch if no filters are selected - wait for user to make selections
+    if (!filterSelections || (
+      filterSelections.states.length === 0 &&
+      filterSelections.dmaIds.length === 0 &&
+      filterSelections.dcIds.length === 0
+    )) {
+      console.log("useForecast: Skipping fetch - no filters selected");
+      setForecastData(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // Debounce the fetch operation by 300ms to avoid rapid API calls
+    debounceTimerRef.current = setTimeout(() => {
+      fetchForecast();
+    }, 300);
+
+    // Cleanup function
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchForecast, hierarchySelections, timePeriodIds, filterSelections]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {

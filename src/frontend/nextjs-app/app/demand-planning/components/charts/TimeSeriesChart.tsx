@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, memo } from 'react';
 import * as d3 from 'd3';
 import { ForecastDataPoint, TimePeriod } from '@/app/types/demand-planning';
 import { BaseChartProps } from './BaseChart';
@@ -18,7 +18,7 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   showActual?: boolean;
 }
 
-export default function TimeSeriesChart({
+const TimeSeriesChart = memo(function TimeSeriesChart({
   baselineData,
   adjustedData,
   timePeriods,
@@ -127,12 +127,16 @@ export default function TimeSeriesChart({
       .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Find "today" in the data - February 15, 2025 (middle of the range)
-    const today = new Date(2025, 1, 15); // February 15, 2025
+    // Only show "today" marker if today's date is within the chart's date range
+    const today = new Date();
     const todayXPosition = xScale(today);
 
+    // Check if today is within the displayed date range
+    const [minDate, maxDate] = xScale.domain();
+    const isWithinRange = today >= minDate && today <= maxDate;
+
     // Add today vertical line - pinkish red with Today pill
-    if (todayXPosition) {
+    if (isWithinRange && todayXPosition >= 0 && todayXPosition <= innerWidth) {
       // Add vertical line
       g.append('line')
         .attr('x1', todayXPosition)
@@ -539,4 +543,6 @@ export default function TimeSeriesChart({
       )}
     </div>
   );
-}
+});
+
+export default TimeSeriesChart;

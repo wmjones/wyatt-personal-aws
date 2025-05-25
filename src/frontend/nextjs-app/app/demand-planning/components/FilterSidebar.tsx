@@ -32,7 +32,7 @@ export default function FilterSidebar({
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [filterError, setFilterError] = useState<string | null>(null);
 
-  // Load filter options from Athena on component mount
+  // Load filter options from Athena on component mount - optimized for parallel loading
   useEffect(() => {
     const loadFilterOptions = async () => {
       setIsLoadingFilters(true);
@@ -41,22 +41,24 @@ export default function FilterSidebar({
       try {
         console.log('Loading filter options from Athena...');
 
-        // Load states
-        const states = await athenaService.getDistinctStates();
+        // Load all filter options in parallel for better performance
+        const [states, dmaIds, dcIds] = await Promise.all([
+          athenaService.getDistinctStates(),
+          athenaService.getDistinctDmaIds(),
+          athenaService.getDistinctDcIds()
+        ]);
+
+        // Update all filter options at once to minimize re-renders
         setStateOptions(states.map(state => ({
           value: state,
           label: state
         })));
 
-        // Load DMA IDs
-        const dmaIds = await athenaService.getDistinctDmaIds();
         setDmaOptions(dmaIds.map(dmaId => ({
           value: dmaId,
           label: `DMA ${dmaId}`
         })));
 
-        // Load DC IDs
-        const dcIds = await athenaService.getDistinctDcIds();
         setDcOptions(dcIds.map(dcId => ({
           value: dcId,
           label: `Distribution Center ${dcId}`

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { ForecastSeries } from '@/app/types/demand-planning';
 import TimeSeriesChart from './charts/TimeSeriesChart';
 // ComparisonChart is imported but not used yet
@@ -12,7 +12,8 @@ interface ForecastChartsProps {
   className?: string;
 }
 
-export default function ForecastCharts({
+// Memoize the component to prevent unnecessary re-renders
+const ForecastCharts = memo(function ForecastCharts({
   forecastData,
   className = ''
 }: ForecastChartsProps) {
@@ -58,10 +59,10 @@ export default function ForecastCharts({
     return filtered.length > 0 ? filtered : undefined;
   }, [forecastData.adjusted, selectedInventoryItemId]);
 
-  // Handle inventory item selection
-  const handleInventoryItemChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  // Handle inventory item selection - memoized to prevent recreation
+  const handleInventoryItemChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedInventoryItemId(event.target.value);
-  };
+  }, []);
 
 
   return (
@@ -126,12 +127,21 @@ export default function ForecastCharts({
           )}
         </ResponsiveChartWrapper>
 
-        {/* Today pill indicator */}
-        <div className="flex justify-center mt-2">
-          <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-primary rounded-full">
-            Today
-          </div>
-        </div>
+        {/* Today pill indicator - only show if today is within the displayed date range */}
+        {forecastData.timePeriods.length > 0 && (() => {
+          const today = new Date();
+          const firstDate = new Date(forecastData.timePeriods[0].startDate);
+          const lastDate = new Date(forecastData.timePeriods[forecastData.timePeriods.length - 1].endDate);
+          const isWithinRange = today >= firstDate && today <= lastDate;
+
+          return isWithinRange ? (
+            <div className="flex justify-center mt-2">
+              <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-primary rounded-full">
+                Today
+              </div>
+            </div>
+          ) : null;
+        })()}
       </div>
 
       {/* X-axis labels for 3-month view */}
@@ -147,4 +157,6 @@ export default function ForecastCharts({
       </div>
     </div>
   );
-}
+});
+
+export default ForecastCharts;
