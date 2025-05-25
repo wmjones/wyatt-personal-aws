@@ -1,16 +1,14 @@
 #!/usr/bin/env node
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-import path from 'path';
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
+// Note: This script requires environment variables to be set
+// Run with: AWS_API_GATEWAY_URL=your-url npx tsx scripts/test-athena-api.ts
 
 async function testAthenaAPI() {
   const apiUrl = process.env.AWS_API_GATEWAY_URL;
 
   if (!apiUrl) {
     console.error('❌ AWS_API_GATEWAY_URL is not set');
+    console.log('💡 Usage: AWS_API_GATEWAY_URL=https://your-api-gateway-url npx tsx scripts/test-athena-api.ts');
     process.exit(1);
   }
 
@@ -26,6 +24,7 @@ async function testAthenaAPI() {
     console.log('\n📤 Sending request to:', `${apiUrl}/api/data/athena/query`);
     console.log('📦 Request body:', JSON.stringify(testBody, null, 2));
 
+    // Use native fetch (available in Node.js 18+)
     const response = await fetch(`${apiUrl}/api/data/athena/query`, {
       method: 'POST',
       headers: {
