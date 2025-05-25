@@ -125,6 +125,13 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
 
+    // Check if inventory item is selected
+    if (!filterSelections?.inventoryItemId) {
+      console.log("useForecast: No inventory item selected, skipping fetch");
+      setIsLoading(false);
+      return;
+    }
+
     // Create a new abort controller for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -170,6 +177,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       states: filterSelections?.states,
       dmaIds: filterSelections?.dmaIds,
       dcIds: filterSelections?.dcIds,
+      inventoryItemId: filterSelections?.inventoryItemId,
       startDate,
       endDate
     });
@@ -192,6 +200,7 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         startDate: string;
         endDate: string;
         state?: string | string[];
+        inventoryItemId?: number;
       } = {
         startDate,
         endDate,
@@ -205,7 +214,13 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
             ? filterSelections.states[0]
             : filterSelections.states;
         }
-        // Note: athenaService doesn't currently support dmaIds or dcIds filters
+
+        // Add inventory item filter if specified
+        if (filterSelections.inventoryItemId) {
+          filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
+        }
+
+        // Note: athenaService doesn't currently support dmaIds or dcIds filters directly
         // These are handled via client-side filtering after Athena query
       }
 

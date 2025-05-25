@@ -43,6 +43,7 @@ export class ForecastCache {
     states?: string[];
     dmaIds?: string[];
     dcIds?: string[];
+    inventoryItemId?: string | null;
     startDate?: string;
     endDate?: string;
   }): string {
@@ -51,6 +52,7 @@ export class ForecastCache {
       states: params.states?.sort() || [],
       dmaIds: params.dmaIds?.sort() || [],
       dcIds: params.dcIds?.sort() || [],
+      inventoryItemId: params.inventoryItemId || '',
       startDate: params.startDate || '',
       endDate: params.endDate || ''
     };

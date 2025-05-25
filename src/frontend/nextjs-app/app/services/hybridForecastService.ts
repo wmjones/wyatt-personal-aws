@@ -5,7 +5,8 @@
  * forecast data queries between cached data (hot path) and direct Athena queries (cold path).
  */
 
-import { athenaService, ForecastSummary, ForecastByDate, AthenaQueryResponse } from './athenaService';
+import { forecastService } from './forecastService';
+import { ForecastSummary, ForecastByDate, AthenaQueryResponse } from './athenaService';
 import { cacheService } from './cacheService';
 import { cacheUtils, QueryFilters } from '../lib/cache-utils';
 
@@ -81,12 +82,12 @@ class HybridForecastService {
           });
 
           await this.incrementCacheHit('summary_cache', cachedResult.id);
-          return cachedResult.data;
+          return cachedResult.data as ForecastSummary[];
         }
       }
 
       // Cache miss or cold path - query Athena
-      const athenaResult = await athenaService.getForecastSummary(state);
+      const athenaResult = await forecastService.getForecastSummary(state);
 
       // Cache the result if using hot path
       if (this.cacheEnabled && useHotPath) {
@@ -159,12 +160,12 @@ class HybridForecastService {
           });
 
           await this.incrementCacheHit('timeseries_cache', cachedResult.id);
-          return cachedResult.data;
+          return cachedResult.data as ForecastByDate[];
         }
       }
 
       // Cache miss or cold path - query Athena
-      const athenaResult = await athenaService.getForecastByDate(startDate, endDate, state);
+      const athenaResult = await forecastService.getForecastByDate(startDate, endDate, state);
 
       // Cache the result if using hot path
       if (this.cacheEnabled && useHotPath) {
@@ -214,7 +215,7 @@ class HybridForecastService {
 
     try {
       // Custom queries always bypass cache and go to Athena
-      const result = await athenaService.executeQuery(customQuery);
+      const result = await forecastService.executeQuery(customQuery);
 
       await this.recordQueryMetrics({
         query_fingerprint: fingerprint,
@@ -260,7 +261,7 @@ class HybridForecastService {
     try {
       // For large queries, bypass cache
       if (!useHotPath) {
-        const result = await athenaService.getForecastData(filters);
+        const result = await forecastService.getForecastData(filters);
 
         await this.recordQueryMetrics({
           query_fingerprint: fingerprint,
@@ -292,12 +293,12 @@ class HybridForecastService {
             filters: normalizedFilters,
           });
 
-          return cachedResult.data;
+          return cachedResult.data as AthenaQueryResponse;
         }
       }
 
       // Cache miss - query Athena and cache result
-      const athenaResult = await athenaService.getForecastData(filters);
+      const athenaResult = await forecastService.getForecastData(filters);
 
       if (this.cacheEnabled && useHotPath) {
         await this.cacheDataResult(queryType, normalizedFilters, athenaResult);

@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import MultiSelectFilter, { FilterOption } from './MultiSelectFilter';
-import { athenaService } from '@/app/services/athenaService';
+import SingleSelectFilter from './SingleSelectFilter';
+import { forecastService } from '@/app/services/forecastService';
 
 export interface FilterSelections {
   states: string[];
   dmaIds: string[];
   dcIds: string[];
+  inventoryItemId: string | null;
 }
 
 interface FilterSidebarProps {
@@ -29,6 +31,7 @@ export default function FilterSidebar({
   const [stateOptions, setStateOptions] = useState<FilterOption[]>([]);
   const [dmaOptions, setDmaOptions] = useState<FilterOption[]>([]);
   const [dcOptions, setDcOptions] = useState<FilterOption[]>([]);
+  const [inventoryOptions, setInventoryOptions] = useState<FilterOption[]>([]);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [filterError, setFilterError] = useState<string | null>(null);
 
@@ -42,10 +45,11 @@ export default function FilterSidebar({
         console.log('Loading filter options from Athena...');
 
         // Load all filter options in parallel for better performance
-        const [states, dmaIds, dcIds] = await Promise.all([
-          athenaService.getDistinctStates(),
-          athenaService.getDistinctDmaIds(),
-          athenaService.getDistinctDcIds()
+        const [states, dmaIds, dcIds, inventoryItems] = await Promise.all([
+          forecastService.getDistinctStates(),
+          forecastService.getDistinctDmaIds(),
+          forecastService.getDistinctDcIds(),
+          forecastService.getDistinctInventoryItems()
         ]);
 
         // Update all filter options at once to minimize re-renders
@@ -64,21 +68,27 @@ export default function FilterSidebar({
           label: `Distribution Center ${dcId}`
         })));
 
+        setInventoryOptions(inventoryItems.map(itemId => ({
+          value: itemId,
+          label: `Item ${itemId}`
+        })));
+
         console.log('Filter options loaded successfully:', {
           states: states.length,
           dmaIds: dmaIds.length,
-          dcIds: dcIds.length
+          dcIds: dcIds.length,
+          inventoryItems: inventoryItems.length
         });
 
-        // Auto-select the first state if no selections exist
-        if (states.length > 0 && localSelections.states.length === 0) {
+        // Auto-select the first inventory item if none selected
+        if (inventoryItems.length > 0 && !localSelections.inventoryItemId) {
           const autoSelection = {
             ...localSelections,
-            states: [states[0]] // Select the first state
+            inventoryItemId: inventoryItems[0]
           };
           setLocalSelections(autoSelection);
           onSelectionChange(autoSelection);
-          console.log('Auto-selected first state:', states[0]);
+          console.log('Auto-selected first inventory item:', inventoryItems[0]);
         }
 
       } catch (error) {
@@ -107,12 +117,13 @@ export default function FilterSidebar({
     onSelectionChange(newSelections);
   };
 
-  // Clear all selections
+  // Clear all selections (except inventory item which is required)
   const handleClearAll = () => {
     const clearedSelections: FilterSelections = {
       states: [],
       dmaIds: [],
-      dcIds: []
+      dcIds: [],
+      inventoryItemId: localSelections.inventoryItemId // Keep inventory item selected
     };
     setLocalSelections(clearedSelections);
     onSelectionChange(clearedSelections);
@@ -173,6 +184,29 @@ export default function FilterSidebar({
         {/* Filter Controls - only show when not loading and no error */}
         {!isLoadingFilters && !filterError && (
           <>
+            {/* Inventory Item Filter - Single Select */}
+            <SingleSelectFilter
+              title="Inventory Item"
+              options={inventoryOptions}
+              selectedValue={localSelections.inventoryItemId}
+              onChange={(value) => {
+                const newSelections = {
+                  ...localSelections,
+                  inventoryItemId: value
+                };
+                setLocalSelections(newSelections);
+                onSelectionChange(newSelections);
+              }}
+              placeholder="Select inventory item..."
+              searchPlaceholder="Search items..."
+            />
+
+            <div className="border-t border-dp-frame-border pt-4">
+              <p className="text-xs text-dp-text-tertiary mb-4">
+                Location filters (optional) - leave empty to view all locations
+              </p>
+            </div>
+
             {/* States Filter */}
             <MultiSelectFilter
               title="States"

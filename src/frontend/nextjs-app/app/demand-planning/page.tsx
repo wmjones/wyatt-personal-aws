@@ -19,7 +19,8 @@ export default function DemandPlanningPage() {
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
-    dcIds: []
+    dcIds: [],
+    inventoryItemId: null
   });
 
   // Keep hierarchy selections for backward compatibility with useForecast hook
@@ -107,9 +108,24 @@ export default function DemandPlanningPage() {
               <div>
                 <h1 className="text-2xl font-medium text-dp-text-primary">Sales Forecast</h1>
                 <p className="text-dp-text-secondary mt-1">
-                  {filterSelections.states.length > 0 || filterSelections.dmaIds.length > 0 || filterSelections.dcIds.length > 0
-                    ? `Viewing forecast data for selected filters`
-                    : 'Loading default view...'
+                  {filterSelections.inventoryItemId
+                    ? (() => {
+                        const locations = [];
+                        if (filterSelections.states.length > 0) {
+                          locations.push(`${filterSelections.states.length} state${filterSelections.states.length !== 1 ? 's' : ''}`);
+                        }
+                        if (filterSelections.dmaIds.length > 0) {
+                          locations.push(`${filterSelections.dmaIds.length} DMA${filterSelections.dmaIds.length !== 1 ? 's' : ''}`);
+                        }
+                        if (filterSelections.dcIds.length > 0) {
+                          locations.push(`${filterSelections.dcIds.length} DC${filterSelections.dcIds.length !== 1 ? 's' : ''}`);
+                        }
+                        const locationText = locations.length > 0
+                          ? `for ${locations.join(', ')}`
+                          : 'across all locations';
+                        return `Viewing forecast for Item ${filterSelections.inventoryItemId} ${locationText}`;
+                      })()
+                    : 'Loading inventory items...'
                   }
                 </p>
               </div>
@@ -149,8 +165,8 @@ export default function DemandPlanningPage() {
               <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4 mx-auto"></div>
-                  <p className="text-dp-text-tertiary">Preparing your dashboard...</p>
-                  <p className="text-dp-text-tertiary text-sm mt-2">Loading data for the first available region</p>
+                  <p className="text-dp-text-tertiary">Preparing forecast data...</p>
+                  <p className="text-dp-text-tertiary text-sm mt-2">Loading all locations for the selected inventory item</p>
                 </div>
               </div>
             )}
