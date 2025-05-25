@@ -6,7 +6,7 @@ import ForecastCharts from './components/ForecastCharts';
 import AdjustmentPanel from './components/AdjustmentPanel';
 import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
 import { FilterSelections } from './components/FilterSidebar';
-import { HierarchySelection, TimePeriod } from '@/app/types/demand-planning';
+import { HierarchySelection } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import { AdjustmentData } from './components/AdjustmentModal';
@@ -20,61 +20,29 @@ export default function DemandPlanningPage() {
   });
 
   // Keep hierarchy selections for backward compatibility with useForecast hook
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
   // Initialize with all daily periods from Jan 1 to Mar 31, 2025
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
-  // Generate daily periods for the full range (matches useForecast hook)
-  const timePeriods: TimePeriod[] = (() => {
-    const periods: TimePeriod[] = [];
-    const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-03-31');
+  // Time periods will come from useForecast hook based on actual data
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      periods.push({
-        id: `day-${dateStr}`,
-        name: currentDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        }),
-        startDate: dateStr,
-        endDate: dateStr,
-        type: 'day'
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return periods;
-  })();
-
-  // Initialize with some demo selections for visualization
+  // Initialize without hardcoded selections - let users choose their own filters
   useEffect(() => {
-    console.log("Setting initial hierarchy selections");
-    setSelectedHierarchies([
-      {
-        type: 'geography',
-        selectedNodes: ['region-1-1-1', 'region-1-1-2'] // NY, MA
-      },
-      {
-        type: 'product',
-        selectedNodes: ['category-1-1-1'] // Laptops
-      }
-    ]);
-
-    // Select all daily periods for the full date range
-    const allPeriodIds = timePeriods.map(period => period.id);
-    setSelectedTimePeriods(allPeriodIds);
-    console.log("Page component mount - setting all daily periods:", allPeriodIds.length);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    console.log("Page component mount - users will select their own hierarchies and filters");
+    // No hardcoded initial selections - start with empty state
+    // useForecast will use the full available date range when no periods are selected
+  }, []);
 
   // Fetch forecast data based on selections
   const {
     forecastData,
     isLoading: isLoadingForecast,
     error: forecastError,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    availableDateRange,
     applyAdjustment,
     resetAdjustments,
     refreshForecast
