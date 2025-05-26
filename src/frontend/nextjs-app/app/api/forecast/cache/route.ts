@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '../../../lib/postgres';
 import { cacheUtils } from '../../../lib/cache-utils';
+import { toPostgresDate } from '@/app/lib/date-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -131,6 +132,10 @@ export async function POST(request: NextRequest) {
         const tsTtl = cacheUtils.determineTTL(tsQueryType, tsFilters);
         const tsExpiresAt = cacheUtils.calculateExpires(tsTtl);
 
+        // Ensure dates are in YYYY-MM-DD format
+        const startDate = toPostgresDate(tsFilters.startDate);
+        const endDate = toPostgresDate(tsFilters.endDate);
+
         await query(`
           INSERT INTO forecast_cache.timeseries_cache
           (cache_key, query_fingerprint, state, start_date, end_date, data, expires_at)
@@ -144,8 +149,8 @@ export async function POST(request: NextRequest) {
           tsCacheKey,
           tsFingerprint,
           tsFilters.state,
-          tsFilters.startDate,
-          tsFilters.endDate,
+          startDate,
+          endDate,
           JSON.stringify(timeseriesData),
           tsExpiresAt
         ]);

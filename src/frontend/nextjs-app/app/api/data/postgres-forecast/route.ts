@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { toPostgresDate } from '@/app/lib/date-utils';
 
 // Initialize connection pool
 const pool = new Pool({
@@ -127,23 +128,19 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   }
 
   if (filters?.startDate) {
-    conditions.push(`business_date >= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const startDateStr = String(filters.startDate);
-    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
-      ? new Date(startDateStr).toISOString().split('T')[0]
-      : startDateStr;
-    values.push(startDate);
+    const startDate = toPostgresDate(filters.startDate);
+    if (startDate) {
+      conditions.push(`business_date >= $${++paramCount}`);
+      values.push(startDate);
+    }
   }
 
   if (filters?.endDate) {
-    conditions.push(`business_date <= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const endDateStr = String(filters.endDate);
-    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
-      ? new Date(endDateStr).toISOString().split('T')[0]
-      : endDateStr;
-    values.push(endDate);
+    const endDate = toPostgresDate(filters.endDate);
+    if (endDate) {
+      conditions.push(`business_date <= $${++paramCount}`);
+      values.push(endDate);
+    }
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -222,23 +219,19 @@ async function getForecastByDate(filters: {
   const endDateValue = filters?.end_date || filters?.endDate;
 
   if (startDateValue) {
-    conditions.push(`business_date >= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const startDateStr = String(startDateValue);
-    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
-      ? new Date(startDateStr).toISOString().split('T')[0]
-      : startDateStr;
-    values.push(startDate);
+    const startDate = toPostgresDate(startDateValue);
+    if (startDate) {
+      conditions.push(`business_date >= $${++paramCount}`);
+      values.push(startDate);
+    }
   }
 
   if (endDateValue) {
-    conditions.push(`business_date <= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const endDateStr = String(endDateValue);
-    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
-      ? new Date(endDateStr).toISOString().split('T')[0]
-      : endDateStr;
-    values.push(endDate);
+    const endDate = toPostgresDate(endDateValue);
+    if (endDate) {
+      conditions.push(`business_date <= $${++paramCount}`);
+      values.push(endDate);
+    }
   }
 
   if (filters?.state) {
@@ -320,23 +313,19 @@ async function getDashboardForecast(filters: DashboardFilters) {
   }
 
   if (filters?.startDate) {
-    conditions.push(`business_date >= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const startDateStr = String(filters.startDate);
-    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
-      ? new Date(startDateStr).toISOString().split('T')[0]
-      : startDateStr;
-    values.push(startDate);
+    const startDate = toPostgresDate(filters.startDate);
+    if (startDate) {
+      conditions.push(`business_date >= $${++paramCount}`);
+      values.push(startDate);
+    }
   }
 
   if (filters?.endDate) {
-    conditions.push(`business_date <= $${++paramCount}`);
-    // Ensure date is in YYYY-MM-DD format
-    const endDateStr = String(filters.endDate);
-    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
-      ? new Date(endDateStr).toISOString().split('T')[0]
-      : endDateStr;
-    values.push(endDate);
+    const endDate = toPostgresDate(filters.endDate);
+    if (endDate) {
+      conditions.push(`business_date <= $${++paramCount}`);
+      values.push(endDate);
+    }
   }
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
