@@ -127,21 +127,7 @@ const ForecastCharts = memo(function ForecastCharts({
           )}
         </ResponsiveChartWrapper>
 
-        {/* Today pill indicator - only show if today is within the displayed date range */}
-        {forecastData.timePeriods.length > 0 && (() => {
-          const today = new Date();
-          const firstDate = new Date(forecastData.timePeriods[0].startDate);
-          const lastDate = new Date(forecastData.timePeriods[forecastData.timePeriods.length - 1].endDate);
-          const isWithinRange = today >= firstDate && today <= lastDate;
-
-          return isWithinRange ? (
-            <div className="flex justify-center mt-2">
-              <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-primary rounded-full">
-                Today
-              </div>
-            </div>
-          ) : null;
-        })()}
+        {/* Today pill removed per user request */}
       </div>
 
       {/* X-axis labels for 3-month view */}

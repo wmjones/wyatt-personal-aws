@@ -139,44 +139,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Only show "today" marker if today's date is within the chart's date range
-    const today = new Date();
-    const todayXPosition = xScale(today);
-
-    // Check if today is within the displayed date range
-    const [minDate, maxDate] = xScale.domain();
-    const isWithinRange = today >= minDate && today <= maxDate;
-
-    // Add today vertical line - pinkish red with Today pill
-    if (isWithinRange && todayXPosition >= 0 && todayXPosition <= innerWidth) {
-      // Add vertical line
-      g.append('line')
-        .attr('x1', todayXPosition)
-        .attr('x2', todayXPosition)
-        .attr('y1', 0)
-        .attr('y2', innerHeight)
-        .attr('stroke', 'var(--dp-chart-today-line)') // Light red color from updated variables
-        .attr('stroke-width', 1);
-
-      // Add "Today" label pill at the top
-      g.append('rect')
-        .attr('x', todayXPosition - 22)
-        .attr('y', -5)
-        .attr('width', 44)
-        .attr('height', 20)
-        .attr('rx', 10)
-        .attr('ry', 10)
-        .attr('fill', 'var(--dp-chart-today-pill-bg)');
-
-      g.append('text')
-        .attr('x', todayXPosition)
-        .attr('y', 8)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', '10px')
-        .attr('fill', 'var(--primary)') // Primary red from our palette
-        .attr('font-weight', '500')
-        .text('Today');
-    }
+    // Today marker removed per user request
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
