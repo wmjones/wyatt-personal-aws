@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '../../../lib/postgres';
 import { cacheUtils } from '../../../lib/cache-utils';
+import { toPostgresDate } from '@/app/lib/date-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
             data = EXCLUDED.data,
             updated_at = NOW(),
             expires_at = EXCLUDED.expires_at
-        `, [cacheKey, fingerprint, filters.state, JSON.stringify(summaryData), expiresAt]);
+        `, [cacheKey, fingerprint, filters.state ? String(filters.state).substring(0, 10) : null, JSON.stringify(summaryData), expiresAt]);
 
         return NextResponse.json({ success: true });
 
@@ -130,6 +131,19 @@ export async function POST(request: NextRequest) {
         const tsFingerprint = cacheUtils.generateFingerprint(tsQueryType, tsFilters);
         const tsTtl = cacheUtils.determineTTL(tsQueryType, tsFilters);
         const tsExpiresAt = cacheUtils.calculateExpires(tsTtl);
+
+        // Ensure dates are in YYYY-MM-DD format
+        const startDate = toPostgresDate(tsFilters.startDate);
+        const endDate = toPostgresDate(tsFilters.endDate);
+
+        // Debug logging
+        console.log('Cache timeseries insert:', {
+          startDateRaw: tsFilters.startDate,
+          startDateConverted: startDate,
+          endDateRaw: tsFilters.endDate,
+          endDateConverted: endDate,
+          parameterOrder: ['cacheKey', 'fingerprint', 'state', 'startDate', 'endDate', 'data', 'expiresAt']
+        });
 
         await query(`
           INSERT INTO forecast_cache.timeseries_cache
@@ -143,9 +157,9 @@ export async function POST(request: NextRequest) {
         `, [
           tsCacheKey,
           tsFingerprint,
-          tsFilters.state,
-          tsFilters.startDate,
-          tsFilters.endDate,
+          tsFilters.state ? String(tsFilters.state).substring(0, 10) : null, // Truncate to fit varchar(10) until schema is updated
+          startDate,
+          endDate,
           JSON.stringify(timeseriesData),
           tsExpiresAt
         ]);

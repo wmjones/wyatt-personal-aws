@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { ForecastSeries } from '@/app/types/demand-planning';
 import TimeSeriesChart from './charts/TimeSeriesChart';
 // ComparisonChart is imported but not used yet
@@ -12,7 +12,8 @@ interface ForecastChartsProps {
   className?: string;
 }
 
-export default function ForecastCharts({
+// Memoize the component to prevent unnecessary re-renders
+const ForecastCharts = memo(function ForecastCharts({
   forecastData,
   className = ''
 }: ForecastChartsProps) {
@@ -41,7 +42,7 @@ export default function ForecastCharts({
   const filteredBaselineData = useMemo(() => {
     if (!selectedInventoryItemId) return forecastData.baseline;
     return forecastData.baseline.filter(item =>
-      item.inventoryItemId === selectedInventoryItemId
+      item.inventoryItemId && String(item.inventoryItemId) === String(selectedInventoryItemId)
     );
   }, [forecastData.baseline, selectedInventoryItemId]);
 
@@ -51,17 +52,17 @@ export default function ForecastCharts({
 
     // Filter adjusted data by selected inventory item
     const filtered = forecastData.adjusted.filter(item =>
-      item.inventoryItemId === selectedInventoryItemId
+      item.inventoryItemId && String(item.inventoryItemId) === String(selectedInventoryItemId)
     );
 
     // Return filtered data or undefined if no data for this item
     return filtered.length > 0 ? filtered : undefined;
   }, [forecastData.adjusted, selectedInventoryItemId]);
 
-  // Handle inventory item selection
-  const handleInventoryItemChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  // Handle inventory item selection - memoized to prevent recreation
+  const handleInventoryItemChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedInventoryItemId(event.target.value);
-  };
+  }, []);
 
 
   return (
@@ -78,10 +79,10 @@ export default function ForecastCharts({
               id="inventory-item-select"
               value={selectedInventoryItemId || ''}
               onChange={handleInventoryItemChange}
-              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-dp-surface-primary text-dp-text-primary appearance-none cursor-pointer"
             >
               {forecastData.inventoryItems.map(item => (
-                <option key={item.id} value={item.id}>
+                <option key={item.id} value={item.id} className="bg-white text-gray-900">
                   {item.name || `Item ${item.id}`}
                 </option>
               ))}
@@ -126,12 +127,7 @@ export default function ForecastCharts({
           )}
         </ResponsiveChartWrapper>
 
-        {/* Today pill indicator */}
-        <div className="flex justify-center mt-2">
-          <div className="px-4 py-1 text-xs font-medium bg-dp-chart-today-pill-bg text-primary rounded-full">
-            Today
-          </div>
-        </div>
+        {/* Today pill removed per user request */}
       </div>
 
       {/* X-axis labels for 3-month view */}
@@ -147,4 +143,6 @@ export default function ForecastCharts({
       </div>
     </div>
   );
-}
+});
+
+export default ForecastCharts;

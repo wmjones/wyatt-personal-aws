@@ -78,38 +78,86 @@ export function getDateFromPeriodId(periodId: string): Date {
 /**
  * Creates dataset for charts from forecast data points
  * Aggregates multiple data points for the same period (e.g., after filtering)
+ * Optimized for performance with large datasets
  */
 export function createChartDataset(
   dataPoints: ForecastDataPoint[],
   timePeriods: TimePeriod[]
-): { date: Date; value: number; periodId: string }[] {
+): { date: Date; value: number; periodId: string; y_05?: number; y_50?: number; y_95?: number }[] {
+  // Early return for empty data
+  if (!dataPoints || dataPoints.length === 0) {
+    return [];
+  }
+
+  // Create a Map for O(1) period lookup instead of O(n) find
+  const periodMap = new Map<string, TimePeriod>();
+  timePeriods.forEach(period => {
+    periodMap.set(period.id, period);
+  });
+
   // Group data points by period ID and sum their values
   const aggregatedData = dataPoints.reduce((acc, point) => {
     if (!acc[point.periodId]) {
       acc[point.periodId] = {
         periodId: point.periodId,
         totalValue: 0,
-        count: 0
+        count: 0,
+        totalY05: 0,
+        totalY50: 0,
+        totalY95: 0
       };
     }
     acc[point.periodId].totalValue += point.value;
     acc[point.periodId].count += 1;
+    // Aggregate confidence intervals if available
+    if (point.y_05 !== undefined) acc[point.periodId].totalY05 += point.y_05;
+    if (point.y_50 !== undefined) acc[point.periodId].totalY50 += point.y_50;
+    if (point.y_95 !== undefined) acc[point.periodId].totalY95 += point.y_95;
     return acc;
-  }, {} as Record<string, { periodId: string; totalValue: number; count: number }>);
+  }, {} as Record<string, { periodId: string; totalValue: number; count: number; totalY05: number; totalY50: number; totalY95: number }>);
 
   // Convert to chart data format
-  return Object.values(aggregatedData).map(({ periodId, totalValue }) => {
-    const period = timePeriods.find(p => p.id === periodId);
-    const date = period
-      ? new Date((new Date(period.startDate).getTime() + new Date(period.endDate).getTime()) / 2)
-      : getDateFromPeriodId(periodId);
+  const chartData = Object.values(aggregatedData).map(({ periodId, totalValue, totalY05, totalY50, totalY95, count }) => {
+    const period = periodMap.get(periodId);
+    let date: Date;
+
+    if (period) {
+      // For day periods, use the startDate directly
+      if (period.type === 'day') {
+        date = new Date(period.startDate);
+      } else {
+        // For other period types, use midpoint
+        date = new Date((new Date(period.startDate).getTime() + new Date(period.endDate).getTime()) / 2);
+      }
+    } else {
+      // Fallback to parsing from periodId
+      date = getDateFromPeriodId(periodId);
+    }
+
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid date for periodId: ${periodId}, using current date as fallback`);
+      date = new Date();
+    }
 
     return {
       date,
       value: totalValue, // Use aggregated total value
-      periodId
+      periodId,
+      // Include aggregated confidence intervals if available
+      y_05: count > 0 && totalY05 > 0 ? totalY05 : undefined,
+      y_50: count > 0 && totalY50 > 0 ? totalY50 : undefined,
+      y_95: count > 0 && totalY95 > 0 ? totalY95 : undefined
     };
   }).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Debug logging
+  console.log(`createChartDataset: Created ${chartData.length} data points from ${dataPoints.length} input points`);
+  if (chartData.length > 0) {
+    console.log(`Date range: ${chartData[0].date.toISOString()} to ${chartData[chartData.length - 1].date.toISOString()}`);
+  }
+
+  return chartData;
 }
 
 /**

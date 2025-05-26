@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ForecastSeries,
   ForecastDataPoint,
@@ -11,7 +11,8 @@ import { FilterSelections } from '../components/FilterSidebar';
 import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
 import { hybridForecastService } from '@/app/services/hybridForecastService';
-import { AthenaQueryResponse } from '@/app/services/athenaService';
+import { QueryResponse } from '@/app/types/forecast';
+import { forecastCache } from '@/app/lib/forecast-cache';
 
 interface UseForecastProps {
   hierarchySelections: HierarchySelection[];
@@ -20,18 +21,18 @@ interface UseForecastProps {
 }
 
 /**
- * Transform Athena query response to ForecastDataPoint array and generate periods from actual data
+ * Transform query response to ForecastDataPoint array and generate periods from actual data
  */
-function transformAthenaToForecastData(
-  athenaResponse: AthenaQueryResponse
+function transformQueryToForecastData(
+  queryResponse: QueryResponse
 ): { forecastData: ForecastDataPoint[], inventoryItems: { id: string, name: string }[], timePeriods: TimePeriod[] } {
   const forecastData: ForecastDataPoint[] = [];
   const inventoryItemsMap = new Map<string, string>();
   const datesSet = new Set<string>();
 
-  // Expected Athena columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
-  athenaResponse.data.rows.forEach(row => {
-    const [businessDate, inventoryItemId, , state, dmaId, dcId, y50Value] = row;
+  // Expected columns: [restaurant_id, inventory_item_id, business_date, dma_id, dc_id, state, y_05, y_50, y_95]
+  queryResponse.data.rows.forEach(row => {
+    const [, inventoryItemId, businessDate, dmaId, dcId, state, y05Value, y50Value, y95Value] = row;
 
     // Normalize business date format (handle both strings and Date objects)
     const normalizedDate = typeof businessDate === 'string'
@@ -44,7 +45,9 @@ function transformAthenaToForecastData(
     datesSet.add(normalizedDate);
 
     // Track inventory items
-    inventoryItemsMap.set(inventoryItemId, `Item ${inventoryItemId}`);
+    if (inventoryItemId != null) {
+      inventoryItemsMap.set(String(inventoryItemId), `Item ${inventoryItemId}`);
+    }
 
     // Generate period ID for this date
     const periodId = `day-${normalizedDate}`;
@@ -52,10 +55,14 @@ function transformAthenaToForecastData(
     forecastData.push({
       periodId,
       value: parseFloat(y50Value) || 0,
-      inventoryItemId,
-      state,
-      dmaId,
-      dcId,
+      inventoryItemId: inventoryItemId != null ? String(inventoryItemId) : undefined,
+      state: state != null ? String(state) : undefined,
+      dmaId: dmaId != null ? String(dmaId) : undefined,
+      dcId: dcId != null ? String(dcId) : undefined,
+      // Include all forecast values
+      y_05: parseFloat(y05Value) || 0,
+      y_50: parseFloat(y50Value) || 0,
+      y_95: parseFloat(y95Value) || 0,
     });
   });
 
@@ -91,7 +98,11 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const [error, setError] = useState<string | null>(null);
   const [availableDateRange, setAvailableDateRange] = useState<{ min: string; max: string } | null>(null);
 
-  // Get available date range from Athena on first load
+  // Add refs for managing requests and debouncing
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get available date range from database on first load
   const getAvailableDateRange = useCallback(async () => {
     try {
       const response = await hybridForecastService.executeQuery(
@@ -119,6 +130,17 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   // Create a memoized fetch function to avoid dependency issues
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
+
+    // Check if inventory item is selected
+    if (!filterSelections?.inventoryItemId) {
+      console.log("useForecast: No inventory item selected, skipping fetch");
+      setIsLoading(false);
+      return;
+    }
+
+    // Create a new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     // Get available date range first if we don't have it
     let dateRange = availableDateRange;
@@ -155,15 +177,36 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     }
 
     console.log("useForecast: Starting real data fetch");
+
+    // Generate cache key
+    const cacheKey = forecastCache.generateKey({
+      states: filterSelections?.states,
+      dmaIds: filterSelections?.dmaIds,
+      dcIds: filterSelections?.dcIds,
+      inventoryItemId: filterSelections?.inventoryItemId,
+      startDate,
+      endDate
+    });
+
+    // Check cache first
+    const cachedData = forecastCache.get<ForecastSeries>(cacheKey);
+    if (cachedData) {
+      console.log("useForecast: Using cached data");
+      setForecastData(cachedData);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Build filters for Athena query
+      // Build filters for database query
       const filters: {
         startDate: string;
         endDate: string;
         state?: string | string[];
+        inventoryItemId?: number;
       } = {
         startDate,
         endDate,
@@ -172,33 +215,39 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       // Add location filters if specified
       if (filterSelections) {
         if (filterSelections.states.length > 0) {
-          // Pass all selected states to Athena
+          // Pass all selected states to database
           filters.state = filterSelections.states.length === 1
             ? filterSelections.states[0]
             : filterSelections.states;
         }
-        // Note: athenaService doesn't currently support dmaIds or dcIds filters
-        // These are handled via client-side filtering after Athena query
+
+        // Add inventory item filter if specified
+        if (filterSelections.inventoryItemId) {
+          filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
+        }
+
+        // Note: databaseService doesn't currently support dmaIds or dcIds filters directly
+        // These are handled via client-side filtering after database query
       }
 
       console.log("useForecast: Querying with filters:", filters);
 
       // Query real data from hybrid service
-      const athenaResponse = await hybridForecastService.getForecastData(filters);
+      const queryResponse = await hybridForecastService.getForecastData(filters);
 
-      console.log("useForecast: Received Athena response:", {
-        columns: athenaResponse.data.columns,
-        rowCount: athenaResponse.data.rows.length
+      console.log("useForecast: Received query response:", {
+        columns: queryResponse.data.columns,
+        rowCount: queryResponse.data.rows.length
       });
 
       // Check if we got any data
-      if (!athenaResponse.data.rows || athenaResponse.data.rows.length === 0) {
+      if (!queryResponse.data.rows || queryResponse.data.rows.length === 0) {
         throw new Error('No forecast data found for the selected filters and date range. Try adjusting your filters or date range.');
       }
 
-      // Transform Athena data to forecast format - this now generates periods from actual data
-      const { forecastData: rawForecastData, inventoryItems, timePeriods } = transformAthenaToForecastData(
-        athenaResponse
+      // Transform query data to forecast format - this now generates periods from actual data
+      const { forecastData: rawForecastData, inventoryItems, timePeriods } = transformQueryToForecastData(
+        queryResponse
       );
 
       // Check if transformation yielded any data
@@ -227,11 +276,18 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         if (aggregationMap.has(key)) {
           const existing = aggregationMap.get(key)!;
           existing.value += dataPoint.value;
+          // Aggregate confidence intervals
+          existing.y_05 = (existing.y_05 || 0) + (dataPoint.y_05 || 0);
+          existing.y_50 = (existing.y_50 || 0) + (dataPoint.y_50 || 0);
+          existing.y_95 = (existing.y_95 || 0) + (dataPoint.y_95 || 0);
         } else {
           aggregationMap.set(key, {
             periodId: dataPoint.periodId,
             value: dataPoint.value,
             inventoryItemId: dataPoint.inventoryItemId,
+            y_05: dataPoint.y_05,
+            y_50: dataPoint.y_50,
+            y_95: dataPoint.y_95,
           });
         }
       });
@@ -261,12 +317,25 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       };
 
       setForecastData(realForecast);
+
+      // Cache the successful result
+      forecastCache.set(cacheKey, realForecast);
+      console.log("useForecast: Data cached for future use");
     } catch (error) {
+      // Handle abort errors silently
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("useForecast: Fetch request was aborted");
+        return;
+      }
+
       console.error('Error fetching real forecast data:', error);
       setError(`Failed to fetch forecast data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      console.log("useForecast: Completed real data fetch");
-      setIsLoading(false);
+      // Only clear loading state if this wasn't aborted
+      if (abortControllerRef.current === abortController) {
+        console.log("useForecast: Completed real data fetch");
+        setIsLoading(false);
+      }
     }
   }, [hierarchySelections, timePeriodIds, filterSelections, availableDateRange, getAvailableDateRange]);
 
@@ -275,17 +344,56 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
     getAvailableDateRange();
   }, [getAvailableDateRange]);
 
-  // Trigger the fetch operation when inputs change
+  // Trigger the fetch operation when inputs change with debouncing
   useEffect(() => {
     console.log("useForecast effect triggered with:", {
       hierarchySelections,
       timePeriodIds,
       selectionCount: hierarchySelections.length,
-      periodCount: timePeriodIds.length
+      periodCount: timePeriodIds.length,
+      hasFilters: filterSelections && (
+        filterSelections.states.length > 0 ||
+        filterSelections.dmaIds.length > 0 ||
+        filterSelections.dcIds.length > 0
+      )
     });
 
-    fetchForecast();
-  }, [fetchForecast, hierarchySelections, timePeriodIds]);
+    // Cancel any pending debounced calls
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Cancel any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // Skip fetch if no inventory item is selected
+    if (!filterSelections?.inventoryItemId) {
+      console.log("useForecast: Skipping fetch - no inventory item selected");
+      setForecastData(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // No longer require location filters - we'll use aggregated queries for performance
+
+    // Debounce the fetch operation by 300ms to avoid rapid API calls
+    debounceTimerRef.current = setTimeout(() => {
+      fetchForecast();
+    }, 300);
+
+    // Cleanup function
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchForecast, hierarchySelections, timePeriodIds, filterSelections]);
 
   // Apply adjustment to forecast using the adjustment service
   const applyAdjustment = async (adjustment: AdjustmentData): Promise<void> => {

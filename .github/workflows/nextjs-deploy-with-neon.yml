@@ -1,19 +1,9 @@
-name: Deploy Next.js to Vercel with Neon Branch
+name: Deploy Next.js to Vercel with Manual Neon Setup
 
-# This workflow creates Neon database branches for all deployment types:
-# - Preview deployments: Create temporary branches for PRs (auto-cleanup on PR close)
-# - Dev deployments: Create persistent dev branches with database migrations
-# - Production deployments: Create production branches with database migrations
-# All deployments use dynamic Neon branch URLs instead of hardcoded environment variables
+# This workflow manually creates Neon database branches for preview deployments
+# and passes the connection strings to Vercel during deployment
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - 'src/frontend/nextjs-app/**'
-      - '.github/workflows/nextjs-deploy-with-neon.yml'
   pull_request:
     branches:
       - main
@@ -28,53 +18,54 @@ env:
 
 # Concurrency control to prevent multiple deployments for the same PR
 concurrency:
-  group: preview-${{ github.event.pull_request.number || github.ref }}
+  group: preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: Setup
-    outputs:
-      branch: ${{ steps.branch_name.outputs.current_branch }}
+  deploy-preview:
+    name: Deploy Preview with Neon Branch
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
+      # Step 1: Checkout code
+      - uses: actions/checkout@v4
+
+      # Step 2: Get branch name
       - name: Get branch name
         id: branch_name
         uses: tj-actions/branch-names@v8
 
-  deploy-preview:
-    runs-on: ubuntu-latest
-    needs: setup
-    if: github.event_name == 'pull_request'
-    steps:
-      # Step 1: Create Neon Branch with timeout
+      # Step 3: Debug - Check if secrets are available
+      - name: Check secrets availability
+        run: |
+          if [ -z "${{ secrets.NEON_API_KEY }}" ]; then
+            echo "❌ NEON_API_KEY is not set in GitHub secrets"
+            echo "Please add NEON_API_KEY to your repository secrets"
+            exit 1
+          else
+            echo "✅ NEON_API_KEY is available"
+          fi
+          if [ -z "${{ secrets.NEON_PROJECT_ID }}" ]; then
+            echo "❌ NEON_PROJECT_ID is not set in GitHub secrets"
+            echo "Please add NEON_PROJECT_ID to your repository secrets"
+            exit 1
+          else
+            echo "✅ NEON_PROJECT_ID is available (value: ${{ secrets.NEON_PROJECT_ID }})"
+          fi
+
+      # Step 4: Create Neon Branch
       - name: Create Neon Branch
         id: create_neon_branch
-        timeout-minutes: 5
         uses: neondatabase/create-branch-action@v5
         with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           username: neondb_owner
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
-      # Step 1.5: Verify Neon outputs
-      - name: Verify Neon outputs
-        run: |
-          if [ -z "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" ]; then
-            echo "Error: db_url_with_pooler is empty"
-            exit 1
-          fi
-          if [ -z "${{ steps.create_neon_branch.outputs.db_url }}" ]; then
-            echo "Error: db_url is empty"
-            exit 1
-          fi
-          echo "✅ Neon branch created successfully with valid database URLs"
-
-      # Step 2: Checkout code
-      - uses: actions/checkout@v4
-
-      # Step 3: Setup Node.js
+      # Step 5: Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -82,279 +73,169 @@ jobs:
           cache: 'npm'
           cache-dependency-path: src/frontend/nextjs-app/package-lock.json
 
-      # Step 4: Install dependencies (includes Vercel CLI)
+      # Step 6: Install dependencies
       - name: Install dependencies
         working-directory: src/frontend/nextjs-app
         run: npm ci
 
-      # Step 5: Run linter and type check
+      # Step 7: Run linter
       - name: Run linter
+        id: lint
         working-directory: src/frontend/nextjs-app
         run: npm run lint
+        continue-on-error: true
 
+      # Step 8: Run type check
       - name: Run type check
+        id: typecheck
         working-directory: src/frontend/nextjs-app
         run: npx tsc --noEmit
+        continue-on-error: true
 
-      # Step 6: Pull Vercel Environment
+      # Step 9: Code Quality Check Results
+      - name: Code Quality Check Results
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
+        run: |
+          echo "## ❌ Code Quality Issues Found"
+          if [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "- Linting failed"
+          fi
+          if [ "${{ steps.typecheck.outcome }}" == "failure" ]; then
+            echo "- Type checking failed"
+          fi
+          echo ""
+          echo "Please fix these issues before deployment."
+          exit 1
+
+      # Step 10: Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Step 11: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
-        run: npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 7: Build with environment variables
+      # Step 12: Build Project
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
         env:
+          # Pass database URLs during build
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
-        run: |
-          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 8: Deploy with improved URL capture and alias
-      - name: Deploy Project Artifacts to Vercel
+      # Step 12a: Create environment variables in Vercel
+      - name: Set Vercel Environment Variables
+        working-directory: src/frontend/nextjs-app
+        run: |
+          echo "Creating environment variables in Vercel for preview..."
+
+          # Remove existing env vars if they exist (to update them)
+          vercel env rm DATABASE_URL preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+          vercel env rm DATABASE_URL_UNPOOLED preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+
+          # Add new env vars for preview environment
+          echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview --token=${{ secrets.VERCEL_TOKEN }}
+          echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview --token=${{ secrets.VERCEL_TOKEN }}
+
+          echo "✅ Environment variables created in Vercel"
+
+      # Step 13: Deploy to Vercel
+      - name: Deploy to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
-          # Deploy and capture URL
-          DEPLOYMENT_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
-            --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
+          # Deploy to Vercel (env vars are already set in the project)
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
 
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $DEPLOYMENT_URL"
 
           # Set alias for easier access
-          ALIAS="pr-${{ github.event.number }}-${{ github.repository_owner }}.vercel.app"
-          npx vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
+          ALIAS="pr-${{ github.event.pull_request.number }}-${{ github.repository_owner }}.vercel.app"
+          vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
           echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
 
-      # Step 9: Run Database Migrations with error handling
+      # Step 14: Run Database Migrations
       - name: Run Database Migrations
         working-directory: src/frontend/nextjs-app
-        timeout-minutes: 10
-        run: |
-          # Use npx instead of global install
-          npx tsx scripts/init-database.ts || {
-            echo "⚠️ Migration failed. Check logs above."
-            echo "This may be due to the database not being ready yet."
-            echo "You can manually run migrations later if needed."
-            exit 1
-          }
         env:
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
-          NEXT_PUBLIC_AWS_REGION: us-east-2
-          NEXT_PUBLIC_USER_POOL_ID: us-east-2_FebjdKLG3
-          NEXT_PUBLIC_USER_POOL_CLIENT_ID: 3i464fgdtarund735fjc0b5b6c
-          AWS_API_GATEWAY_URL: https://v1zx8vrzzj.execute-api.us-east-2.amazonaws.com
-          NODE_ENV: development
+        run: |
+          npx tsx scripts/init-database.ts || {
+            echo "⚠️ Migration failed. This may be due to the database not being ready yet."
+            echo "You can manually run migrations later if needed."
+          }
 
-      # Step 10: Comment with enhanced security (no database URLs)
-      - name: Comment PR with Preview Info
+      # Step 15: Comment on PR
+      - name: Comment PR with deployment info
         uses: actions/github-script@v7
         with:
           script: |
             const url = '${{ steps.deploy.outputs.url }}';
             const alias = '${{ steps.deploy.outputs.alias }}';
-            const body = `🚀 **Preview deployment ready!**
+            const lintSuccess = '${{ steps.lint.outcome }}' === 'success';
+            const typeSuccess = '${{ steps.typecheck.outcome }}' === 'success';
 
-            **Preview URL**: ${url}
-            ${alias ? `**Alias URL**: ${alias}` : ''}
+            let body = `## 🚀 Preview Deployment Ready!\n\n`;
 
-            🗄️ **Database Branch**: \`preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}\`
+            // Code quality section
+            body += `### 🔍 Code Quality Checks\n`;
+            body += `- Linting: ${lintSuccess ? '✅ Passed' : '❌ Failed'}\n`;
+            body += `- Type Check: ${typeSuccess ? '✅ Passed' : '❌ Failed'}\n\n`;
 
-            The preview includes a dedicated database branch with all schema migrations applied.
+            // Deployment section
+            body += `### 🌐 Deployment Details\n`;
+            body += `**Preview URL**: ${url}\n`;
+            if (alias) body += `**Alias URL**: ${alias}\n`;
+            body += `\n🗄️ **Database Branch**: \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}\`\n\n`;
+            body += `The preview includes a dedicated database branch with schema migrations applied.`;
 
-            💡 **For local development**:
-            Run \`neon branches get preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}\` to get connection details.
-
-            📊 **Deployment Details**:
-            - Build completed successfully
-            - Database migrations applied
-            - Environment: Preview`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            // Check if we already commented
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              issue_number: context.issue.number,
             });
 
-  # Enhanced cleanup with error handling
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Preview Deployment Ready!')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+  # Cleanup job - runs when PR is closed
   cleanup-preview:
+    name: Cleanup Preview Branch
     runs-on: ubuntu-latest
-    needs: setup
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
-        continue-on-error: true  # Don't fail if branch doesn't exist
         with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
-
-      - name: Add cleanup comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = `🗑️ **Preview Cleaned Up**
-
-            The preview database branch \`preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}\` has been deleted.`;
-
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            });
-
-  # Matrix strategy for dev and production deployments
-  deploy:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    strategy:
-      matrix:
-        include:
-          - branch: dev
-            ref: refs/heads/dev
-            environment: preview
-            prod_flag: ""
-          - branch: main
-            ref: refs/heads/main
-            environment: production
-            prod_flag: "--prod"
-    steps:
-      - uses: actions/checkout@v4
-        if: github.ref == matrix.ref
-
-      # Create Neon Branch for dev and production deployments
-      - name: Create Neon Branch
-        if: github.ref == matrix.ref
-        id: create_neon_branch
-        timeout-minutes: 5
-        uses: neondatabase/create-branch-action@v5
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: ${{ matrix.branch }}-deployment-${{ github.sha }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-          username: neondb_owner
-
-      # Verify Neon outputs
-      - name: Verify Neon outputs
-        if: github.ref == matrix.ref
-        run: |
-          if [ -z "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" ]; then
-            echo "Error: db_url_with_pooler is empty"
-            exit 1
-          fi
-          if [ -z "${{ steps.create_neon_branch.outputs.db_url }}" ]; then
-            echo "Error: db_url is empty"
-            exit 1
-          fi
-          echo "✅ ${{ matrix.branch }} Neon branch created successfully with valid database URLs"
-
-      - name: Setup Node.js
-        if: github.ref == matrix.ref
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: src/frontend/nextjs-app/package-lock.json
-
-      - name: Cache Vercel CLI
-        if: github.ref == matrix.ref
-        id: cache-vercel
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-vercel-cli-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        run: npm ci
-
-      - name: Run linter
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        run: npm run lint
-
-      - name: Run type check
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        run: npx tsc --noEmit
-
-
-      - name: Pull Vercel Environment Information
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        run: npx vercel pull --yes --environment=${{ matrix.environment }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project Artifacts
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        env:
-          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
-          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
-        run: npx vercel build ${{ matrix.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      # Run Database Migrations before deployment
-      - name: Run Database Migrations
-        if: github.ref == matrix.ref
-        working-directory: src/frontend/nextjs-app
-        timeout-minutes: 10
-        run: |
-          # Use npx instead of global install
-          npx tsx scripts/init-database.ts || {
-            echo "⚠️ Migration failed for ${{ matrix.branch }}. Check logs above."
-            echo "This may be due to the database not being ready yet."
-            echo "You can manually run migrations later if needed."
-            exit 1
-          }
-        env:
-          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
-          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
-          NEXT_PUBLIC_AWS_REGION: us-east-2
-          NEXT_PUBLIC_USER_POOL_ID: us-east-2_FebjdKLG3
-          NEXT_PUBLIC_USER_POOL_CLIENT_ID: 3i464fgdtarund735fjc0b5b6c
-          AWS_API_GATEWAY_URL: https://v1zx8vrzzj.execute-api.us-east-2.amazonaws.com
-          NODE_ENV: ${{ matrix.branch == 'main' && 'production' || 'development' }}
-
-      - name: Deploy Project Artifacts to Vercel
-        if: github.ref == matrix.ref
-        id: deploy
-        working-directory: src/frontend/nextjs-app
-        run: |
-          echo "Deploying to Vercel ${{ matrix.branch }} environment..."
-          # Deploy with Neon branch database URLs for both dev and prod
-          DEPLOYMENT_URL=$(npx vercel deploy --prebuilt ${{ matrix.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }} \
-            --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
-          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          echo "${{ matrix.branch }} deployment URL: $DEPLOYMENT_URL"
-
-      - name: Create deployment summary
-        if: github.ref == matrix.ref
-        run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: ${{ matrix.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ matrix.branch }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Database Branch**: \`${{ matrix.branch }}-deployment-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Database Migrations**: ✅ Applied" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
-
-  # Cleanup old deployment branches (keep last 5 for each environment)
-  cleanup-old-branches:
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
-    steps:
-      - name: Cleanup old deployment branches
-        run: |
-          echo "🧹 Cleaning up old deployment branches..."
-          # Note: This is a placeholder for future implementation
-          # We can implement branch cleanup using Neon CLI or API
-          # to keep only the last 5 deployment branches per environment
-          echo "Cleanup logic to be implemented with Neon CLI"

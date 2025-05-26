@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, memo } from 'react';
 import * as d3 from 'd3';
 import { ForecastDataPoint, TimePeriod } from '@/app/types/demand-planning';
 import { BaseChartProps } from './BaseChart';
@@ -18,7 +18,7 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   showActual?: boolean;
 }
 
-export default function TimeSeriesChart({
+const TimeSeriesChart = memo(function TimeSeriesChart({
   baselineData,
   adjustedData,
   timePeriods,
@@ -53,9 +53,21 @@ export default function TimeSeriesChart({
 
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {
-    const y_05Data = baselineDataset.map(d => ({ ...d, value: d.value * 0.85 })); // Lower bound
-    const y_50Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.0 }));  // Median (baseline)
-    const y_95Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.15 })); // Upper bound
+    // Use actual forecast values from the dataset if available
+    const y_05Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_05 !== undefined ? d.y_05 : d.value * 0.85
+    }));
+
+    const y_50Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_50 !== undefined ? d.y_50 : d.value
+    }));
+
+    const y_95Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_95 !== undefined ? d.y_95 : d.value * 1.15
+    }));
 
     return { y_05Data, y_50Data, y_95Data };
   }, [baselineDataset]);
@@ -127,40 +139,7 @@ export default function TimeSeriesChart({
       .attr('stroke-opacity', 0.8)
       .attr('stroke-width', 1);
 
-    // Find "today" in the data - February 15, 2025 (middle of the range)
-    const today = new Date(2025, 1, 15); // February 15, 2025
-    const todayXPosition = xScale(today);
-
-    // Add today vertical line - pinkish red with Today pill
-    if (todayXPosition) {
-      // Add vertical line
-      g.append('line')
-        .attr('x1', todayXPosition)
-        .attr('x2', todayXPosition)
-        .attr('y1', 0)
-        .attr('y2', innerHeight)
-        .attr('stroke', 'var(--dp-chart-today-line)') // Light red color from updated variables
-        .attr('stroke-width', 1);
-
-      // Add "Today" label pill at the top
-      g.append('rect')
-        .attr('x', todayXPosition - 22)
-        .attr('y', -5)
-        .attr('width', 44)
-        .attr('height', 20)
-        .attr('rx', 10)
-        .attr('ry', 10)
-        .attr('fill', 'var(--dp-chart-today-pill-bg)');
-
-      g.append('text')
-        .attr('x', todayXPosition)
-        .attr('y', 8)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', '10px')
-        .attr('fill', 'var(--primary)') // Primary red from our palette
-        .attr('font-weight', '500')
-        .text('Today');
-    }
+    // Today marker removed per user request
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
@@ -539,4 +518,6 @@ export default function TimeSeriesChart({
       )}
     </div>
   );
-}
+});
+
+export default TimeSeriesChart;

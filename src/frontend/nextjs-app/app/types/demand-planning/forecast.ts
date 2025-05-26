@@ -22,6 +22,10 @@ export interface ForecastDataPoint {
   dmaId?: string;
   dcId?: string;
   metadata?: Record<string, unknown>;
+  // Optional fields for confidence intervals
+  y_05?: number;
+  y_50?: number;
+  y_95?: number;
 }
 
 // Inventory item information

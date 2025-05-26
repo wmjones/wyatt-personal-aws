@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:init": "npx tsx scripts/init-database.ts",
     "db:migrate": "npx tsx scripts/init-database.ts",
-    "test:athena": "npx tsx scripts/test-athena-api.ts"
+    "test:athena": "npx tsx scripts/test-athena-api.ts",
+    "migrate:forecast": "npx tsx scripts/migrate-forecast-to-postgres.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.2",
@@ -26,6 +27,7 @@
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-athena": "^3.817.0",
     "@eslint/eslintrc": "^3",
     "@jest/globals": "^29.7.0",
     "@tailwindcss/postcss": "^4",
@@ -34,6 +36,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^16.5.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",

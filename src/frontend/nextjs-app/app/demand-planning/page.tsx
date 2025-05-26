@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import DashboardLayout from './components/DashboardLayout';
-import ForecastCharts from './components/ForecastCharts';
 import AdjustmentPanel from './components/AdjustmentPanel';
 import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
 import { FilterSelections } from './components/FilterSidebar';
@@ -10,13 +9,18 @@ import { HierarchySelection } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import { AdjustmentData } from './components/AdjustmentModal';
+import CacheStatus from './components/CacheStatus';
+
+// Lazy load the heavy chart component
+const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
 
 export default function DemandPlanningPage() {
   // Filter selections state
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
-    dcIds: []
+    dcIds: [],
+    inventoryItemId: null
   });
 
   // Keep hierarchy selections for backward compatibility with useForecast hook
@@ -104,12 +108,28 @@ export default function DemandPlanningPage() {
               <div>
                 <h1 className="text-2xl font-medium text-dp-text-primary">Sales Forecast</h1>
                 <p className="text-dp-text-secondary mt-1">
-                  {selectedHierarchies.length > 0
-                    ? `Viewing forecast data for ${selectedHierarchies.map(h => h.type).join(', ')}`
-                    : 'Select hierarchies from the sidebar to view forecast data.'
+                  {filterSelections.inventoryItemId
+                    ? (() => {
+                        const locations = [];
+                        if (filterSelections.states.length > 0) {
+                          locations.push(`${filterSelections.states.length} state${filterSelections.states.length !== 1 ? 's' : ''}`);
+                        }
+                        if (filterSelections.dmaIds.length > 0) {
+                          locations.push(`${filterSelections.dmaIds.length} DMA${filterSelections.dmaIds.length !== 1 ? 's' : ''}`);
+                        }
+                        if (filterSelections.dcIds.length > 0) {
+                          locations.push(`${filterSelections.dcIds.length} DC${filterSelections.dcIds.length !== 1 ? 's' : ''}`);
+                        }
+                        const locationText = locations.length > 0
+                          ? `for ${locations.join(', ')}`
+                          : 'across all locations';
+                        return `Viewing forecast for Item ${filterSelections.inventoryItemId} ${locationText}`;
+                      })()
+                    : 'Loading inventory items...'
                   }
                 </p>
               </div>
+              <CacheStatus />
             </div>
 
             {isLoadingForecast ? (
@@ -128,13 +148,30 @@ export default function DemandPlanningPage() {
               </div>
             ) : forecastData ? (
               <div className="p-4">
-                <ForecastCharts
-                  forecastData={forecastData}
-                />
+                <Suspense fallback={
+                  <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
+                    <div className="flex flex-col items-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4"></div>
+                      <p className="text-dp-text-tertiary">Loading chart...</p>
+                    </div>
+                  </div>
+                }>
+                  <ForecastCharts
+                    forecastData={forecastData}
+                  />
+                </Suspense>
               </div>
             ) : (
               <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
-                <p className="text-dp-text-tertiary">Select hierarchies to view forecast data</p>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4 mx-auto"></div>
+                  <p className="text-dp-text-tertiary">Preparing forecast data...</p>
+                  <p className="text-dp-text-tertiary text-sm mt-2">
+                    {filterSelections.states.length === 0 && filterSelections.dmaIds.length === 0 && filterSelections.dcIds.length === 0
+                      ? "Aggregating data across all locations..."
+                      : "Loading forecast for selected locations..."}
+                  </p>
+                </div>
               </div>
             )}
           </div>

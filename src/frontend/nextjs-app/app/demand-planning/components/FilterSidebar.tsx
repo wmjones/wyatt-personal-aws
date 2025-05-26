@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import MultiSelectFilter, { FilterOption } from './MultiSelectFilter';
-import { athenaService } from '@/app/services/athenaService';
+import SingleSelectFilter from './SingleSelectFilter';
+import { forecastService } from '@/app/services/forecastService';
 
 export interface FilterSelections {
   states: string[];
   dmaIds: string[];
   dcIds: string[];
+  inventoryItemId: string | null;
 }
 
 interface FilterSidebarProps {
@@ -29,10 +31,11 @@ export default function FilterSidebar({
   const [stateOptions, setStateOptions] = useState<FilterOption[]>([]);
   const [dmaOptions, setDmaOptions] = useState<FilterOption[]>([]);
   const [dcOptions, setDcOptions] = useState<FilterOption[]>([]);
+  const [inventoryOptions, setInventoryOptions] = useState<FilterOption[]>([]);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [filterError, setFilterError] = useState<string | null>(null);
 
-  // Load filter options from Athena on component mount
+  // Load filter options from Athena on component mount - optimized for parallel loading
   useEffect(() => {
     const loadFilterOptions = async () => {
       setIsLoadingFilters(true);
@@ -41,32 +44,52 @@ export default function FilterSidebar({
       try {
         console.log('Loading filter options from Athena...');
 
-        // Load states
-        const states = await athenaService.getDistinctStates();
+        // Load all filter options in parallel for better performance
+        const [states, dmaIds, dcIds, inventoryItems] = await Promise.all([
+          forecastService.getDistinctStates(),
+          forecastService.getDistinctDmaIds(),
+          forecastService.getDistinctDcIds(),
+          forecastService.getDistinctInventoryItems()
+        ]);
+
+        // Update all filter options at once to minimize re-renders
         setStateOptions(states.map(state => ({
           value: state,
           label: state
         })));
 
-        // Load DMA IDs
-        const dmaIds = await athenaService.getDistinctDmaIds();
         setDmaOptions(dmaIds.map(dmaId => ({
           value: dmaId,
           label: `DMA ${dmaId}`
         })));
 
-        // Load DC IDs
-        const dcIds = await athenaService.getDistinctDcIds();
         setDcOptions(dcIds.map(dcId => ({
           value: dcId,
           label: `Distribution Center ${dcId}`
         })));
 
+        setInventoryOptions(inventoryItems.map(itemId => ({
+          value: itemId,
+          label: `Item ${itemId}`
+        })));
+
         console.log('Filter options loaded successfully:', {
           states: states.length,
           dmaIds: dmaIds.length,
-          dcIds: dcIds.length
+          dcIds: dcIds.length,
+          inventoryItems: inventoryItems.length
         });
+
+        // Auto-select the first inventory item if none selected
+        if (inventoryItems.length > 0 && !localSelections.inventoryItemId) {
+          const autoSelection = {
+            ...localSelections,
+            inventoryItemId: inventoryItems[0]
+          };
+          setLocalSelections(autoSelection);
+          onSelectionChange(autoSelection);
+          console.log('Auto-selected first inventory item:', inventoryItems[0]);
+        }
 
       } catch (error) {
         console.error('Error loading filter options:', error);
@@ -77,7 +100,7 @@ export default function FilterSidebar({
     };
 
     loadFilterOptions();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update local state when props change
   useEffect(() => {
@@ -94,12 +117,13 @@ export default function FilterSidebar({
     onSelectionChange(newSelections);
   };
 
-  // Clear all selections
+  // Clear all selections (except inventory item which is required)
   const handleClearAll = () => {
     const clearedSelections: FilterSelections = {
       states: [],
       dmaIds: [],
-      dcIds: []
+      dcIds: [],
+      inventoryItemId: localSelections.inventoryItemId // Keep inventory item selected
     };
     setLocalSelections(clearedSelections);
     onSelectionChange(clearedSelections);
@@ -160,6 +184,29 @@ export default function FilterSidebar({
         {/* Filter Controls - only show when not loading and no error */}
         {!isLoadingFilters && !filterError && (
           <>
+            {/* Inventory Item Filter - Single Select */}
+            <SingleSelectFilter
+              title="Inventory Item"
+              options={inventoryOptions}
+              selectedValue={localSelections.inventoryItemId}
+              onChange={(value) => {
+                const newSelections = {
+                  ...localSelections,
+                  inventoryItemId: value
+                };
+                setLocalSelections(newSelections);
+                onSelectionChange(newSelections);
+              }}
+              placeholder="Select inventory item..."
+              searchPlaceholder="Search items..."
+            />
+
+            <div className="border-t border-dp-frame-border pt-4">
+              <p className="text-xs text-dp-text-tertiary mb-4">
+                Location filters (optional) - leave empty to view all locations
+              </p>
+            </div>
+
             {/* States Filter */}
             <MultiSelectFilter
               title="States"

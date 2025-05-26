@@ -24,10 +24,10 @@ export default function StaticHomePage() {
             </p>
             <div className="flex gap-4 flex-wrap">
               <Link
-                href="/demo"
+                href="/demand-planning"
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
               >
-                Try Demo
+                View Dashboard
               </Link>
               <Link
                 href="/about"

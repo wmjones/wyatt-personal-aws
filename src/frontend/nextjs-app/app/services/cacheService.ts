@@ -39,7 +39,7 @@ interface QueryMetrics {
   query_fingerprint: string;
   query_type: string;
   execution_time_ms: number;
-  data_source: 'cache' | 'athena';
+  data_source: 'cache' | 'athena' | 'database';
   cache_hit: boolean;
   error_occurred: boolean;
   user_id?: string;

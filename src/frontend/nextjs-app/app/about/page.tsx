@@ -100,10 +100,10 @@ export default function AboutPage() {
           <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
           <div className="flex gap-4 justify-center">
             <Link
-              href="/demo"
+              href="/signup"
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
-              Try the Demo
+              Sign Up Now
             </Link>
             <Link
               href="/"
