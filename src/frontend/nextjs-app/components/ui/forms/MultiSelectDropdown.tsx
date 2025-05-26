@@ -181,23 +181,24 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           {isOpen && (
             <div
               className={cn(
-                'absolute z-10 w-full mt-1',
-                'bg-dp-surface-primary border border-dp-frame-border',
-                'rounded-md shadow-lg',
-                'max-h-60 overflow-hidden'
+                'absolute z-50 w-full mt-1',
+                'bg-white border border-gray-200',
+                'rounded-md shadow-xl',
+                'max-h-60 overflow-hidden',
+                'ring-1 ring-black ring-opacity-5'
               )}
             >
               {/* Search Input */}
               {searchable && (
-                <div className="p-2 border-b border-dp-frame-divider">
+                <div className="p-2 border-b border-gray-200 bg-gray-50">
                   <input
                     {...getInputProps()}
                     ref={(el) => el?.focus()}
                     className={cn(
                       'w-full px-3 py-2',
-                      'border border-dp-frame-border rounded-md',
-                      'bg-dp-surface-primary text-dp-text-primary',
-                      'placeholder-dp-text-tertiary',
+                      'border border-gray-300 rounded-md',
+                      'bg-white text-gray-900',
+                      'placeholder-gray-500',
                       'focus:outline-none focus:ring-2 focus:ring-dp-cfa-red',
                       'focus:border-dp-cfa-red'
                     )}
@@ -208,7 +209,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
               {/* Selection Info */}
               {maxSelections && (
-                <div className="px-3 py-2 text-sm text-dp-text-secondary border-b border-dp-frame-divider">
+                <div className="px-3 py-2 text-sm text-gray-600 border-b border-gray-200 bg-gray-50">
                   {value.length} / {maxSelections} selected
                   {!canSelectMore && (
                     <span className="text-dp-status-warning ml-2">
@@ -221,10 +222,10 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
               {/* Options List */}
               <ul
                 {...getMenuProps()}
-                className="max-h-48 overflow-y-auto py-1"
+                className="max-h-48 overflow-y-auto py-1 bg-white"
               >
                 {filteredOptions.length === 0 ? (
-                  <li className="px-3 py-2 text-dp-text-tertiary text-center">
+                  <li className="px-3 py-2 text-gray-500 text-center">
                     No options found
                   </li>
                 ) : (
@@ -239,12 +240,12 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                         key={option.value}
                         {...optionProps}
                         className={cn(
-                          'px-3 py-2 cursor-pointer',
+                          'px-3 py-2 cursor-pointer text-gray-900',
                           'transition-colors duration-150',
-                          isHighlighted && 'bg-dp-background-secondary',
-                          isSelected && 'bg-dp-primary-light',
+                          isHighlighted && 'bg-gray-100',
+                          isSelected && 'bg-red-50',
                           isDisabled && 'opacity-50 cursor-not-allowed',
-                          !isDisabled && !isSelected && 'hover:bg-dp-background-secondary'
+                          !isDisabled && !isSelected && 'hover:bg-gray-50'
                         )}
                       >
                         <div className="flex items-center gap-3">
