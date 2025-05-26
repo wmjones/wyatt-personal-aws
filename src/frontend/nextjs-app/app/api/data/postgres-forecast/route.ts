@@ -146,7 +146,29 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const limit = filters?.limit || 10000;
 
-  const query = `
+  // When filtering by specific inventory item, aggregate by date
+  // This provides pre-aggregated data equivalent to:
+  // SELECT inventory_item_id, business_date, SUM(y_50), SUM(y_05), SUM(y_95)
+  // FROM forecast_data WHERE inventory_item_id = X GROUP BY inventory_item_id, business_date
+  const aggregateByDate = filters?.inventoryItemId != null;
+
+  const query = aggregateByDate ? `
+    SELECT
+      inventory_item_id,
+      business_date::text as business_date,
+      '' as dma_id,
+      NULL as dc_id,
+      'ALL' as state,
+      1 as restaurant_id,
+      SUM(y_05) as y_05,
+      SUM(y_50) as y_50,
+      SUM(y_95) as y_95
+    FROM forecast_data
+    ${whereClause}
+    GROUP BY inventory_item_id, business_date
+    ORDER BY business_date DESC
+    LIMIT ${limit}
+  ` : `
     SELECT
       restaurant_id,
       inventory_item_id,
