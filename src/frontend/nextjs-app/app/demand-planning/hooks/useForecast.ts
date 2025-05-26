@@ -131,12 +131,9 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
   const fetchForecast = useCallback(async () => {
     console.log("useForecast: fetchForecast callback triggered");
 
-    // Check if inventory item is selected
-    if (!filterSelections?.inventoryItemId) {
-      console.log("useForecast: No inventory item selected, skipping fetch");
-      setIsLoading(false);
-      return;
-    }
+    // No longer require inventory item to be selected - fetch all data
+    // The ForecastCharts component will handle filtering by inventory item
+    console.log("useForecast: Fetching forecast data for all inventory items");
 
     // Create a new abort controller for this request
     const abortController = new AbortController();
@@ -178,12 +175,12 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
 
     console.log("useForecast: Starting real data fetch");
 
-    // Generate cache key
+    // Generate cache key - don't include inventoryItemId since we fetch all items
     const cacheKey = forecastCache.generateKey({
       states: filterSelections?.states,
       dmaIds: filterSelections?.dmaIds,
       dcIds: filterSelections?.dcIds,
-      inventoryItemId: filterSelections?.inventoryItemId,
+      // inventoryItemId is handled by ForecastCharts component
       startDate,
       endDate
     });
@@ -221,10 +218,11 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
             : filterSelections.states;
         }
 
-        // Add inventory item filter if specified
-        if (filterSelections.inventoryItemId) {
-          filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
-        }
+        // Don't filter by inventory item at the query level
+        // The ForecastCharts component will handle inventory item filtering
+        // if (filterSelections.inventoryItemId) {
+        //   filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
+        // }
 
         // Note: databaseService doesn't currently support dmaIds or dcIds filters directly
         // These are handled via client-side filtering after database query
@@ -369,13 +367,8 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       abortControllerRef.current = null;
     }
 
-    // Skip fetch if no inventory item is selected
-    if (!filterSelections?.inventoryItemId) {
-      console.log("useForecast: Skipping fetch - no inventory item selected");
-      setForecastData(null);
-      setIsLoading(false);
-      return;
-    }
+    // No longer skip fetch when no inventory item is selected
+    // We'll fetch all inventory items and let ForecastCharts handle filtering
 
     // No longer require location filters - we'll use aggregated queries for performance
 

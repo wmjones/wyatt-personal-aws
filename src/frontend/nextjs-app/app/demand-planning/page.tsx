@@ -108,24 +108,22 @@ export default function DemandPlanningPage() {
               <div>
                 <h1 className="text-2xl font-medium text-dp-text-primary">Sales Forecast</h1>
                 <p className="text-dp-text-secondary mt-1">
-                  {filterSelections.inventoryItemId
-                    ? (() => {
-                        const locations = [];
-                        if (filterSelections.states.length > 0) {
-                          locations.push(`${filterSelections.states.length} state${filterSelections.states.length !== 1 ? 's' : ''}`);
-                        }
-                        if (filterSelections.dmaIds.length > 0) {
-                          locations.push(`${filterSelections.dmaIds.length} DMA${filterSelections.dmaIds.length !== 1 ? 's' : ''}`);
-                        }
-                        if (filterSelections.dcIds.length > 0) {
-                          locations.push(`${filterSelections.dcIds.length} DC${filterSelections.dcIds.length !== 1 ? 's' : ''}`);
-                        }
-                        const locationText = locations.length > 0
-                          ? `for ${locations.join(', ')}`
-                          : 'across all locations';
-                        return `Viewing forecast for Item ${filterSelections.inventoryItemId} ${locationText}`;
-                      })()
-                    : 'Loading inventory items...'
+                  {(() => {
+                    const locations = [];
+                    if (filterSelections.states.length > 0) {
+                      locations.push(`${filterSelections.states.length} state${filterSelections.states.length !== 1 ? 's' : ''}`);
+                    }
+                    if (filterSelections.dmaIds.length > 0) {
+                      locations.push(`${filterSelections.dmaIds.length} DMA${filterSelections.dmaIds.length !== 1 ? 's' : ''}`);
+                    }
+                    if (filterSelections.dcIds.length > 0) {
+                      locations.push(`${filterSelections.dcIds.length} DC${filterSelections.dcIds.length !== 1 ? 's' : ''}`);
+                    }
+                    const locationText = locations.length > 0
+                      ? `Viewing forecast data ${locations.join(', ')}`
+                      : 'Viewing forecast data across all locations';
+                    return locationText;
+                  })()
                   }
                 </p>
               </div>
