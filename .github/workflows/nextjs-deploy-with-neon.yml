@@ -125,22 +125,29 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 13: Deploy to Vercel with environment variables
+      # Step 12a: Create environment variables in Vercel
+      - name: Set Vercel Environment Variables
+        working-directory: src/frontend/nextjs-app
+        run: |
+          echo "Creating environment variables in Vercel for preview..."
+
+          # Remove existing env vars if they exist (to update them)
+          vercel env rm DATABASE_URL preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+          vercel env rm DATABASE_URL_UNPOOLED preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+
+          # Add new env vars for preview environment
+          echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview --token=${{ secrets.VERCEL_TOKEN }}
+          echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview --token=${{ secrets.VERCEL_TOKEN }}
+
+          echo "✅ Environment variables created in Vercel"
+
+      # Step 13: Deploy to Vercel
       - name: Deploy to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
-          # Debug: Check if Neon outputs are available
-          DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}"
-          echo "DATABASE_URL is set: ${DATABASE_URL:+yes}"
-          echo "DATABASE_URL length: ${#DATABASE_URL}"
-
-          # Deploy with environment variables
-          # The correct syntax for vercel deploy with env vars
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            -e DATABASE_URL='${{ steps.create_neon_branch.outputs.db_url_with_pooler }}' \
-            -e DATABASE_URL_UNPOOLED='${{ steps.create_neon_branch.outputs.db_url }}')
+          # Deploy to Vercel (env vars are already set in the project)
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
 
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $DEPLOYMENT_URL"
