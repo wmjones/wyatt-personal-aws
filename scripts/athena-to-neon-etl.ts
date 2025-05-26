@@ -130,7 +130,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
   try {
     console.log('Executing Athena query...');
     console.log('Query:', query);
-    
+
     // Start query execution
     const startCommand = new StartQueryExecutionCommand({
       QueryString: query,
@@ -162,7 +162,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
 
       const statusResponse = await athenaClient.send(getStatusCommand);
       status = statusResponse.QueryExecution?.Status?.State || 'UNKNOWN';
-      
+
       if (attempts % 5 === 0) {
         console.log(`Query status: ${status} (attempt ${attempts})`);
       }

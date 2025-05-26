@@ -8,12 +8,12 @@ const getEnvironment = () => {
   if (process.env.ENVIRONMENT) {
     return process.env.ENVIRONMENT;
   }
-  
+
   // Try to get from git branch
   try {
     const { execSync } = require('child_process');
     const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
-    
+
     if (branch === 'main' || branch === 'master') {
       return 'prod';
     } else if (branch === 'dev' || branch === 'develop') {
@@ -159,7 +159,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
   try {
     console.log('Executing Athena query...');
     console.log('Query:', query);
-    
+
     // Start query execution
     const startCommand = new StartQueryExecutionCommand({
       QueryString: query,
@@ -189,7 +189,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
 
       const statusResponse = await athenaClient.send(getStatusCommand);
       status = statusResponse.QueryExecution?.Status?.State || 'UNKNOWN';
-      
+
       if (attempts % 5 === 0) {
         console.log(`Query status: ${status} (attempt ${attempts})`);
       }
@@ -205,7 +205,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
     const allRows = [];
     let nextToken: string | undefined;
     let isFirstPage = true;
-    
+
     do {
       const getResultsCommand = new GetQueryResultsCommand({
         QueryExecutionId,
@@ -215,7 +215,7 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
 
       const results = await athenaClient.send(getResultsCommand);
       const rows = results.ResultSet?.Rows || [];
-      
+
       // On first page, save header row, on subsequent pages skip it
       if (isFirstPage) {
         allRows.push(...rows);
@@ -224,14 +224,14 @@ async function executeAthenaQuery(query: string): Promise<any[]> {
         // Skip the header row on subsequent pages
         allRows.push(...rows.slice(1));
       }
-      
+
       nextToken = results.NextToken;
     } while (nextToken);
 
     // Convert to objects
     const data = [];
     const headerRow = allRows[0];
-    
+
     for (let i = 1; i < allRows.length; i++) {
       const row = allRows[i];
       const record: any = {};
@@ -323,23 +323,23 @@ async function migrateData(batchSize: number = 10000) {
 
       if (batchData.length > 0) {
         console.log(`Processing ${batchData.length} records...`);
-        
+
         // Process in smaller chunks to avoid timeout/memory issues
         const CHUNK_SIZE = 5000;
         for (let i = 0; i < batchData.length; i += CHUNK_SIZE) {
           const chunk = batchData.slice(i, i + CHUNK_SIZE);
-          
+
           const client = await pgPool.connect();
           try {
             await client.query('BEGIN');
-            
+
             // Use COPY for better performance with large datasets
-            const values = chunk.map(record => 
+            const values = chunk.map(record =>
               `(${record.restaurant_id},${record.inventory_item_id},'${record.business_date}',` +
               `${record.dma_id ? `'${record.dma_id}'` : 'NULL'},${record.dc_id || 'NULL'},'${record.state}',` +
               `${record.y_05 || 'NULL'},${record.y_50},${record.y_95 || 'NULL'})`
             ).join(',');
-            
+
             const bulkInsertQuery = `
               INSERT INTO forecast_data (
                 restaurant_id, inventory_item_id, business_date,
@@ -355,10 +355,10 @@ async function migrateData(batchSize: number = 10000) {
                 y_95 = EXCLUDED.y_95,
                 updated_at = CURRENT_TIMESTAMP
             `;
-            
+
             await client.query(bulkInsertQuery);
             await client.query('COMMIT');
-            
+
             totalMigrated += chunk.length;
             console.log(`Migrated chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(batchData.length/CHUNK_SIZE)} (${chunk.length} records). Total: ${totalMigrated}/${totalRecords} (${(totalMigrated/totalRecords*100).toFixed(2)}%)`);
           } catch (error) {
