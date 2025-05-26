@@ -53,9 +53,21 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {
-    const y_05Data = baselineDataset.map(d => ({ ...d, value: d.value * 0.85 })); // Lower bound
-    const y_50Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.0 }));  // Median (baseline)
-    const y_95Data = baselineDataset.map(d => ({ ...d, value: d.value * 1.15 })); // Upper bound
+    // Use actual forecast values from the dataset if available
+    const y_05Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_05 !== undefined ? d.y_05 : d.value * 0.85
+    }));
+
+    const y_50Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_50 !== undefined ? d.y_50 : d.value
+    }));
+
+    const y_95Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_95 !== undefined ? d.y_95 : d.value * 1.15
+    }));
 
     return { y_05Data, y_50Data, y_95Data };
   }, [baselineDataset]);

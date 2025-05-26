@@ -30,9 +30,9 @@ function transformQueryToForecastData(
   const inventoryItemsMap = new Map<string, string>();
   const datesSet = new Set<string>();
 
-  // Expected columns: [business_date, inventory_item_id, restaurant_id, state, dma_id, dc_id, y_50]
+  // Expected columns: [restaurant_id, inventory_item_id, business_date, dma_id, dc_id, state, y_05, y_50, y_95]
   queryResponse.data.rows.forEach(row => {
-    const [businessDate, inventoryItemId, , state, dmaId, dcId, y50Value] = row;
+    const [, inventoryItemId, businessDate, dmaId, dcId, state, y05Value, y50Value, y95Value] = row;
 
     // Normalize business date format (handle both strings and Date objects)
     const normalizedDate = typeof businessDate === 'string'
@@ -57,6 +57,10 @@ function transformQueryToForecastData(
       state,
       dmaId,
       dcId,
+      // Include all forecast values
+      y_05: parseFloat(y05Value) || 0,
+      y_50: parseFloat(y50Value) || 0,
+      y_95: parseFloat(y95Value) || 0,
     });
   });
 
@@ -270,11 +274,18 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         if (aggregationMap.has(key)) {
           const existing = aggregationMap.get(key)!;
           existing.value += dataPoint.value;
+          // Aggregate confidence intervals
+          existing.y_05 = (existing.y_05 || 0) + (dataPoint.y_05 || 0);
+          existing.y_50 = (existing.y_50 || 0) + (dataPoint.y_50 || 0);
+          existing.y_95 = (existing.y_95 || 0) + (dataPoint.y_95 || 0);
         } else {
           aggregationMap.set(key, {
             periodId: dataPoint.periodId,
             value: dataPoint.value,
             inventoryItemId: dataPoint.inventoryItemId,
+            y_05: dataPoint.y_05,
+            y_50: dataPoint.y_50,
+            y_95: dataPoint.y_95,
           });
         }
       });
