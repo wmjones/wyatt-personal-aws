@@ -4,6 +4,9 @@ export * from './primitives';
 // Feedback
 export * from './feedback';
 
+// Forms
+export * from './forms';
+
 // Theme and utilities
 export { theme } from './theme';
 export * from './utils';

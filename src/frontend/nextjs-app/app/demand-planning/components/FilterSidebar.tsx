@@ -198,7 +198,6 @@ export default function FilterSidebar({
                 onSelectionChange(newSelections);
               }}
               placeholder="Select inventory item..."
-              searchPlaceholder="Search items..."
             />
 
             <div className="border-t border-dp-frame-border pt-4">
@@ -214,7 +213,6 @@ export default function FilterSidebar({
               selectedValues={localSelections.states}
               onChange={(values) => handleFilterChange('states', values)}
               placeholder="Select states..."
-              searchPlaceholder="Search states..."
               maxDisplayItems={2}
             />
 
@@ -225,7 +223,6 @@ export default function FilterSidebar({
               selectedValues={localSelections.dmaIds}
               onChange={(values) => handleFilterChange('dmaIds', values)}
               placeholder="Select DMAs..."
-              searchPlaceholder="Search DMAs..."
               maxDisplayItems={2}
             />
 
@@ -236,7 +233,6 @@ export default function FilterSidebar({
               selectedValues={localSelections.dcIds}
               onChange={(values) => handleFilterChange('dcIds', values)}
               placeholder="Select DCs..."
-              searchPlaceholder="Search DCs..."
               maxDisplayItems={2}
             />
           </>
