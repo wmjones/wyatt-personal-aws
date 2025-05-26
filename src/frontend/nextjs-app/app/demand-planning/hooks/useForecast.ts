@@ -45,7 +45,9 @@ function transformQueryToForecastData(
     datesSet.add(normalizedDate);
 
     // Track inventory items
-    inventoryItemsMap.set(inventoryItemId, `Item ${inventoryItemId}`);
+    if (inventoryItemId != null) {
+      inventoryItemsMap.set(String(inventoryItemId), `Item ${inventoryItemId}`);
+    }
 
     // Generate period ID for this date
     const periodId = `day-${normalizedDate}`;
@@ -53,10 +55,10 @@ function transformQueryToForecastData(
     forecastData.push({
       periodId,
       value: parseFloat(y50Value) || 0,
-      inventoryItemId,
-      state,
-      dmaId,
-      dcId,
+      inventoryItemId: inventoryItemId != null ? String(inventoryItemId) : undefined,
+      state: state != null ? String(state) : undefined,
+      dmaId: dmaId != null ? String(dmaId) : undefined,
+      dcId: dcId != null ? String(dcId) : undefined,
       // Include all forecast values
       y_05: parseFloat(y05Value) || 0,
       y_50: parseFloat(y50Value) || 0,

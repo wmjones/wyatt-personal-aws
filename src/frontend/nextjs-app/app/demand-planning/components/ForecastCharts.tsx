@@ -42,7 +42,7 @@ const ForecastCharts = memo(function ForecastCharts({
   const filteredBaselineData = useMemo(() => {
     if (!selectedInventoryItemId) return forecastData.baseline;
     return forecastData.baseline.filter(item =>
-      item.inventoryItemId === selectedInventoryItemId
+      item.inventoryItemId && String(item.inventoryItemId) === String(selectedInventoryItemId)
     );
   }, [forecastData.baseline, selectedInventoryItemId]);
 
@@ -52,7 +52,7 @@ const ForecastCharts = memo(function ForecastCharts({
 
     // Filter adjusted data by selected inventory item
     const filtered = forecastData.adjusted.filter(item =>
-      item.inventoryItemId === selectedInventoryItemId
+      item.inventoryItemId && String(item.inventoryItemId) === String(selectedInventoryItemId)
     );
 
     // Return filtered data or undefined if no data for this item
@@ -79,7 +79,7 @@ const ForecastCharts = memo(function ForecastCharts({
               id="inventory-item-select"
               value={selectedInventoryItemId || ''}
               onChange={handleInventoryItemChange}
-              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white relative z-10"
             >
               {forecastData.inventoryItems.map(item => (
                 <option key={item.id} value={item.id}>
