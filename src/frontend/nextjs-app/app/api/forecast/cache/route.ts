@@ -136,15 +136,6 @@ export async function POST(request: NextRequest) {
         const startDate = toPostgresDate(tsFilters.startDate);
         const endDate = toPostgresDate(tsFilters.endDate);
 
-        // Debug logging
-        console.log('Cache timeseries insert:', {
-          startDateRaw: tsFilters.startDate,
-          startDateConverted: startDate,
-          endDateRaw: tsFilters.endDate,
-          endDateConverted: endDate,
-          parameterOrder: ['cacheKey', 'fingerprint', 'state', 'startDate', 'endDate', 'data', 'expiresAt']
-        });
-
         await query(`
           INSERT INTO forecast_cache.timeseries_cache
           (cache_key, query_fingerprint, state, start_date, end_date, data, expires_at)
