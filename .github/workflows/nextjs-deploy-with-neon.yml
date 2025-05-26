@@ -40,13 +40,17 @@ jobs:
         run: |
           if [ -z "${{ secrets.NEON_API_KEY }}" ]; then
             echo "❌ NEON_API_KEY is not set in GitHub secrets"
+            echo "Please add NEON_API_KEY to your repository secrets"
+            exit 1
           else
             echo "✅ NEON_API_KEY is available"
           fi
           if [ -z "${{ secrets.NEON_PROJECT_ID }}" ]; then
             echo "❌ NEON_PROJECT_ID is not set in GitHub secrets"
+            echo "Please add NEON_PROJECT_ID to your repository secrets"
+            exit 1
           else
-            echo "✅ NEON_PROJECT_ID is available"
+            echo "✅ NEON_PROJECT_ID is available (value: ${{ secrets.NEON_PROJECT_ID }})"
           fi
 
       # Step 4: Create Neon Branch
@@ -58,6 +62,8 @@ jobs:
           branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           username: neondb_owner
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
       # Step 5: Setup Node.js
       - name: Setup Node.js
