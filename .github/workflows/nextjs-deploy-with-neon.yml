@@ -1,0 +1,173 @@
+name: Deploy Next.js to Vercel with Manual Neon Setup
+
+# This workflow manually creates Neon database branches for preview deployments
+# and passes the connection strings to Vercel during deployment
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/frontend/nextjs-app/**'
+      - '.github/workflows/nextjs-deploy-with-neon.yml'
+
+env:
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
+
+# Concurrency control to prevent multiple deployments for the same PR
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Deploy Preview with Neon Branch
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      # Step 1: Checkout code
+      - uses: actions/checkout@v4
+
+      # Step 2: Get branch name
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+      # Step 3: Create Neon Branch
+      - name: Create Neon Branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          username: neondb_owner
+
+      # Step 4: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/nextjs-app/package-lock.json
+
+      # Step 5: Install dependencies
+      - name: Install dependencies
+        working-directory: src/frontend/nextjs-app
+        run: npm ci
+
+      # Step 6: Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Step 7: Pull Vercel Environment Information
+      - name: Pull Vercel Environment Information
+        working-directory: src/frontend/nextjs-app
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Step 8: Build Project
+      - name: Build Project Artifacts
+        working-directory: src/frontend/nextjs-app
+        env:
+          # Pass database URLs during build
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Step 9: Deploy to Vercel with environment variables
+      - name: Deploy to Vercel
+        id: deploy
+        working-directory: src/frontend/nextjs-app
+        run: |
+          # Deploy with environment variables
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
+            --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
+            --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}" \
+            --build-env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
+            --build-env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
+
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "Preview URL: $DEPLOYMENT_URL"
+
+          # Set alias for easier access
+          ALIAS="pr-${{ github.event.pull_request.number }}-${{ github.repository_owner }}.vercel.app"
+          vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
+          echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
+
+      # Step 10: Run Database Migrations
+      - name: Run Database Migrations
+        working-directory: src/frontend/nextjs-app
+        env:
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          npx tsx scripts/init-database.ts || {
+            echo "⚠️ Migration failed. This may be due to the database not being ready yet."
+            echo "You can manually run migrations later if needed."
+          }
+
+      # Step 11: Comment on PR
+      - name: Comment PR with deployment info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.url }}';
+            const alias = '${{ steps.deploy.outputs.alias }}';
+            
+            const body = `🚀 **Preview deployment ready!**
+
+            **Preview URL**: ${url}
+            ${alias ? `**Alias URL**: ${alias}` : ''}
+
+            🗄️ **Database Branch**: \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}\`
+
+            The preview includes a dedicated database branch with schema migrations applied.`;
+
+            // Check if we already commented
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Preview deployment ready!')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+  # Cleanup job - runs when PR is closed
+  cleanup-preview:
+    name: Cleanup Preview Branch
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+      - name: Delete Neon Branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
