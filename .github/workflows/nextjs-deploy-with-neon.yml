@@ -110,15 +110,39 @@ jobs:
         run: |
           npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
+      # Step 7.5: Set preview environment variables using Vercel API
+      - name: Set Neon Database URLs in Vercel
+        run: |
+          # Use Vercel API to set environment variables for this deployment
+          curl -X POST "https://api.vercel.com/v10/projects/${{ env.VERCEL_PROJECT_ID }}/env" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "key": "DATABASE_URL",
+              "value": "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}",
+              "type": "encrypted",
+              "target": ["preview"],
+              "gitBranch": "${{ needs.setup.outputs.branch }}"
+            }' || echo "Note: DATABASE_URL may already exist"
+
+          curl -X POST "https://api.vercel.com/v10/projects/${{ env.VERCEL_PROJECT_ID }}/env" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "key": "DATABASE_URL_UNPOOLED",
+              "value": "${{ steps.create_neon_branch.outputs.db_url }}",
+              "type": "encrypted",
+              "target": ["preview"],
+              "gitBranch": "${{ needs.setup.outputs.branch }}"
+            }' || echo "Note: DATABASE_URL_UNPOOLED may already exist"
+
       # Step 8: Deploy with improved URL capture and alias
       - name: Deploy Project Artifacts to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
           # Deploy and capture URL
-          DEPLOYMENT_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
-            --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
+          DEPLOYMENT_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
 
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $DEPLOYMENT_URL"
