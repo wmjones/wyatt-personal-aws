@@ -78,16 +78,45 @@ jobs:
         working-directory: src/frontend/nextjs-app
         run: npm ci
 
-      # Step 7: Install Vercel CLI
+      # Step 7: Run linter
+      - name: Run linter
+        id: lint
+        working-directory: src/frontend/nextjs-app
+        run: npm run lint
+        continue-on-error: true
+
+      # Step 8: Run type check
+      - name: Run type check
+        id: typecheck
+        working-directory: src/frontend/nextjs-app
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      # Step 9: Code Quality Check Results
+      - name: Code Quality Check Results
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
+        run: |
+          echo "## ❌ Code Quality Issues Found"
+          if [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "- Linting failed"
+          fi
+          if [ "${{ steps.typecheck.outcome }}" == "failure" ]; then
+            echo "- Type checking failed"
+          fi
+          echo ""
+          echo "Please fix these issues before deployment."
+          exit 1
+
+      # Step 10: Install Vercel CLI
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # Step 8: Pull Vercel Environment Information
+      # Step 11: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 9: Build Project
+      # Step 12: Build Project
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
         env:
@@ -96,7 +125,7 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 10: Deploy to Vercel with environment variables
+      # Step 13: Deploy to Vercel with environment variables
       - name: Deploy to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
@@ -116,7 +145,7 @@ jobs:
           vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
           echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
 
-      # Step 11: Run Database Migrations
+      # Step 14: Run Database Migrations
       - name: Run Database Migrations
         working-directory: src/frontend/nextjs-app
         env:
@@ -128,22 +157,29 @@ jobs:
             echo "You can manually run migrations later if needed."
           }
 
-      # Step 12: Comment on PR
+      # Step 15: Comment on PR
       - name: Comment PR with deployment info
         uses: actions/github-script@v7
         with:
           script: |
             const url = '${{ steps.deploy.outputs.url }}';
             const alias = '${{ steps.deploy.outputs.alias }}';
-            
-            const body = `🚀 **Preview deployment ready!**
+            const lintSuccess = '${{ steps.lint.outcome }}' === 'success';
+            const typeSuccess = '${{ steps.typecheck.outcome }}' === 'success';
 
-            **Preview URL**: ${url}
-            ${alias ? `**Alias URL**: ${alias}` : ''}
+            let body = `## 🚀 Preview Deployment Ready!\n\n`;
 
-            🗄️ **Database Branch**: \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}\`
+            // Code quality section
+            body += `### 🔍 Code Quality Checks\n`;
+            body += `- Linting: ${lintSuccess ? '✅ Passed' : '❌ Failed'}\n`;
+            body += `- Type Check: ${typeSuccess ? '✅ Passed' : '❌ Failed'}\n\n`;
 
-            The preview includes a dedicated database branch with schema migrations applied.`;
+            // Deployment section
+            body += `### 🌐 Deployment Details\n`;
+            body += `**Preview URL**: ${url}\n`;
+            if (alias) body += `**Alias URL**: ${alias}\n`;
+            body += `\n🗄️ **Database Branch**: \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}\`\n\n`;
+            body += `The preview includes a dedicated database branch with schema migrations applied.`;
 
             // Check if we already commented
             const { data: comments } = await github.rest.issues.listComments({
@@ -151,12 +187,12 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('Preview deployment ready!')
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Preview Deployment Ready!')
             );
-            
+
             if (botComment) {
               // Update existing comment
               await github.rest.issues.updateComment({

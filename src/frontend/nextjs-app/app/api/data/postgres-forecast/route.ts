@@ -128,12 +128,22 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 
   if (filters?.startDate) {
     conditions.push(`business_date >= $${++paramCount}`);
-    values.push(filters.startDate);
+    // Ensure date is in YYYY-MM-DD format
+    const startDateStr = String(filters.startDate);
+    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
+      ? new Date(startDateStr).toISOString().split('T')[0]
+      : startDateStr;
+    values.push(startDate);
   }
 
   if (filters?.endDate) {
     conditions.push(`business_date <= $${++paramCount}`);
-    values.push(filters.endDate);
+    // Ensure date is in YYYY-MM-DD format
+    const endDateStr = String(filters.endDate);
+    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
+      ? new Date(endDateStr).toISOString().split('T')[0]
+      : endDateStr;
+    values.push(endDate);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -295,12 +305,22 @@ async function getDashboardForecast(filters: DashboardFilters) {
 
   if (filters?.startDate) {
     conditions.push(`business_date >= $${++paramCount}`);
-    values.push(filters.startDate);
+    // Ensure date is in YYYY-MM-DD format
+    const startDateStr = String(filters.startDate);
+    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
+      ? new Date(startDateStr).toISOString().split('T')[0]
+      : startDateStr;
+    values.push(startDate);
   }
 
   if (filters?.endDate) {
     conditions.push(`business_date <= $${++paramCount}`);
-    values.push(filters.endDate);
+    // Ensure date is in YYYY-MM-DD format
+    const endDateStr = String(filters.endDate);
+    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
+      ? new Date(endDateStr).toISOString().split('T')[0]
+      : endDateStr;
+    values.push(endDate);
   }
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
