@@ -130,12 +130,17 @@ jobs:
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
+          # Debug: Check if Neon outputs are available
+          DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}"
+          echo "DATABASE_URL is set: ${DATABASE_URL:+yes}"
+          echo "DATABASE_URL length: ${#DATABASE_URL}"
+
           # Deploy with environment variables
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
-            --env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}" \
-            --build-env DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-            --build-env DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}")
+          # The correct syntax for vercel deploy with env vars
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            -e DATABASE_URL='${{ steps.create_neon_branch.outputs.db_url_with_pooler }}' \
+            -e DATABASE_URL_UNPOOLED='${{ steps.create_neon_branch.outputs.db_url }}')
 
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $DEPLOYMENT_URL"
