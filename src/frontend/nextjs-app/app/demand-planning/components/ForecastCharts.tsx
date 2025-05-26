@@ -79,10 +79,10 @@ const ForecastCharts = memo(function ForecastCharts({
               id="inventory-item-select"
               value={selectedInventoryItemId || ''}
               onChange={handleInventoryItemChange}
-              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white relative z-10"
+              className="px-3 py-2 text-sm border border-dp-frame-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-dp-surface-primary text-dp-text-primary appearance-none cursor-pointer"
             >
               {forecastData.inventoryItems.map(item => (
-                <option key={item.id} value={item.id}>
+                <option key={item.id} value={item.id} className="bg-white text-gray-900">
                   {item.name || `Item ${item.id}`}
                 </option>
               ))}

@@ -309,7 +309,10 @@ async function getDistinctValues(column: string) {
   `;
 
   const result = await pool.query(query);
-  return result.rows.map(row => row[column].toString());
+  return result.rows.map(row => {
+    const value = row[column];
+    return value != null ? String(value) : '';
+  }).filter(value => value !== '');
 }
 
 interface DashboardFilters {

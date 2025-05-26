@@ -30,15 +30,15 @@ export const forecastService = {
       data: {
         columns: ['restaurant_id', 'inventory_item_id', 'business_date', 'dma_id', 'dc_id', 'state', 'y_05', 'y_50', 'y_95'],
         rows: data.map(row => [
-          row.restaurant_id.toString(),
-          row.inventory_item_id.toString(),
+          String(row.restaurant_id),
+          String(row.inventory_item_id),
           row.business_date,
           row.dma_id || '',
-          row.dc_id?.toString() || '',
+          row.dc_id != null ? String(row.dc_id) : '',
           row.state,
-          row.y_05.toString(),
-          row.y_50.toString(),
-          row.y_95.toString()
+          String(row.y_05),
+          String(row.y_50),
+          String(row.y_95)
         ])
       }
     };
