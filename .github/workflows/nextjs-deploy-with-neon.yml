@@ -35,17 +35,31 @@ jobs:
         id: branch_name
         uses: tj-actions/branch-names@v8
 
-      # Step 3: Create Neon Branch
+      # Step 3: Debug - Check if secrets are available
+      - name: Check secrets availability
+        run: |
+          if [ -z "${{ secrets.NEON_API_KEY }}" ]; then
+            echo "❌ NEON_API_KEY is not set in GitHub secrets"
+          else
+            echo "✅ NEON_API_KEY is available"
+          fi
+          if [ -z "${{ secrets.NEON_PROJECT_ID }}" ]; then
+            echo "❌ NEON_PROJECT_ID is not set in GitHub secrets"
+          else
+            echo "✅ NEON_PROJECT_ID is available"
+          fi
+
+      # Step 4: Create Neon Branch
       - name: Create Neon Branch
         id: create_neon_branch
         uses: neondatabase/create-branch-action@v5
         with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
           branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           username: neondb_owner
 
-      # Step 4: Setup Node.js
+      # Step 5: Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -53,21 +67,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: src/frontend/nextjs-app/package-lock.json
 
-      # Step 5: Install dependencies
+      # Step 6: Install dependencies
       - name: Install dependencies
         working-directory: src/frontend/nextjs-app
         run: npm ci
 
-      # Step 6: Install Vercel CLI
+      # Step 7: Install Vercel CLI
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # Step 7: Pull Vercel Environment Information
+      # Step 8: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 8: Build Project
+      # Step 9: Build Project
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
         env:
@@ -76,7 +90,7 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 9: Deploy to Vercel with environment variables
+      # Step 10: Deploy to Vercel with environment variables
       - name: Deploy to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
@@ -96,7 +110,7 @@ jobs:
           vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
           echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
 
-      # Step 10: Run Database Migrations
+      # Step 11: Run Database Migrations
       - name: Run Database Migrations
         working-directory: src/frontend/nextjs-app
         env:
@@ -108,7 +122,7 @@ jobs:
             echo "You can manually run migrations later if needed."
           }
 
-      # Step 11: Comment on PR
+      # Step 12: Comment on PR
       - name: Comment PR with deployment info
         uses: actions/github-script@v7
         with:
@@ -168,6 +182,6 @@ jobs:
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
         with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
           branch: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
