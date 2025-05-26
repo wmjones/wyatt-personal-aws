@@ -186,6 +186,19 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   `;
 
   const result = await pool.query(query, values);
+
+  // Debug logging for aggregated queries
+  if (aggregateByDate) {
+    console.log('Aggregated forecast query:', {
+      inventoryItemId: filters?.inventoryItemId,
+      rowCount: result.rows.length,
+      sampleRows: result.rows.slice(0, 3).map(row => ({
+        date: row.business_date,
+        y_50: row.y_50
+      }))
+    });
+  }
+
   return result.rows;
 }
 

@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
             data = EXCLUDED.data,
             updated_at = NOW(),
             expires_at = EXCLUDED.expires_at
-        `, [cacheKey, fingerprint, filters.state, JSON.stringify(summaryData), expiresAt]);
+        `, [cacheKey, fingerprint, filters.state ? String(filters.state).substring(0, 10) : null, JSON.stringify(summaryData), expiresAt]);
 
         return NextResponse.json({ success: true });
 
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         `, [
           tsCacheKey,
           tsFingerprint,
-          tsFilters.state,
+          tsFilters.state ? String(tsFilters.state).substring(0, 10) : null, // Truncate to fit varchar(10) until schema is updated
           startDate,
           endDate,
           JSON.stringify(timeseriesData),
