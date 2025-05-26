@@ -209,20 +209,36 @@ async function getForecastSummary(state?: string) {
 async function getForecastByDate(filters: {
   start_date?: string;
   end_date?: string;
+  startDate?: string;  // Support both camelCase and snake_case
+  endDate?: string;    // Support both camelCase and snake_case
   state?: string;
 }) {
   const conditions: string[] = [];
   const values: string[] = [];
   let paramCount = 0;
 
-  if (filters?.start_date) {
+  // Support both camelCase and snake_case
+  const startDateValue = filters?.start_date || filters?.startDate;
+  const endDateValue = filters?.end_date || filters?.endDate;
+
+  if (startDateValue) {
     conditions.push(`business_date >= $${++paramCount}`);
-    values.push(filters.start_date);
+    // Ensure date is in YYYY-MM-DD format
+    const startDateStr = String(startDateValue);
+    const startDate = startDateStr.includes('T') || startDateStr.includes('GMT')
+      ? new Date(startDateStr).toISOString().split('T')[0]
+      : startDateStr;
+    values.push(startDate);
   }
 
-  if (filters?.end_date) {
+  if (endDateValue) {
     conditions.push(`business_date <= $${++paramCount}`);
-    values.push(filters.end_date);
+    // Ensure date is in YYYY-MM-DD format
+    const endDateStr = String(endDateValue);
+    const endDate = endDateStr.includes('T') || endDateStr.includes('GMT')
+      ? new Date(endDateStr).toISOString().split('T')[0]
+      : endDateStr;
+    values.push(endDate);
   }
 
   if (filters?.state) {
