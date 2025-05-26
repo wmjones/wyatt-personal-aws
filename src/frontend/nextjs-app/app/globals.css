@@ -45,26 +45,37 @@
   --dp-footer-height: 60px;
 
   /* Enhanced design principles variables */
+  --dp-cfa-red: #e83b45;
   --dp-cfa-red-primary: #DD0033;
   --dp-cfa-red-light: #FF6B8A;
   --dp-cfa-red-subtle: #FFF5F7;
   --dp-cfa-red-border: #FFE1E6;
+  --dp-primary-hover: #d6333c;
   --dp-gray-50: #FAFAFA;
   --dp-gray-100: #F5F5F5;
 
   /* Text hierarchy */
-  --dp-text-primary: #333333;
-  --dp-text-secondary: #6B7280;
-  --dp-text-tertiary: #9CA3AF;
+  --dp-text-primary: #111827;
+  --dp-text-secondary: #4b5563;
+  --dp-text-tertiary: #9ca3af;
+  --dp-text-inverse: #ffffff;
 
   /* Background levels */
   --dp-background-primary: #FFFFFF;
   --dp-background-secondary: #F9FAFB;
   --dp-background-tertiary: #F3F4F6;
+  --dp-background-elevated: #FFFFFF;
+
+  /* Surface colors */
+  --dp-surface-elevated: #FFFFFF;
 
   /* UI state colors */
   --dp-ui-positive: #059669;
   --dp-ui-negative: #DC2626;
+  --dp-status-success: #10b981;
+  --dp-status-warning: #f59e0b;
+  --dp-status-error: #ef4444;
+  --dp-status-info: #3b82f6;
 
   /* Chart brush colors */
   --dp-chart-brush-fill: #3B82F6;
