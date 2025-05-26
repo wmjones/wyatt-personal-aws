@@ -206,6 +206,29 @@ export default function UIDemo() {
           </Card>
         </div>
       </section>
+
+      {/* Chart Components Section */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold mb-4">Chart Components</h2>
+        <p className="text-dp-text-secondary mb-6">
+          Chart components are now standardized with consistent styling, loading states, and interactions.
+          See the demand-planning dashboard for live examples using the new chart library.
+        </p>
+
+        <div className="grid grid-cols-1 gap-6">
+          <Card padding="lg">
+            <h3 className="font-medium mb-4">Chart Features</h3>
+            <ul className="space-y-2 text-sm text-dp-text-secondary">
+              <li>• ChartContainer with responsive sizing and state management</li>
+              <li>• Reusable ChartAxis, ChartGrid, and ChartLegend components</li>
+              <li>• ChartTooltip with multiple content builders</li>
+              <li>• useD3Chart hook for consistent D3 setup</li>
+              <li>• Scale utilities and configuration system</li>
+              <li>• Full TypeScript support with comprehensive types</li>
+            </ul>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }
