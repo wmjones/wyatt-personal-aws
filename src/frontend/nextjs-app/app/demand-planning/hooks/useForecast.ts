@@ -207,6 +207,8 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
         endDate: string;
         state?: string | string[];
         inventoryItemId?: number;
+        dmaId?: string | string[];
+        dcId?: number | number[];
       } = {
         startDate,
         endDate,
@@ -226,8 +228,19 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
           filters.inventoryItemId = parseInt(filterSelections.inventoryItemId);
         }
 
-        // Note: databaseService doesn't currently support dmaIds or dcIds filters directly
-        // These are handled via client-side filtering after database query
+        // Add DMA filter if specified
+        if (filterSelections.dmaIds.length > 0) {
+          filters.dmaId = filterSelections.dmaIds.length === 1
+            ? filterSelections.dmaIds[0]
+            : filterSelections.dmaIds;
+        }
+
+        // Add DC filter if specified
+        if (filterSelections.dcIds.length > 0) {
+          filters.dcId = filterSelections.dcIds.length === 1
+            ? parseInt(filterSelections.dcIds[0])
+            : filterSelections.dcIds.map(id => parseInt(id));
+        }
       }
 
       console.log("useForecast: Querying with filters:", filters);
@@ -259,10 +272,14 @@ export default function useForecast({ hierarchySelections, timePeriodIds, filter
       const aggregationMap = new Map<string, ForecastDataPoint>();
 
       rawForecastData.forEach(dataPoint => {
-        // Apply client-side filtering for unsupported filters (DMA, DC)
-        if (filterSelections) {
+        // For aggregated data (when filtering by inventory item), DC/DMA filters
+        // are already applied at the database level, so skip client-side filtering
+        const isAggregatedData = dataPoint.dmaId === 'AGGREGATED' || dataPoint.dcId === '-1';
+
+        if (filterSelections && !isAggregatedData) {
           const { dmaIds, dcIds } = filterSelections;
 
+          // Additional client-side filtering for edge cases
           if (dmaIds.length > 0 && !dmaIds.includes(dataPoint.dmaId || '')) {
             return;
           }

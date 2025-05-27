@@ -127,6 +127,28 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     }
   }
 
+  if (filters?.dmaId) {
+    if (Array.isArray(filters.dmaId)) {
+      const placeholders = filters.dmaId.map(() => `$${++paramCount}`).join(',');
+      conditions.push(`dma_id IN (${placeholders})`);
+      values.push(...filters.dmaId);
+    } else {
+      conditions.push(`dma_id = $${++paramCount}`);
+      values.push(filters.dmaId);
+    }
+  }
+
+  if (filters?.dcId) {
+    if (Array.isArray(filters.dcId)) {
+      const placeholders = filters.dcId.map(() => `$${++paramCount}`).join(',');
+      conditions.push(`dc_id IN (${placeholders})`);
+      values.push(...filters.dcId);
+    } else {
+      conditions.push(`dc_id = $${++paramCount}`);
+      values.push(filters.dcId);
+    }
+  }
+
   if (filters?.startDate) {
     const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
@@ -156,8 +178,8 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     SELECT
       inventory_item_id,
       business_date::text as business_date,
-      '' as dma_id,
-      NULL as dc_id,
+      'AGGREGATED' as dma_id,
+      -1 as dc_id,
       'ALL' as state,
       1 as restaurant_id,
       SUM(y_05) as y_05,
