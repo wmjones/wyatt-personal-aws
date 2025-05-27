@@ -1,0 +1,175 @@
+name: Manual Athena to Neon ETL
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target Neon branch (leave empty for main)'
+        required: false
+        type: string
+        default: ''
+      data_mode:
+        description: 'Data sync mode'
+        required: true
+        type: choice
+        options:
+          - full
+          - schema-only
+          - test-data
+        default: full
+      table_filter:
+        description: 'Specific tables to sync (comma-separated, empty for all)'
+        required: false
+        type: string
+        default: ''
+      date_range_days:
+        description: 'Number of days to sync (0 for all data)'
+        required: false
+        type: number
+        default: 0
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '20'
+
+jobs:
+  manual-etl:
+    name: Execute Athena to Neon ETL
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'scripts/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: |
+          npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE }}
+          role-session-name: athena-etl-session
+
+      - name: Get Neon branch connection
+        id: neon-branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+        run: |
+          # If no target branch specified, use main branch connection
+          if [ -z "$TARGET_BRANCH" ]; then
+            echo "Using main branch connection"
+            echo "connection_string=${{ secrets.NEON_DATABASE_URL }}" >> $GITHUB_OUTPUT
+            echo "branch_id=main" >> $GITHUB_OUTPUT
+          else
+            echo "Getting connection for branch: $TARGET_BRANCH"
+            # Get branch details using Neon API
+            BRANCH_RESPONSE=$(curl -s -H "Authorization: Bearer $NEON_API_KEY" \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches")
+
+            # Extract branch ID and endpoint
+            BRANCH_ID=$(echo "$BRANCH_RESPONSE" | jq -r ".branches[] | select(.name == \"$TARGET_BRANCH\") | .id")
+
+            if [ -z "$BRANCH_ID" ]; then
+              echo "Error: Branch $TARGET_BRANCH not found"
+              exit 1
+            fi
+
+            # Get endpoint for branch
+            ENDPOINT_RESPONSE=$(curl -s -H "Authorization: Bearer $NEON_API_KEY" \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$BRANCH_ID/endpoints")
+
+            ENDPOINT_ID=$(echo "$ENDPOINT_RESPONSE" | jq -r '.endpoints[0].id')
+            CONNECTION_STRING=$(echo "$ENDPOINT_RESPONSE" | jq -r '.endpoints[0].connection_uri')
+
+            echo "connection_string=$CONNECTION_STRING" >> $GITHUB_OUTPUT
+            echo "branch_id=$BRANCH_ID" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare ETL configuration
+        id: etl-config
+        run: |
+          # Create ETL configuration file
+          cat > scripts/etl-config.json << EOF
+          {
+            "targetBranch": "${{ steps.neon-branch.outputs.branch_id }}",
+            "dataMode": "${{ inputs.data_mode }}",
+            "tableFilter": "${{ inputs.table_filter }}",
+            "dateRangeDays": ${{ inputs.date_range_days }},
+            "connectionString": "${{ steps.neon-branch.outputs.connection_string }}"
+          }
+          EOF
+
+          echo "Configuration created:"
+          cat scripts/etl-config.json
+
+      - name: Run ETL process
+        env:
+          ATHENA_DB_NAME: ${{ vars.ATHENA_DB_NAME || 'default' }}
+          ATHENA_OUTPUT_LOCATION: ${{ vars.ATHENA_OUTPUT_LOCATION || 's3://wyatt-personal-aws-athena-results/' }}
+          NEON_CONNECTION_STRING: ${{ steps.neon-branch.outputs.connection_string }}
+          ETL_CONFIG_FILE: ./etl-config.json
+        working-directory: scripts
+        run: |
+          echo "Starting ETL process..."
+          echo "Target branch: ${{ steps.neon-branch.outputs.branch_id }}"
+          echo "Data mode: ${{ inputs.data_mode }}"
+
+          # Run the enhanced ETL script
+          npx tsx athena-to-neon-manual-etl.ts
+
+      - name: Validate ETL results
+        if: success()
+        env:
+          NEON_CONNECTION_STRING: ${{ steps.neon-branch.outputs.connection_string }}
+        working-directory: scripts
+        run: |
+          echo "Validating ETL results..."
+          npx tsx validate-etl-results.ts
+
+      - name: Generate ETL report
+        if: always()
+        run: |
+          # Create summary report
+          echo "## ETL Execution Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Branch**: ${{ steps.neon-branch.outputs.branch_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Mode**: ${{ inputs.data_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Table Filter**: ${{ inputs.table_filter || 'All tables' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date Range**: ${{ inputs.date_range_days == 0 && 'All data' || format('Last {0} days', inputs.date_range_days) }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f scripts/etl-report.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### ETL Statistics" >> $GITHUB_STEP_SUMMARY
+            cat scripts/etl-report.json | jq -r '
+              "- **Records Processed**: \(.recordsProcessed)",
+              "- **Duration**: \(.duration)",
+              "- **Tables Synced**: \(.tablesSynced | join(", "))",
+              "- **Validation Status**: \(.validationStatus)"
+            ' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload ETL logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etl-logs-${{ github.run_id }}
+          path: |
+            scripts/etl-*.log
+            scripts/etl-report.json
+          retention-days: 7
