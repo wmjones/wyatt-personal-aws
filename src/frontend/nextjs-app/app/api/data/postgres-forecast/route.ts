@@ -484,13 +484,17 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const itemIds = searchParams.get('itemIds')?.split(',').filter(Boolean) || [];
-    const locationIds = searchParams.get('locationIds')?.split(',').filter(Boolean) || [];
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
 
-    if (!itemIds.length || !locationIds.length || !startDate || !endDate) {
+    // Parse location filters
+    const states = searchParams.get('states')?.split(',').filter(Boolean) || [];
+    const dmaIds = searchParams.get('dmaIds')?.split(',').filter(Boolean) || [];
+    const dcIds = searchParams.get('dcIds')?.split(',').filter(Boolean).map(id => parseInt(id)) || [];
+
+    if (!itemIds.length || !startDate || !endDate) {
       return NextResponse.json(
-        { error: 'Missing required parameters: itemIds, locationIds, startDate, endDate' },
+        { error: 'Missing required parameters: itemIds, startDate, endDate' },
         { status: 400 }
       );
     }
@@ -500,7 +504,11 @@ export async function GET(request: NextRequest) {
       inventoryItemId: parseInt(itemIds[0]), // Using first item ID for now
       startDate,
       endDate,
-      limit: 10000
+      limit: 10000,
+      // Add location filters if provided
+      ...(states.length > 0 && { state: states }),
+      ...(dmaIds.length > 0 && { dmaId: dmaIds }),
+      ...(dcIds.length > 0 && { dcId: dcIds })
     };
 
     if (type === 'summary') {
@@ -525,7 +533,7 @@ export async function GET(request: NextRequest) {
       const summaryData = Array.from(summaryMap.entries()).map(([date, values]) => ({
         date,
         inventoryItemId: itemIds[0],
-        locationId: locationIds[0],
+        locationId: '1', // Placeholder value - data is aggregated across all locations
         y_05: values.y_05,
         y_50: values.y_50,
         y_95: values.y_95,

@@ -57,13 +57,11 @@ export default function FilterSidebar({
       hasChanges = true;
     }
 
-    // Set default date range if not selected
+    // Set default date range if not selected (full data range)
     if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       updatedSelections.dateRange = {
-        startDate: thirtyDaysAgo.toISOString().split('T')[0],
-        endDate: now.toISOString().split('T')[0]
+        startDate: '2025-01-01',
+        endDate: '2025-03-31'
       };
       hasChanges = true;
     }

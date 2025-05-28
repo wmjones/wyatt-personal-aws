@@ -14,9 +14,12 @@ import { ForecastData, ForecastSummary, ForecastTimeSeries } from '@/app/types/f
 
 interface ForecastQueryParams {
   itemIds: string[]
-  locationIds: string[]
   startDate: string
   endDate: string
+  // Location filters
+  states?: string[]
+  dmaIds?: string[]
+  dcIds?: string[]
 }
 
 /**
@@ -29,7 +32,7 @@ export function useForecastSummary(
   return useQuery({
     queryKey: forecastKeys.summary(params),
     queryFn: () => fetchForecastSummary(params),
-    enabled: params.itemIds.length > 0 && params.locationIds.length > 0,
+    enabled: params.itemIds.length > 0,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     ...options,
@@ -46,7 +49,7 @@ export function useForecastTimeSeries(
   return useQuery({
     queryKey: forecastKeys.timeSeries(params),
     queryFn: () => fetchForecastTimeSeries(params),
-    enabled: params.itemIds.length > 0 && params.locationIds.length > 0,
+    enabled: params.itemIds.length > 0,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     ...options,
@@ -64,7 +67,7 @@ export function useForecastData(
   return useQuery({
     queryKey: forecastKeys.combined(params),
     queryFn: () => fetchCombinedForecast(params),
-    enabled: params.itemIds.length > 0 && params.locationIds.length > 0,
+    enabled: params.itemIds.length > 0,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     ...options,

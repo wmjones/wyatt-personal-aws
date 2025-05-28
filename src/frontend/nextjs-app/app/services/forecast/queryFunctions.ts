@@ -9,9 +9,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 interface ForecastParams {
   itemIds: string[]
-  locationIds: string[]
   startDate: string
   endDate: string
+  // Location filters
+  states?: string[]
+  dmaIds?: string[]
+  dcIds?: string[]
 }
 
 /**
@@ -20,10 +23,20 @@ interface ForecastParams {
 export async function fetchForecastSummary(params: ForecastParams): Promise<ForecastSummary[]> {
   const searchParams = new URLSearchParams({
     itemIds: params.itemIds.join(','),
-    locationIds: params.locationIds.join(','),
     startDate: params.startDate,
     endDate: params.endDate,
   })
+
+  // Add optional location filters
+  if (params.states?.length) {
+    searchParams.append('states', params.states.join(','))
+  }
+  if (params.dmaIds?.length) {
+    searchParams.append('dmaIds', params.dmaIds.join(','))
+  }
+  if (params.dcIds?.length) {
+    searchParams.append('dcIds', params.dcIds.join(','))
+  }
 
   const response = await fetch(`${API_BASE_URL}/data/postgres-forecast?${searchParams}&type=summary`)
 
@@ -40,10 +53,20 @@ export async function fetchForecastSummary(params: ForecastParams): Promise<Fore
 export async function fetchForecastTimeSeries(params: ForecastParams): Promise<ForecastTimeSeries[]> {
   const searchParams = new URLSearchParams({
     itemIds: params.itemIds.join(','),
-    locationIds: params.locationIds.join(','),
     startDate: params.startDate,
     endDate: params.endDate,
   })
+
+  // Add optional location filters
+  if (params.states?.length) {
+    searchParams.append('states', params.states.join(','))
+  }
+  if (params.dmaIds?.length) {
+    searchParams.append('dmaIds', params.dmaIds.join(','))
+  }
+  if (params.dcIds?.length) {
+    searchParams.append('dcIds', params.dcIds.join(','))
+  }
 
   const response = await fetch(`${API_BASE_URL}/data/postgres-forecast?${searchParams}&type=timeseries`)
 

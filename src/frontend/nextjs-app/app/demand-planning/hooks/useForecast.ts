@@ -89,11 +89,6 @@ function transformToForecastSeries(
 export default function useForecast({ filterSelections }: UseForecastProps) {
   // Extract query parameters
   const itemIds = filterSelections?.inventoryItemId ? [filterSelections.inventoryItemId] : [];
-  const locationIds = [
-    ...(filterSelections?.states || []),
-    ...(filterSelections?.dmaIds || []),
-    ...(filterSelections?.dcIds || [])
-  ];
 
   // Determine date range from filter selections
   let startDate = '';
@@ -103,19 +98,19 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
     startDate = filterSelections.dateRange.startDate;
     endDate = filterSelections.dateRange.endDate;
   } else {
-    // Default to last 30 days if no date range selected
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    startDate = thirtyDaysAgo.toISOString().split('T')[0];
-    endDate = now.toISOString().split('T')[0];
+    // Default to full data range: Jan 1 to Mar 31
+    startDate = '2025-01-01';
+    endDate = '2025-03-31';
   }
 
-  // Use TanStack Query hook
+  // Use TanStack Query hook with proper location filters
   const { data, isLoading, error, refetch } = useForecastData({
     itemIds,
-    locationIds,
     startDate,
-    endDate
+    endDate,
+    states: filterSelections?.states || [],
+    dmaIds: filterSelections?.dmaIds || [],
+    dcIds: filterSelections?.dcIds || []
   });
 
   // Transform data to expected format
