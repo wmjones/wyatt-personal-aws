@@ -44,7 +44,7 @@ repos:
           - --args=--skip-dirs="**/.terraform/**"
           - --args=--tf-vars=/workspaces/wyatt-personal-aws/main/environments/dev.tfvars
       - id: terraform_docs # auto-fills README tables
-        stages: [pre-push] # heavy ⟶ run only on push
+        stages: [push] # heavy ⟶ run only on push
 
   #   # 4 — Secret scanning
   #   - repo: https://github.com/Yelp/detect-secrets
@@ -96,16 +96,16 @@ repos:
 
       - id: jest
         name: "Jest unit tests"
-        entry: bash -c "cd src/frontend/nextjs-app && npm test -- --bail --passWithNoTests"
+        entry: bash -c 'cd src/frontend/nextjs-app && files="$@"; if [ -n "$files" ]; then npm test -- --bail --findRelatedTests $files; else echo "No test files to run"; fi'
         language: system
-        pass_filenames: false
+        pass_filenames: true
         files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
         require_serial: true
-        stages: [pre-commit]  # Run on every commit
+        # No stages specified = runs on commit by default
 
       - id: jest-coverage
         name: "Jest coverage check"
         entry: bash -c "cd src/frontend/nextjs-app && npm test -- --coverage --coverageThreshold='{\"global\":{\"branches\":50,\"functions\":50,\"lines\":60,\"statements\":60}}'"
         language: system
         pass_filenames: false
-        stages: [pre-push]  # Run only on push to avoid slowing down commits
+        stages: [push]  # Run only on push to avoid slowing down commits
