@@ -94,14 +94,14 @@ repos:
         files: "src/frontend/nextjs-app/.*\\.(ts|tsx)$"
         require_serial: true
 
-  #   - id: jest
-  #     name: "Jest unit tests"
-  #     entry: bash -c "cd src/frontend/nextjs-app && npm test -- --bail --passWithNoTests"
-  #     language: system
-  #     pass_filenames: false
-  #     files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
-  #     require_serial: true
-  #     stages: [pre-commit]  # Run on every commit
+      - id: jest
+        name: "Jest unit tests"
+        entry: bash -c "cd src/frontend/nextjs-app && npm test -- --bail --passWithNoTests"
+        language: system
+        pass_filenames: false
+        files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
+        require_serial: true
+        stages: [pre-commit]  # Run on every commit
 
       - id: jest-coverage
         name: "Jest coverage check"
