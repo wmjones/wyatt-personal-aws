@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForecastData } from './useForecastQuery';
 import {
   ForecastSeries,
@@ -11,6 +11,7 @@ import {
 import { FilterSelections } from '../components/FilterSidebar';
 import { createAdjustment } from '../services/adjustmentService';
 import { AdjustmentData } from '../components/AdjustmentModal';
+import { postgresForecastService } from '@/app/services/postgresForecastService';
 
 interface UseForecastProps {
   filterSelections?: FilterSelections;
@@ -87,8 +88,40 @@ function transformToForecastSeries(
 }
 
 export default function useForecast({ filterSelections }: UseForecastProps) {
-  // Extract query parameters
-  const itemIds = filterSelections?.inventoryItemId ? [filterSelections.inventoryItemId] : [];
+  const [firstInventoryItemId, setFirstInventoryItemId] = useState<string | null>(null);
+  const [isLoadingFirstItem, setIsLoadingFirstItem] = useState(true);
+
+  // Fetch first available inventory item on mount if no item is selected
+  useEffect(() => {
+    const fetchFirstInventoryItem = async () => {
+      if (filterSelections?.inventoryItemId) {
+        setIsLoadingFirstItem(false);
+        return;
+      }
+
+      try {
+        const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
+        if (inventoryItems.length > 0) {
+          const firstItem = inventoryItems[0];
+          console.log(`Auto-selecting first inventory item: ${firstItem} (from ${inventoryItems.length} available items)`);
+          setFirstInventoryItemId(firstItem);
+        }
+      } catch (error) {
+        console.error('Failed to fetch first inventory item:', error);
+      } finally {
+        setIsLoadingFirstItem(false);
+      }
+    };
+
+    fetchFirstInventoryItem();
+  }, [filterSelections?.inventoryItemId]);
+
+  // Extract query parameters - use first available item if no item is selected
+  const itemIds = filterSelections?.inventoryItemId
+    ? [filterSelections.inventoryItemId]
+    : firstInventoryItemId
+    ? [firstInventoryItemId]
+    : [];
 
   // Determine date range from filter selections
   let startDate = '';
@@ -134,7 +167,7 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
   }, [forecastData, refetch]);
 
   return {
-    isLoading,
+    isLoading: isLoading || isLoadingFirstItem,
     forecastData,
     error: error?.message || null,
     applyAdjustment,

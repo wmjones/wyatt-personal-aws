@@ -96,7 +96,16 @@ repos:
 
   #   - id: jest
   #     name: "Jest unit tests"
-  #     entry: npx jest --bail
+  #     entry: bash -c "cd src/frontend/nextjs-app && npm test -- --bail --passWithNoTests"
   #     language: system
   #     pass_filenames: false
-  #     stages: [push]
+  #     files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
+  #     require_serial: true
+  #     stages: [pre-commit]  # Run on every commit
+
+      - id: jest-coverage
+        name: "Jest coverage check"
+        entry: bash -c "cd src/frontend/nextjs-app && npm test -- --coverage --coverageThreshold='{\"global\":{\"branches\":50,\"functions\":50,\"lines\":60,\"statements\":60}}'"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]  # Run only on push to avoid slowing down commits
