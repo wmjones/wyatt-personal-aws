@@ -20,7 +20,8 @@ export default function DemandPlanningPage() {
     states: [],
     dmaIds: [],
     dcIds: [],
-    inventoryItemId: null
+    inventoryItemId: null,
+    dateRange: { startDate: null, endDate: null }
   });
 
   // Keep hierarchy selections for backward compatibility

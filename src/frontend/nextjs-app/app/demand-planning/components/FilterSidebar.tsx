@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import MultiSelectFilter, { FilterOption } from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
+import DateRangeFilter, { DateRangeSelection } from './DateRangeFilter';
 import { forecastService } from '@/app/services/forecastService';
 
 export interface FilterSelections {
@@ -10,6 +11,7 @@ export interface FilterSelections {
   dmaIds: string[];
   dcIds: string[];
   inventoryItemId: string | null;
+  dateRange: DateRangeSelection;
 }
 
 interface FilterSidebarProps {
@@ -123,7 +125,8 @@ export default function FilterSidebar({
       states: [],
       dmaIds: [],
       dcIds: [],
-      inventoryItemId: localSelections.inventoryItemId // Keep inventory item selected
+      inventoryItemId: localSelections.inventoryItemId, // Keep inventory item selected
+      dateRange: { startDate: null, endDate: null }
     };
     setLocalSelections(clearedSelections);
     onSelectionChange(clearedSelections);
@@ -184,6 +187,19 @@ export default function FilterSidebar({
         {/* Filter Controls - only show when not loading and no error */}
         {!isLoadingFilters && !filterError && (
           <>
+            {/* Date Range Filter */}
+            <DateRangeFilter
+              value={localSelections.dateRange}
+              onChange={(dateRange) => {
+                const newSelections = {
+                  ...localSelections,
+                  dateRange
+                };
+                setLocalSelections(newSelections);
+                onSelectionChange(newSelections);
+              }}
+            />
+
             {/* Inventory Item Filter - Single Select */}
             <SingleSelectFilter
               title="Inventory Item"
