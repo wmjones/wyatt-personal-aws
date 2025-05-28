@@ -47,7 +47,7 @@ export default function BaseChart({
         ref={svgRef}
         width={width}
         height={height}
-        className="max-w-full bg-dp-surface-primary rounded-lg border border-dp-border-light"
+        className="max-w-full bg-dp-bg-secondary rounded-lg border border-gray-200"
       >
         {/* Chart contents will be rendered by specific implementations */}
       </svg>

@@ -59,19 +59,15 @@ export default function DateRangeFilter({ value, onChange, className = '' }: Dat
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-dp-text-primary">Date Range</h4>
-
-        {/* Date range display button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 text-left bg-white border border-dp-frame-border rounded-md hover:border-dp-border-medium focus:outline-none focus:ring-2 focus:ring-dp-cfa-red focus:ring-offset-2 transition-colors"
-        >
-          <span className={value.startDate && value.endDate ? 'text-dp-text-primary' : 'text-dp-text-tertiary'}>
-            {formatDateRange()}
-          </span>
-        </button>
-      </div>
+      {/* Date range display button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 text-left bg-white border border-dp-frame-border rounded-md hover:border-dp-border-medium focus:outline-none focus:ring-2 focus:ring-dp-cfa-red focus:ring-offset-2 transition-colors"
+      >
+        <span className={value.startDate && value.endDate ? 'text-dp-text-primary' : 'text-dp-text-tertiary'}>
+          {formatDateRange()}
+        </span>
+      </button>
 
       {/* Date picker dropdown */}
       {isOpen && (
