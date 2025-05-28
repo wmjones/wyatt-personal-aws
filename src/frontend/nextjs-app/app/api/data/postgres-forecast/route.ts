@@ -476,3 +476,88 @@ async function executeRawQuery(query: string) {
     throw error;
   }
 }
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const type = searchParams.get('type');
+
+    // Parse query parameters
+    const itemIds = searchParams.get('itemIds')?.split(',').filter(Boolean) || [];
+    const locationIds = searchParams.get('locationIds')?.split(',').filter(Boolean) || [];
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
+
+    if (!itemIds.length || !locationIds.length || !startDate || !endDate) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: itemIds, locationIds, startDate, endDate' },
+        { status: 400 }
+      );
+    }
+
+    // Convert to filters format expected by getForecastData
+    const filters: ForecastFilters = {
+      inventoryItemId: parseInt(itemIds[0]), // Using first item ID for now
+      startDate,
+      endDate,
+      limit: 10000
+    };
+
+    if (type === 'summary') {
+      // For summary, aggregate the data
+      const data = await getForecastData(filters);
+
+      // Aggregate by date for summary view
+      const summaryMap = new Map<string, { y_05: number; y_50: number; y_95: number; count: number }>();
+
+      data.forEach(row => {
+        const date = row.business_date;
+        if (!summaryMap.has(date)) {
+          summaryMap.set(date, { y_05: 0, y_50: 0, y_95: 0, count: 0 });
+        }
+        const summary = summaryMap.get(date)!;
+        summary.y_05 += parseFloat(row.y_05) || 0;
+        summary.y_50 += parseFloat(row.y_50) || 0;
+        summary.y_95 += parseFloat(row.y_95) || 0;
+        summary.count += 1;
+      });
+
+      const summaryData = Array.from(summaryMap.entries()).map(([date, values]) => ({
+        date,
+        inventoryItemId: itemIds[0],
+        locationId: locationIds[0],
+        y_05: values.y_05,
+        y_50: values.y_50,
+        y_95: values.y_95,
+        avgForecast: values.y_50 / values.count,
+        totalForecast: values.y_50
+      }));
+
+      return NextResponse.json(summaryData);
+    } else if (type === 'timeseries') {
+      // For time series, return the raw data grouped by date
+      const data = await getForecastData(filters);
+
+      const timeSeriesData = data.map(row => ({
+        date: row.business_date,
+        inventoryItemId: row.inventory_item_id,
+        locationId: row.restaurant_id,
+        y_05: parseFloat(row.y_05) || 0,
+        y_50: parseFloat(row.y_50) || 0,
+        y_95: parseFloat(row.y_95) || 0
+      }));
+
+      return NextResponse.json(timeSeriesData);
+    } else {
+      // Default: return raw forecast data
+      const data = await getForecastData(filters);
+      return NextResponse.json({ data });
+    }
+  } catch (error) {
+    console.error('Postgres forecast GET API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
