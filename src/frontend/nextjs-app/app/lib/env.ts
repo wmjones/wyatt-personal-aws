@@ -106,8 +106,9 @@ export function getEnvVar<K extends keyof EnvSchema>(key: K): EnvSchema[K] {
 
   // On client-side, only validate public variables
   if (typeof window !== 'undefined') {
-    // Only throw errors for missing public variables on client-side if in production
-    if (value === undefined && key.startsWith('NEXT_PUBLIC_') && process.env.NODE_ENV === 'production') {
+    // Don't log errors for optional variables
+    const optionalVars = ['NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_ANALYTICS_ID'];
+    if (value === undefined && key.startsWith('NEXT_PUBLIC_') && !optionalVars.includes(key) && process.env.NODE_ENV === 'production') {
       console.error(`Environment variable ${key} is required but not set`);
       return undefined as EnvSchema[K];
     }

@@ -531,9 +531,12 @@ export async function GET(request: NextRequest) {
       });
 
       const summaryData = Array.from(summaryMap.entries()).map(([date, values]) => ({
-        date,
-        inventoryItemId: itemIds[0],
-        locationId: '1', // Placeholder value - data is aggregated across all locations
+        business_date: date,
+        inventory_item_id: itemIds[0],
+        restaurant_id: '1', // Placeholder value - data is aggregated across all locations
+        state: 'ALL',
+        dma_id: 'AGGREGATED',
+        dc_id: '-1',
         y_05: values.y_05,
         y_50: values.y_50,
         y_95: values.y_95,
@@ -547,9 +550,12 @@ export async function GET(request: NextRequest) {
       const data = await getForecastData(filters);
 
       const timeSeriesData = data.map(row => ({
-        date: row.business_date,
-        inventoryItemId: row.inventory_item_id,
-        locationId: row.restaurant_id,
+        business_date: row.business_date,
+        inventory_item_id: row.inventory_item_id,
+        restaurant_id: row.restaurant_id,
+        state: row.state,
+        dma_id: row.dma_id,
+        dc_id: row.dc_id,
         y_05: parseFloat(row.y_05) || 0,
         y_50: parseFloat(row.y_50) || 0,
         y_95: parseFloat(row.y_95) || 0
