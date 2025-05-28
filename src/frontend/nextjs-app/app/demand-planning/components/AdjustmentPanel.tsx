@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import AdjustmentModal, { AdjustmentData } from './AdjustmentModal';
 import {
-  ForecastSeries,
-  HierarchySelection
+  ForecastSeries
 } from '@/app/types/demand-planning';
 
 interface AdjustmentPanelProps {
@@ -13,7 +12,6 @@ interface AdjustmentPanelProps {
   onApplyAdjustment: (adjustment: AdjustmentData) => Promise<void>;
   onResetAdjustments: () => Promise<void>;
   onRefreshForecast: () => Promise<void>;
-  selectedHierarchies: HierarchySelection[];
 }
 
 export default function AdjustmentPanel({
@@ -21,8 +19,7 @@ export default function AdjustmentPanel({
   isLoading,
   onApplyAdjustment,
   onResetAdjustments,
-  onRefreshForecast,
-  selectedHierarchies
+  onRefreshForecast
 }: AdjustmentPanelProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -89,7 +86,7 @@ export default function AdjustmentPanel({
         <button
           onClick={openAdjustmentModal}
           className="dp-btn dp-btn-primary w-full flex items-center justify-center"
-          disabled={isLoading || selectedHierarchies.length === 0}
+          disabled={isLoading}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -136,7 +133,6 @@ export default function AdjustmentPanel({
         onClose={() => setIsModalOpen(false)}
         onApply={onApplyAdjustment}
         timePeriods={forecastData.timePeriods}
-        selectedHierarchies={selectedHierarchies}
         baselineTotal={baselineTotal}
       />
     </div>

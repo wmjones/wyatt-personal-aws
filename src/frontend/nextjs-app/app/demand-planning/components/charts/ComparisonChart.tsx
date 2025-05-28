@@ -17,6 +17,7 @@ interface ComparisonChartProps extends Omit<BaseChartProps, 'className'> {
   adjustedData: ForecastDataPoint[];
   timePeriods: TimePeriod[];
   className?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
 }
 
 export default function ComparisonChart({

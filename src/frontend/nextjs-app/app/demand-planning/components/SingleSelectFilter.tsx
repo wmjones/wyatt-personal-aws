@@ -2,12 +2,10 @@
 
 import { SingleSelectDropdown, type DropdownOption } from '@/components/ui';
 
-// Re-export for backward compatibility
-export type FilterOption = DropdownOption;
 
 interface SingleSelectFilterProps {
   title: string;
-  options: FilterOption[];
+  options: DropdownOption[];
   selectedValue: string | null;
   onChange: (value: string | null) => void;
   placeholder?: string;

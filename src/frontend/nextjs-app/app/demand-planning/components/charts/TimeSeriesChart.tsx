@@ -11,6 +11,7 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   adjustedData?: ForecastDataPoint[];
   timePeriods: TimePeriod[];
   className?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
   showY05?: boolean;
   showY50?: boolean;
   showY95?: boolean;

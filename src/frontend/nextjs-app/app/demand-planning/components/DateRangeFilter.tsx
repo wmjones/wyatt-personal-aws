@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { DateRange, RangeKeyDict } from 'react-date-range';
-import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import './date-range-custom.css';
@@ -57,12 +57,6 @@ export default function DateRangeFilter({ value, onChange, className = '' }: Dat
     return `${format(value.startDate, 'MMM d, yyyy')} - ${format(value.endDate, 'MMM d, yyyy')}`;
   };
 
-  // Preset date ranges
-  const handlePresetRange = (startDate: Date, endDate: Date) => {
-    onChange({ startDate, endDate });
-    setIsOpen(false);
-  };
-
   return (
     <div className={`relative ${className}`} ref={containerRef}>
       <div className="space-y-2">
@@ -77,34 +71,6 @@ export default function DateRangeFilter({ value, onChange, className = '' }: Dat
             {formatDateRange()}
           </span>
         </button>
-
-        {/* Quick select buttons */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handlePresetRange(subDays(new Date(), 7), new Date())}
-            className="px-2 py-1 text-xs bg-dp-surface-secondary hover:bg-dp-surface-tertiary border border-dp-frame-border rounded-md transition-colors"
-          >
-            Last 7 days
-          </button>
-          <button
-            onClick={() => handlePresetRange(subDays(new Date(), 30), new Date())}
-            className="px-2 py-1 text-xs bg-dp-surface-secondary hover:bg-dp-surface-tertiary border border-dp-frame-border rounded-md transition-colors"
-          >
-            Last 30 days
-          </button>
-          <button
-            onClick={() => handlePresetRange(startOfMonth(new Date()), endOfMonth(new Date()))}
-            className="px-2 py-1 text-xs bg-dp-surface-secondary hover:bg-dp-surface-tertiary border border-dp-frame-border rounded-md transition-colors"
-          >
-            This month
-          </button>
-          <button
-            onClick={() => handlePresetRange(startOfYear(new Date()), endOfYear(new Date()))}
-            className="px-2 py-1 text-xs bg-dp-surface-secondary hover:bg-dp-surface-tertiary border border-dp-frame-border rounded-md transition-colors"
-          >
-            This year
-          </button>
-        </div>
       </div>
 
       {/* Date picker dropdown */}

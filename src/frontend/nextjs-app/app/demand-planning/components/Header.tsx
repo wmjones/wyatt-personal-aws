@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { DashboardView } from '@/app/types/demand-planning';
+// Dashboard view type
+type DashboardView = 'forecast' | 'history' | 'settings';
 
 interface HeaderProps {
   refreshData?: () => Promise<void>;

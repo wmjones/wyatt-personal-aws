@@ -1,17 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import MultiSelectFilter, { FilterOption } from './MultiSelectFilter';
+import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
-import DateRangeFilter, { DateRangeSelection } from './DateRangeFilter';
-import { forecastService } from '@/app/services/forecastService';
+import {
+  useStateOptions,
+  useDMAOptions,
+  useDCOptions,
+  useInventoryItemOptions
+} from '@/app/hooks/useDropdownOptions';
 
 export interface FilterSelections {
   states: string[];
   dmaIds: string[];
   dcIds: string[];
   inventoryItemId: string | null;
-  dateRange: DateRangeSelection;
+  dateRange: {
+    startDate: string | null;
+    endDate: string | null;
+  };
 }
 
 interface FilterSidebarProps {
@@ -20,8 +27,6 @@ interface FilterSidebarProps {
   className?: string;
 }
 
-// Filter options will be loaded dynamically from Athena
-
 export default function FilterSidebar({
   selections,
   onSelectionChange,
@@ -29,257 +34,155 @@ export default function FilterSidebar({
 }: FilterSidebarProps) {
   const [localSelections, setLocalSelections] = useState<FilterSelections>(selections);
 
-  // Dynamic filter options loaded from Athena
-  const [stateOptions, setStateOptions] = useState<FilterOption[]>([]);
-  const [dmaOptions, setDmaOptions] = useState<FilterOption[]>([]);
-  const [dcOptions, setDcOptions] = useState<FilterOption[]>([]);
-  const [inventoryOptions, setInventoryOptions] = useState<FilterOption[]>([]);
-  const [isLoadingFilters, setIsLoadingFilters] = useState(true);
-  const [filterError, setFilterError] = useState<string | null>(null);
+  // Fetch dropdown options using TanStack Query
+  const { data: stateOptions = [], isLoading: isLoadingStates, error: statesError } = useStateOptions();
+  const { data: dmaOptions = [], isLoading: isLoadingDMAs, error: dmasError } = useDMAOptions();
+  const { data: dcOptions = [], isLoading: isLoadingDCs, error: dcsError } = useDCOptions();
+  const { data: inventoryOptions = [], isLoading: isLoadingInventory, error: inventoryError } = useInventoryItemOptions();
 
-  // Load filter options from Athena on component mount - optimized for parallel loading
+  // Aggregate loading and error states
+  const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory;
+  const error = statesError || dmasError || dcsError || inventoryError;
+
+  // Initialize with first inventory item if available and none selected
   useEffect(() => {
-    const loadFilterOptions = async () => {
-      setIsLoadingFilters(true);
-      setFilterError(null);
+    if (!localSelections.inventoryItemId && inventoryOptions.length > 0 && !isLoadingInventory) {
+      console.log('Auto-selecting first inventory item:', inventoryOptions[0]);
+      const updatedSelections = {
+        ...localSelections,
+        inventoryItemId: inventoryOptions[0].value
+      };
+      setLocalSelections(updatedSelections);
+      onSelectionChange(updatedSelections);
+    }
+  }, [inventoryOptions, isLoadingInventory, localSelections, onSelectionChange]);
 
-      try {
-        console.log('Loading filter options from Athena...');
-
-        // Load all filter options in parallel for better performance
-        const [states, dmaIds, dcIds, inventoryItems] = await Promise.all([
-          forecastService.getDistinctStates(),
-          forecastService.getDistinctDmaIds(),
-          forecastService.getDistinctDcIds(),
-          forecastService.getDistinctInventoryItems()
-        ]);
-
-        // Update all filter options at once to minimize re-renders
-        setStateOptions(states.map(state => ({
-          value: state,
-          label: state
-        })));
-
-        setDmaOptions(dmaIds.map(dmaId => ({
-          value: dmaId,
-          label: `DMA ${dmaId}`
-        })));
-
-        setDcOptions(dcIds.map(dcId => ({
-          value: dcId,
-          label: `Distribution Center ${dcId}`
-        })));
-
-        setInventoryOptions(inventoryItems.map(itemId => ({
-          value: itemId,
-          label: `Item ${itemId}`
-        })));
-
-        console.log('Filter options loaded successfully:', {
-          states: states.length,
-          dmaIds: dmaIds.length,
-          dcIds: dcIds.length,
-          inventoryItems: inventoryItems.length
-        });
-
-        // Auto-select the first inventory item if none selected
-        if (inventoryItems.length > 0 && !localSelections.inventoryItemId) {
-          const autoSelection = {
-            ...localSelections,
-            inventoryItemId: inventoryItems[0]
-          };
-          setLocalSelections(autoSelection);
-          onSelectionChange(autoSelection);
-          console.log('Auto-selected first inventory item:', inventoryItems[0]);
-        }
-
-      } catch (error) {
-        console.error('Error loading filter options:', error);
-        setFilterError('Failed to load filter options. Please try refreshing the page.');
-      } finally {
-        setIsLoadingFilters(false);
-      }
-    };
-
-    loadFilterOptions();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update local state when props change
-  useEffect(() => {
-    setLocalSelections(selections);
-  }, [selections]);
-
-  // Handle filter changes
-  const handleFilterChange = (filterType: keyof FilterSelections, values: string[]) => {
-    const newSelections = {
+  // Handle state selection changes
+  const handleStateChange = (states: string[]) => {
+    const updatedSelections = {
       ...localSelections,
-      [filterType]: values
-    };
-    setLocalSelections(newSelections);
-    onSelectionChange(newSelections);
-  };
-
-  // Clear all selections (except inventory item which is required)
-  const handleClearAll = () => {
-    const clearedSelections: FilterSelections = {
-      states: [],
+      states,
+      // Clear dependent selections when states change
       dmaIds: [],
-      dcIds: [],
-      inventoryItemId: localSelections.inventoryItemId, // Keep inventory item selected
-      dateRange: { startDate: null, endDate: null }
+      dcIds: []
     };
-    setLocalSelections(clearedSelections);
-    onSelectionChange(clearedSelections);
+    setLocalSelections(updatedSelections);
+    onSelectionChange(updatedSelections);
   };
 
-  // Get total number of selected items
-  const totalSelected = localSelections.states.length +
-                       localSelections.dmaIds.length +
-                       localSelections.dcIds.length;
+  // Handle DMA selection changes
+  const handleDmaChange = (dmaIds: string[]) => {
+    const updatedSelections = {
+      ...localSelections,
+      dmaIds,
+      // Clear dependent selections when DMAs change
+      dcIds: []
+    };
+    setLocalSelections(updatedSelections);
+    onSelectionChange(updatedSelections);
+  };
+
+  // Handle DC selection changes
+  const handleDcChange = (dcIds: string[]) => {
+    const updatedSelections = {
+      ...localSelections,
+      dcIds
+    };
+    setLocalSelections(updatedSelections);
+    onSelectionChange(updatedSelections);
+  };
+
+  // Handle inventory item selection
+  const handleInventoryChange = (inventoryItemId: string | null) => {
+    const updatedSelections = {
+      ...localSelections,
+      inventoryItemId
+    };
+    setLocalSelections(updatedSelections);
+    onSelectionChange(updatedSelections);
+  };
+
+  // No transformation needed - the hooks already return the correct format
+  // FilterOption type is an alias for DropdownOption
+
+  if (error) {
+    return (
+      <aside className={`w-64 bg-white dark:bg-gray-800 shadow-md p-4 ${className}`}>
+        <div className="text-red-500">
+          <h3 className="font-semibold mb-2">Error Loading Filters</h3>
+          <p className="text-sm">{error.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-sm text-blue-500 hover:text-blue-700"
+          >
+            Reload Page
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   return (
-    <div className={`bg-dp-surface-primary border border-dp-frame-border rounded-lg shadow-dp-medium h-fit ${className}`}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-dp-frame-border">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-dp-text-primary">
-            Filters
-          </h3>
-          {totalSelected > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="text-sm text-dp-text-tertiary hover:text-dp-text-secondary font-medium"
-            >
-              Clear All
-            </button>
-          )}
+    <aside className={`w-64 bg-white dark:bg-gray-800 shadow-md p-4 ${className}`}>
+      <h2 className="text-lg font-semibold mb-4">Filters</h2>
+
+      <div className="space-y-4">
+        {/* Inventory Item Selection */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">Inventory Item</h3>
+          <SingleSelectFilter
+            title=""
+            options={inventoryOptions}
+            selectedValue={localSelections.inventoryItemId}
+            onChange={handleInventoryChange}
+            placeholder={isLoadingInventory ? "Loading..." : "Select an item"}
+            disabled={isLoadingInventory}
+          />
         </div>
-        {totalSelected > 0 && (
-          <p className="text-sm text-dp-text-secondary mt-1">
-            {totalSelected} filter{totalSelected !== 1 ? 's' : ''} active
-          </p>
-        )}
+
+        {/* State Selection */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">States</h3>
+          <MultiSelectFilter
+            title=""
+            options={stateOptions}
+            selectedValues={localSelections.states}
+            onChange={handleStateChange}
+            placeholder={isLoadingStates ? "Loading..." : "Select states"}
+          />
+        </div>
+
+        {/* DMA Selection */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">DMAs</h3>
+          <MultiSelectFilter
+            title=""
+            options={dmaOptions}
+            selectedValues={localSelections.dmaIds}
+            onChange={handleDmaChange}
+            placeholder={isLoadingDMAs ? "Loading..." : "Select DMAs"}
+          />
+        </div>
+
+        {/* DC Selection */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">Distribution Centers</h3>
+          <MultiSelectFilter
+            title=""
+            options={dcOptions}
+            selectedValues={localSelections.dcIds}
+            onChange={handleDcChange}
+            placeholder={isLoadingDCs ? "Loading..." : "Select DCs"}
+          />
+        </div>
       </div>
 
-      {/* Filter Controls */}
-      <div className="p-4 space-y-6">
-        {/* Loading State */}
-        {isLoadingFilters && (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dp-cfa-red mx-auto mb-2"></div>
-            <p className="text-sm text-dp-text-secondary">Loading filter options...</p>
-          </div>
-        )}
-
-        {/* Error State */}
-        {filterError && (
-          <div className="text-center py-4">
-            <p className="text-sm text-red-600 mb-2">{filterError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="text-sm text-dp-cfa-red hover:underline"
-            >
-              Refresh Page
-            </button>
-          </div>
-        )}
-
-        {/* Filter Controls - only show when not loading and no error */}
-        {!isLoadingFilters && !filterError && (
-          <>
-            {/* Date Range Filter */}
-            <DateRangeFilter
-              value={localSelections.dateRange}
-              onChange={(dateRange) => {
-                const newSelections = {
-                  ...localSelections,
-                  dateRange
-                };
-                setLocalSelections(newSelections);
-                onSelectionChange(newSelections);
-              }}
-            />
-
-            {/* Inventory Item Filter - Single Select */}
-            <SingleSelectFilter
-              title="Inventory Item"
-              options={inventoryOptions}
-              selectedValue={localSelections.inventoryItemId}
-              onChange={(value) => {
-                const newSelections = {
-                  ...localSelections,
-                  inventoryItemId: value
-                };
-                setLocalSelections(newSelections);
-                onSelectionChange(newSelections);
-              }}
-              placeholder="Select inventory item..."
-            />
-
-            <div className="border-t border-dp-frame-border pt-4">
-              <p className="text-xs text-dp-text-tertiary mb-4">
-                Location filters (optional) - leave empty to view all locations
-              </p>
-            </div>
-
-            {/* States Filter */}
-            <MultiSelectFilter
-              title="States"
-              options={stateOptions}
-              selectedValues={localSelections.states}
-              onChange={(values) => handleFilterChange('states', values)}
-              placeholder="Select states..."
-              maxDisplayItems={2}
-            />
-
-            {/* DMA Filter */}
-            <MultiSelectFilter
-              title="DMA (Designated Market Areas)"
-              options={dmaOptions}
-              selectedValues={localSelections.dmaIds}
-              onChange={(values) => handleFilterChange('dmaIds', values)}
-              placeholder="Select DMAs..."
-              maxDisplayItems={2}
-            />
-
-            {/* DC Filter */}
-            <MultiSelectFilter
-              title="Distribution Centers"
-              options={dcOptions}
-              selectedValues={localSelections.dcIds}
-              onChange={(values) => handleFilterChange('dcIds', values)}
-              placeholder="Select DCs..."
-              maxDisplayItems={2}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Selected Items Summary */}
-      {totalSelected > 0 && (
-        <div className="px-4 py-3 border-t border-dp-frame-border bg-dp-surface-secondary/50">
-          <h4 className="text-sm font-medium text-dp-text-primary mb-2">
-            Active Filters
-          </h4>
-          <div className="space-y-1 text-xs text-dp-text-secondary">
-            {localSelections.states.length > 0 && (
-              <div>
-                <span className="font-medium">States:</span> {localSelections.states.length} selected
-              </div>
-            )}
-            {localSelections.dmaIds.length > 0 && (
-              <div>
-                <span className="font-medium">DMAs:</span> {localSelections.dmaIds.length} selected
-              </div>
-            )}
-            {localSelections.dcIds.length > 0 && (
-              <div>
-                <span className="font-medium">DCs:</span> {localSelections.dcIds.length} selected
-              </div>
-            )}
-          </div>
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="mt-4 text-sm text-gray-500">
+          Loading filter options...
         </div>
       )}
-    </div>
+    </aside>
   );
 }

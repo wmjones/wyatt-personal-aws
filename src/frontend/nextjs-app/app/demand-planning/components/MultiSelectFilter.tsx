@@ -2,11 +2,10 @@
 
 import { MultiSelectDropdown, type DropdownOption } from '@/components/ui';
 
-export type FilterOption = DropdownOption;
 
 interface MultiSelectFilterProps {
   title: string;
-  options: FilterOption[];
+  options: DropdownOption[];
   selectedValues: string[];
   onChange: (selectedValues: string[]) => void;
   placeholder?: string;
