@@ -62,11 +62,14 @@ export default function DateRangeFilter({ value, onChange, className = '' }: Dat
       {/* Date range display button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 text-left bg-white border border-dp-frame-border rounded-md hover:border-dp-border-medium focus:outline-none focus:ring-2 focus:ring-dp-cfa-red focus:ring-offset-2 transition-colors"
+        className="w-full px-3 py-2 text-left bg-white border border-dp-frame-border rounded-md hover:border-dp-border-medium focus:outline-none focus:ring-2 focus:ring-dp-cfa-red focus:ring-offset-2 transition-colors flex items-center justify-between"
       >
-        <span className={value.startDate && value.endDate ? 'text-dp-text-primary' : 'text-dp-text-tertiary'}>
+        <span className={value.startDate && value.endDate ? 'text-gray-900' : 'text-gray-400'}>
           {formatDateRange()}
         </span>
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
       </button>
 
       {/* Date picker dropdown */}

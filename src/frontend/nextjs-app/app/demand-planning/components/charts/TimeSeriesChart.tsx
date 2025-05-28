@@ -149,7 +149,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
       .tickSize(-5) // Short ticks
-      .tickFormat(d => `$${formatNumber(d as number)}k`); // Dollar format with k suffix
+      .tickFormat(d => formatNumber(d as number, true)); // Use currency formatting
 
     // Add x-axis (horizontal) with styling using variables
     g.append('g')

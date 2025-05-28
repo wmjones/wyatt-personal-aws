@@ -122,7 +122,7 @@ export default function FilterSidebar({
 
   if (error) {
     return (
-      <aside className={`w-64 bg-white dark:bg-gray-800 shadow-md p-4 ${className}`}>
+      <aside className={`w-64 bg-white shadow-md p-6 ${className}`}>
         <div className="text-red-500">
           <h3 className="font-semibold mb-2">Error Loading Filters</h3>
           <p className="text-sm">{error.message}</p>
@@ -138,13 +138,13 @@ export default function FilterSidebar({
   }
 
   return (
-    <aside className={`w-64 bg-white dark:bg-gray-800 shadow-md p-4 ${className}`}>
-      <h2 className="text-lg font-semibold mb-4">Filters</h2>
+    <aside className={`w-64 bg-white shadow-md p-6 ${className}`}>
+      <h2 className="text-lg font-semibold mb-6">Filters</h2>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Inventory Item Selection */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Inventory Item</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Inventory Item</h3>
           <SingleSelectFilter
             title=""
             options={inventoryOptions}
@@ -157,7 +157,7 @@ export default function FilterSidebar({
 
         {/* State Selection */}
         <div>
-          <h3 className="text-sm font-medium mb-2">States</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">States</h3>
           <MultiSelectFilter
             title=""
             options={stateOptions}
@@ -169,7 +169,7 @@ export default function FilterSidebar({
 
         {/* DMA Selection */}
         <div>
-          <h3 className="text-sm font-medium mb-2">DMAs</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">DMAs</h3>
           <MultiSelectFilter
             title=""
             options={dmaOptions}
@@ -181,7 +181,7 @@ export default function FilterSidebar({
 
         {/* DC Selection */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Distribution Centers</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Distribution Centers</h3>
           <MultiSelectFilter
             title=""
             options={dcOptions}
@@ -193,7 +193,7 @@ export default function FilterSidebar({
 
         {/* Date Range Filter */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Date Range</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Date Range</h3>
           <DateRangeFilter
             value={{
               startDate: localSelections.dateRange.startDate ? new Date(localSelections.dateRange.startDate) : null,

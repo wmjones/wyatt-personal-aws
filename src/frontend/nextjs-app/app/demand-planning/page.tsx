@@ -83,7 +83,7 @@ export default function DemandPlanningPage() {
       {activeTab === 'forecast' && (
         <div className="space-y-6">
           {/* Chart Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-gray-50 rounded-lg shadow p-6">
             <Suspense fallback={
               <div className="flex items-center justify-center h-[400px]">
                 <div className="text-gray-500">Loading charts...</div>

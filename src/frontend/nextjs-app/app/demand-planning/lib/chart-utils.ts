@@ -6,19 +6,21 @@ import * as d3 from 'd3';
 import { ForecastDataPoint, TimePeriod } from '@/app/types/demand-planning';
 
 /**
- * Formats a number with appropriate suffixes (K, M, B)
+ * Formats a number with appropriate suffixes (K, M, B) and currency symbol
  */
-export function formatNumber(value: number): string {
+export function formatNumber(value: number, includeCurrency: boolean = false): string {
+  const prefix = includeCurrency ? '$' : '';
+
   if (value >= 1000000000) {
-    return `${(value / 1000000000).toFixed(1)}B`;
+    return `${prefix}${(value / 1000000000).toFixed(1)}B`;
   }
   if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(1)}M`;
+    return `${prefix}${(value / 1000000).toFixed(1)}M`;
   }
   if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`;
+    return `${prefix}${(value / 1000).toFixed(0)}k`;
   }
-  return value.toString();
+  return `${prefix}${value.toFixed(0)}`;
 }
 
 /**
