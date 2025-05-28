@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
+import DateRangeFilter from './DateRangeFilter';
 import {
   useStateOptions,
   useDMAOptions,
@@ -44,18 +45,34 @@ export default function FilterSidebar({
   const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory;
   const error = statesError || dmasError || dcsError || inventoryError;
 
-  // Initialize with first inventory item if available and none selected
+  // Initialize with first inventory item and default date range if not selected
   useEffect(() => {
-    if (!localSelections.inventoryItemId && inventoryOptions.length > 0 && !isLoadingInventory) {
+    let hasChanges = false;
+    const updatedSelections = { ...localSelections };
+
+    // Auto-select first inventory item if none selected
+    if (!updatedSelections.inventoryItemId && inventoryOptions.length > 0 && !isLoadingInventory) {
       console.log('Auto-selecting first inventory item:', inventoryOptions[0]);
-      const updatedSelections = {
-        ...localSelections,
-        inventoryItemId: inventoryOptions[0].value
+      updatedSelections.inventoryItemId = inventoryOptions[0].value;
+      hasChanges = true;
+    }
+
+    // Set default date range if not selected
+    if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      updatedSelections.dateRange = {
+        startDate: thirtyDaysAgo.toISOString().split('T')[0],
+        endDate: now.toISOString().split('T')[0]
       };
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
       setLocalSelections(updatedSelections);
       onSelectionChange(updatedSelections);
     }
-  }, [inventoryOptions, isLoadingInventory, localSelections, onSelectionChange]);
+  }, [inventoryOptions, isLoadingInventory]); // Remove localSelections and onSelectionChange from deps to avoid infinite loop
 
   // Handle state selection changes
   const handleStateChange = (states: string[]) => {
@@ -173,6 +190,28 @@ export default function FilterSidebar({
             selectedValues={localSelections.dcIds}
             onChange={handleDcChange}
             placeholder={isLoadingDCs ? "Loading..." : "Select DCs"}
+          />
+        </div>
+
+        {/* Date Range Filter */}
+        <div>
+          <h3 className="text-sm font-medium mb-2">Date Range</h3>
+          <DateRangeFilter
+            value={{
+              startDate: localSelections.dateRange.startDate ? new Date(localSelections.dateRange.startDate) : null,
+              endDate: localSelections.dateRange.endDate ? new Date(localSelections.dateRange.endDate) : null
+            }}
+            onChange={(range) => {
+              const updatedSelections = {
+                ...localSelections,
+                dateRange: {
+                  startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
+                  endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+                }
+              };
+              setLocalSelections(updatedSelections);
+              onSelectionChange(updatedSelections);
+            }}
           />
         </div>
       </div>
