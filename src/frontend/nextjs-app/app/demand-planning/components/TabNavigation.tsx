@@ -1,6 +1,7 @@
 'use client';
 
-import { DashboardView } from '@/app/types/demand-planning';
+// Dashboard view type
+type DashboardView = 'forecast' | 'history' | 'settings';
 
 interface TabNavigationProps {
   activeTab: DashboardView;

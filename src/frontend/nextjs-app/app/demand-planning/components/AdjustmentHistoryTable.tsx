@@ -50,9 +50,7 @@ export default function AdjustmentHistoryTable({
           entry.createdBy.toLowerCase().includes(searchLower) ||
           formatReason(entry.reason).toLowerCase().includes(searchLower) ||
           entry.notes?.toLowerCase().includes(searchLower) ||
-          entry.hierarchySelections.some(h =>
-            h.type.toLowerCase().includes(searchLower)
-          )
+          false
         );
       }
 
@@ -146,7 +144,6 @@ export default function AdjustmentHistoryTable({
               >
                 Date {renderSortIndicator('createdAt')}
               </th>
-              <th className="px-4 py-2 text-left whitespace-nowrap font-medium border-b border-dp-border-light">Hierarchies</th>
               <th
                 className="px-4 py-2 text-left cursor-pointer whitespace-nowrap font-medium border-b border-dp-border-light"
                 onClick={() => handleSort('value')}
@@ -177,19 +174,6 @@ export default function AdjustmentHistoryTable({
                 >
                   <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
                     {new Date(entry.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 border-b border-dp-border-light">
-                    <div className="flex flex-wrap gap-1">
-                      {entry.hierarchySelections.map(h => (
-                        <span
-                          key={h.type}
-                          className="inline-block px-2 py-1 bg-white border border-dp-border-light rounded-full text-xs font-medium"
-                          title={`${h.selectedNodes.length} selected nodes`}
-                        >
-                          {h.type.charAt(0).toUpperCase() + h.type.slice(1)}
-                        </span>
-                      ))}
-                    </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
                     {entry.type === 'percentage'
@@ -229,7 +213,7 @@ export default function AdjustmentHistoryTable({
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-4 py-4 text-center text-dp-text-secondary border-b border-dp-border-light">
+                <td colSpan={5} className="px-4 py-4 text-center text-dp-text-secondary border-b border-dp-border-light">
                   {searchTerm || reasonFilter !== 'all'
                     ? 'No adjustments match your filters'
                     : 'No adjustment history found'}

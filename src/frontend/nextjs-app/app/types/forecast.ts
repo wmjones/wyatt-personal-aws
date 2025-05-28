@@ -23,6 +23,22 @@ export interface ForecastByDate {
   avgForecast: number;
 }
 
+export interface ForecastTimeSeries {
+  business_date: string;
+  inventory_item_id: string;
+  state: string;
+  dma_id: string;
+  dc_id: string;
+  y_05: number;
+  y_50: number;
+  y_95: number;
+}
+
+export interface ForecastData {
+  summary: ForecastSummary[];
+  timeSeries: ForecastTimeSeries[];
+}
+
 export interface ForecastFilters {
   restaurantId?: number;
   inventoryItemId?: number;

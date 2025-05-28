@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { DashboardView } from '@/app/types/demand-planning';
+// Dashboard view type
+type DashboardView = 'forecast' | 'history' | 'settings';
 
 interface HeaderProps {
   refreshData?: () => Promise<void>;
@@ -37,7 +38,7 @@ export default function Header({ refreshData, activeTab = 'forecast', onTabChang
   };
 
   return (
-    <header className="bg-dp-surface-primary border-b border-dp-border-light h-[var(--dp-header-height)] flex flex-col justify-center">
+    <header className="bg-white border-b border-gray-200 h-[var(--dp-header-height)] flex flex-col justify-center">
       <div className="flex items-center justify-between px-4">
         <div className="flex flex-col">
           <h1 className="text-2xl font-medium text-dp-text-primary">Forecasting</h1>
@@ -45,7 +46,7 @@ export default function Header({ refreshData, activeTab = 'forecast', onTabChang
 
         <div className="flex items-center">
           <button
-            className="px-3 py-1.5 text-sm font-medium text-dp-text-secondary border border-dp-border-light rounded-md hover:bg-dp-background-tertiary transition-colors ml-4"
+            className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
@@ -54,7 +55,7 @@ export default function Header({ refreshData, activeTab = 'forecast', onTabChang
         </div>
       </div>
 
-      <nav className="border-t border-dp-border-light mt-2">
+      <nav className="border-t border-gray-200 mt-2">
         <div className="flex h-[var(--dp-tab-height)]">
           {tabs.map((tab) => (
             <button

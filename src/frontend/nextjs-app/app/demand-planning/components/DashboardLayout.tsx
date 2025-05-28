@@ -4,7 +4,8 @@ import { useState, memo, useCallback } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
-import { DashboardView } from '@/app/types/demand-planning';
+// Dashboard view type
+type DashboardView = 'forecast' | 'history' | 'settings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

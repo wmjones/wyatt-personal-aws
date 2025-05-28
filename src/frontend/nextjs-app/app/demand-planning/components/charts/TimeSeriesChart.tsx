@@ -11,6 +11,7 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   adjustedData?: ForecastDataPoint[];
   timePeriods: TimePeriod[];
   className?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
   showY05?: boolean;
   showY50?: boolean;
   showY95?: boolean;
@@ -38,8 +39,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
   const [tooltipContent, setTooltipContent] = useState('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  // Zoom and brush state
-  const [zoomDomain, setZoomDomain] = useState<[Date, Date] | null>(null);
 
   // Process the data for D3
   const baselineDataset = createChartDataset(baselineData, timePeriods);
@@ -101,7 +100,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     // Create scales with zoom domain support
     const originalDomain = d3.extent(baselineDataset, d => d.date) as [Date, Date];
     const xScale = d3.scaleTime()
-      .domain(zoomDomain || originalDomain)
+      .domain(originalDomain)
       .range([0, innerWidth])
       .nice();
 
@@ -150,7 +149,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     const yAxis = d3.axisLeft(yScale)
       .ticks(height > 300 ? 8 : 5)
       .tickSize(-5) // Short ticks
-      .tickFormat(d => `$${formatNumber(d as number)}k`); // Dollar format with k suffix
+      .tickFormat(d => formatNumber(d as number, true)); // Use currency formatting
 
     // Add x-axis (horizontal) with styling using variables
     g.append('g')
@@ -296,7 +295,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       .attr('y1', 0)
       .attr('y2', innerHeight);
 
-    // Add hover circles for each data series
+    // Add hover circle for y_50
     const hoverCircleY50 = hoverGroup.append('circle')
       .attr('class', 'hover-circle-y50')
       .attr('r', 5)
@@ -304,69 +303,10 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       .attr('stroke', '#FFFFFF')
       .attr('stroke-width', 2);
 
-    const hoverCircleEdited = hoverGroup.append('circle')
-      .attr('class', 'hover-circle-edited')
-      .attr('r', 5)
-      .attr('fill', 'var(--dp-chart-edited)')
-      .attr('stroke', '#FFFFFF')
-      .attr('stroke-width', 2)
-      .style('opacity', 0);
 
-
-    // Add brush to chart
-    const brushGroup = g.append('g')
-      .attr('class', 'brush');
-
-    // Add brush for interactive zooming
-    const brush = d3.brushX()
-      .extent([[0, 0], [innerWidth, innerHeight]])
-      .on('start brush', (event) => {
-        // Hide hover elements during brushing
-        if (event.selection) {
-          hoverGroup.style('opacity', 0);
-          setTooltipVisible(false);
-        }
-      })
-      .on('end', (event) => {
-        const selection = event.selection;
-        if (!selection) return;
-
-        // Convert brush selection to domain
-        const [x0, x1] = selection.map(xScale.invert);
-        setZoomDomain([x0, x1]);
-
-        // Clear the brush selection
-        brushGroup.call(brush.move, null);
-      });
-
-    brushGroup.call(brush);
-
-    // Apply brush styles after D3 creates the brush elements
-    // Use a small timeout to ensure D3 has finished creating the elements
-    setTimeout(() => {
-      // Style the brush selection area (the gray rectangle when dragging)
-      svg.selectAll('.brush .selection')
-        .style('fill', 'var(--dp-chart-brush-fill, #3B82F6)')
-        .style('fill-opacity', 0.15)
-        .style('stroke', 'var(--dp-chart-brush-stroke, #3B82F6)')
-        .style('stroke-width', 1)
-        .style('stroke-opacity', 0.4);
-
-      // Style the brush overlay (invisible area for interaction)
-      svg.selectAll('.brush .overlay')
-        .style('cursor', 'crosshair');
-
-      // Style the brush handles (resize handles at edges)
-      svg.selectAll('.brush .handle')
-        .style('fill', 'var(--dp-chart-brush-handle, #1E40AF)')
-        .style('fill-opacity', 0.8);
-    }, 0);
 
     // Add hover events to the entire chart area
     svg.on('mousemove', function(event) {
-      // Don't show hover if actively brushing
-      const isBrushing = d3.select('.brush .selection').node() && d3.select('.brush .selection').style('display') !== 'none';
-      if (isBrushing) return;
 
       const [mouseX] = d3.pointer(event, g.node());
 
@@ -387,11 +327,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
       if (!d) return;
 
-      // Find corresponding edited data point if available
-      const editedPoint = adjustedDataset.find(adj =>
-        Math.abs(adj.date.getTime() - d.date.getTime()) < 24 * 60 * 60 * 1000 // Within 1 day
-      );
-
       // Position hover elements
       const xPos = xScale(d.date);
       const yPosY50 = yScale(d.value);
@@ -399,47 +334,16 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       hoverLine.attr('x1', xPos).attr('x2', xPos);
       hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
 
-      // Show/hide edited circle based on data availability
-      if (editedPoint && showEdited) {
-        const yPosEdited = yScale(editedPoint.value);
-        hoverCircleEdited
-          .attr('cx', xPos)
-          .attr('cy', yPosEdited)
-          .style('opacity', 1);
-      } else {
-        hoverCircleEdited.style('opacity', 0);
-      }
-
-      // Update tooltip content
-      let tooltipHtml = `<div class="p-3">
-        <div class="font-medium text-gray-900 text-sm mb-2">${formatDate(d.date as Date, periodType)}</div>
-        <div class="space-y-1">
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-600">y_50 (Median):</span>
-            <span class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</span>
-          </div>`;
-
-      if (editedPoint && showEdited) {
-        const changeValue = (editedPoint.value - d.value) / d.value * 100;
-        const change = changeValue.toFixed(1);
-        const changeColor = editedPoint.value > d.value ? 'text-green-600' : 'text-red-600';
-        tooltipHtml += `
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-600">Edited:</span>
-            <span class="text-sm font-semibold text-gray-900">$${formatNumber(editedPoint.value)}k</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-600">Change:</span>
-            <span class="text-xs font-medium ${changeColor}">${changeValue > 0 ? '+' : ''}${change}%</span>
-          </div>`;
-      }
-
-      tooltipHtml += `</div></div>`;
+      // Update tooltip content - clean and simple
+      const tooltipHtml = `<div class="p-2">
+        <div class="text-xs text-gray-600">${formatDate(d.date as Date, periodType)}</div>
+        <div class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</div>
+      </div>`;
 
       setTooltipContent(tooltipHtml);
       setTooltipPosition({
         x: xPos + margin.left,
-        y: Math.min(yPosY50, editedPoint ? yScale(editedPoint.value) : yPosY50) + margin.top - 10
+        y: yPosY50 + margin.top - 10
       });
       setTooltipVisible(true);
       hoverGroup.style('opacity', 1);
@@ -447,10 +351,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     .on('mouseleave', function() {
       hoverGroup.style('opacity', 0);
       setTooltipVisible(false);
-    })
-    // Add zoom reset functionality (double-click)
-    .on('dblclick', () => {
-      setZoomDomain(null);
     });
 
     // Apply clip path to all chart elements
@@ -469,8 +369,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     showY50,
     showY95,
     showEdited,
-    showActual,
-    zoomDomain
+    showActual
   ]);
 
   return (
@@ -482,27 +381,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         className="max-w-full bg-dp-chart-background rounded-lg border border-dp-frame-border"
       />
 
-      {/* Zoom controls */}
-      {zoomDomain && (
-        <div className="absolute top-2 right-2 z-20">
-          <button
-            onClick={() => setZoomDomain(null)}
-            className="px-3 py-1 text-xs bg-white border border-dp-frame-border rounded-md shadow-sm hover:bg-dp-background-secondary transition-colors"
-            title="Reset zoom (or double-click chart)"
-          >
-            Reset Zoom
-          </button>
-        </div>
-      )}
-
-      {/* Brush instruction */}
-      {!zoomDomain && (
-        <div className="absolute bottom-2 left-2 z-20">
-          <div className="px-2 py-1 text-xs bg-white bg-opacity-90 border border-dp-frame-border rounded text-dp-text-secondary">
-            Drag to zoom • Double-click to reset
-          </div>
-        </div>
-      )}
 
       {/* Tooltip - styled exactly like screenshot */}
       {tooltipVisible && (

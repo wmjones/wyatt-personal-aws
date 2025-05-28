@@ -127,6 +127,28 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     }
   }
 
+  if (filters?.dmaId) {
+    if (Array.isArray(filters.dmaId)) {
+      const placeholders = filters.dmaId.map(() => `$${++paramCount}`).join(',');
+      conditions.push(`dma_id IN (${placeholders})`);
+      values.push(...filters.dmaId);
+    } else {
+      conditions.push(`dma_id = $${++paramCount}`);
+      values.push(filters.dmaId);
+    }
+  }
+
+  if (filters?.dcId) {
+    if (Array.isArray(filters.dcId)) {
+      const placeholders = filters.dcId.map(() => `$${++paramCount}`).join(',');
+      conditions.push(`dc_id IN (${placeholders})`);
+      values.push(...filters.dcId);
+    } else {
+      conditions.push(`dc_id = $${++paramCount}`);
+      values.push(filters.dcId);
+    }
+  }
+
   if (filters?.startDate) {
     const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
@@ -156,8 +178,8 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     SELECT
       inventory_item_id,
       business_date::text as business_date,
-      '' as dma_id,
-      NULL as dc_id,
+      'AGGREGATED' as dma_id,
+      -1 as dc_id,
       'ALL' as state,
       1 as restaurant_id,
       SUM(y_05) as y_05,
@@ -452,5 +474,104 @@ async function executeRawQuery(query: string) {
   } catch (error) {
     console.error('Error executing raw query:', error);
     throw error;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const type = searchParams.get('type');
+
+    // Parse query parameters
+    const itemIds = searchParams.get('itemIds')?.split(',').filter(Boolean) || [];
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
+
+    // Parse location filters
+    const states = searchParams.get('states')?.split(',').filter(Boolean) || [];
+    const dmaIds = searchParams.get('dmaIds')?.split(',').filter(Boolean) || [];
+    const dcIds = searchParams.get('dcIds')?.split(',').filter(Boolean).map(id => parseInt(id)) || [];
+
+    if (!itemIds.length || !startDate || !endDate) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: itemIds, startDate, endDate' },
+        { status: 400 }
+      );
+    }
+
+    // Convert to filters format expected by getForecastData
+    const filters: ForecastFilters = {
+      inventoryItemId: parseInt(itemIds[0]), // Using first item ID for now
+      startDate,
+      endDate,
+      limit: 10000,
+      // Add location filters if provided
+      ...(states.length > 0 && { state: states }),
+      ...(dmaIds.length > 0 && { dmaId: dmaIds }),
+      ...(dcIds.length > 0 && { dcId: dcIds })
+    };
+
+    if (type === 'summary') {
+      // For summary, aggregate the data
+      const data = await getForecastData(filters);
+
+      // Aggregate by date for summary view
+      const summaryMap = new Map<string, { y_05: number; y_50: number; y_95: number; count: number }>();
+
+      data.forEach(row => {
+        const date = row.business_date;
+        if (!summaryMap.has(date)) {
+          summaryMap.set(date, { y_05: 0, y_50: 0, y_95: 0, count: 0 });
+        }
+        const summary = summaryMap.get(date)!;
+        summary.y_05 += parseFloat(row.y_05) || 0;
+        summary.y_50 += parseFloat(row.y_50) || 0;
+        summary.y_95 += parseFloat(row.y_95) || 0;
+        summary.count += 1;
+      });
+
+      const summaryData = Array.from(summaryMap.entries()).map(([date, values]) => ({
+        business_date: date,
+        inventory_item_id: itemIds[0],
+        restaurant_id: '1', // Placeholder value - data is aggregated across all locations
+        state: 'ALL',
+        dma_id: 'AGGREGATED',
+        dc_id: '-1',
+        y_05: values.y_05,
+        y_50: values.y_50,
+        y_95: values.y_95,
+        avgForecast: values.y_50 / values.count,
+        totalForecast: values.y_50
+      }));
+
+      return NextResponse.json(summaryData);
+    } else if (type === 'timeseries') {
+      // For time series, return the raw data grouped by date
+      const data = await getForecastData(filters);
+
+      const timeSeriesData = data.map(row => ({
+        business_date: row.business_date,
+        inventory_item_id: row.inventory_item_id,
+        restaurant_id: row.restaurant_id,
+        state: row.state,
+        dma_id: row.dma_id,
+        dc_id: row.dc_id,
+        y_05: parseFloat(row.y_05) || 0,
+        y_50: parseFloat(row.y_50) || 0,
+        y_95: parseFloat(row.y_95) || 0
+      }));
+
+      return NextResponse.json(timeSeriesData);
+    } else {
+      // Default: return raw forecast data
+      const data = await getForecastData(filters);
+      return NextResponse.json({ data });
+    }
+  } catch (error) {
+    console.error('Postgres forecast GET API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }

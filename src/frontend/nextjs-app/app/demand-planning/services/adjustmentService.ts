@@ -13,12 +13,6 @@ const CURRENT_USER = 'demo.user';
 const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
   {
     id: 'adj-001',
-    hierarchySelections: [
-      {
-        type: 'geography',
-        selectedNodes: ['region-1-1-1', 'region-1-1-2'] // NY, MA
-      }
-    ],
     timePeriods: ['Q2-2025', 'Q3-2025'],
     type: 'percentage',
     value: 5,
@@ -36,12 +30,6 @@ const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
   },
   {
     id: 'adj-002',
-    hierarchySelections: [
-      {
-        type: 'product',
-        selectedNodes: ['category-1-1-1'] // Laptops
-      }
-    ],
     timePeriods: ['Q4-2025'],
     type: 'percentage',
     value: -3,
@@ -59,16 +47,6 @@ const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
   },
   {
     id: 'adj-003',
-    hierarchySelections: [
-      {
-        type: 'geography',
-        selectedNodes: ['region-2-1-1'] // CA
-      },
-      {
-        type: 'product',
-        selectedNodes: ['category-1-1-1'] // Laptops
-      }
-    ],
     timePeriods: ['Q1-2025', 'Q2-2025'],
     type: 'absolute',
     value: 1000,
@@ -86,12 +64,6 @@ const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
   },
   {
     id: 'adj-004',
-    hierarchySelections: [
-      {
-        type: 'campaign',
-        selectedNodes: ['campaign-type-1-1-1'] // Beach Promo
-      }
-    ],
     timePeriods: ['Q2-2025'],
     type: 'percentage',
     value: 12,
@@ -109,12 +81,6 @@ const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
   },
   {
     id: 'adj-005',
-    hierarchySelections: [
-      {
-        type: 'customer',
-        selectedNodes: ['segment-1-1-1'] // Store A
-      }
-    ],
     timePeriods: ['Q3-2025'],
     type: 'percentage',
     value: -8,

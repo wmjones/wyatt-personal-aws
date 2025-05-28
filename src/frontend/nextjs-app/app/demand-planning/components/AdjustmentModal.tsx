@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   AdjustmentType,
   AdjustmentReason,
-  TimePeriod,
-  HierarchySelection
+  TimePeriod
 } from '@/app/types/demand-planning';
 
 interface AdjustmentModalProps {
@@ -13,7 +12,6 @@ interface AdjustmentModalProps {
   onClose: () => void;
   onApply: (adjustment: AdjustmentData) => Promise<void>;
   timePeriods: TimePeriod[];
-  selectedHierarchies: HierarchySelection[];
   baselineTotal?: number;
 }
 
@@ -23,7 +21,6 @@ export interface AdjustmentData {
   timePeriods: string[];
   reason: AdjustmentReason;
   notes?: string;
-  hierarchySelections: HierarchySelection[];
 }
 
 type FormStep = 'selection' | 'details' | 'preview';
@@ -33,7 +30,6 @@ export default function AdjustmentModal({
   onClose,
   onApply,
   timePeriods,
-  selectedHierarchies,
   baselineTotal = 0
 }: AdjustmentModalProps) {
   // Modal and focus management
@@ -52,8 +48,7 @@ export default function AdjustmentModal({
     value: 5,
     timePeriods: timePeriods.map(tp => tp.id),
     reason: 'marketing-campaign',
-    notes: '',
-    hierarchySelections: selectedHierarchies
+    notes: ''
   });
 
   // Processing state for apply button
@@ -113,13 +108,6 @@ export default function AdjustmentModal({
     }
   }, [timeSelectionMode, timePeriods]);
 
-  // Update the hierarchy selections when they change externally
-  useEffect(() => {
-    setAdjustmentData(prev => ({
-      ...prev,
-      hierarchySelections: selectedHierarchies
-    }));
-  }, [selectedHierarchies]);
 
   // Validate the current step
   const validateCurrentStep = (): boolean => {
@@ -127,9 +115,6 @@ export default function AdjustmentModal({
 
     // Validate selection step
     if (currentStep === 'selection') {
-      if (selectedHierarchies.length === 0) {
-        newErrors.hierarchies = 'At least one hierarchy must be selected';
-      }
 
       if (adjustmentData.timePeriods.length === 0) {
         newErrors.timePeriods = 'At least one time period must be selected';
@@ -264,14 +249,6 @@ export default function AdjustmentModal({
 
   if (!isOpen) return null;
 
-  // Get affected hierarchies for display
-  const getHierarchyInfo = () => {
-    return selectedHierarchies.map(h => {
-      const count = h.selectedNodes.length;
-      const type = h.type.charAt(0).toUpperCase() + h.type.slice(1);
-      return `${type} (${count} selected)`;
-    }).join(', ');
-  };
 
   // Calculate adjustment impact
   const adjustedTotal = getAdjustedTotal();
@@ -311,16 +288,6 @@ export default function AdjustmentModal({
       case 'selection':
         return (
           <>
-            {/* Selected hierarchies */}
-            <div>
-              <h3 className="text-sm font-medium text-dp-text-primary mb-2">Selected Hierarchies:</h3>
-              <div className={`bg-dp-background-tertiary rounded-md p-3 text-sm text-dp-text-secondary ${errors.hierarchies ? 'border border-dp-text-error' : ''}`}>
-                {selectedHierarchies.length > 0
-                  ? getHierarchyInfo()
-                  : 'No hierarchies selected. Please select hierarchies from the sidebar.'}
-              </div>
-              {errors.hierarchies && <p className="text-dp-text-error text-xs mt-1">{errors.hierarchies}</p>}
-            </div>
 
             {/* Time period selection */}
             <div>
@@ -455,10 +422,6 @@ export default function AdjustmentModal({
             <div className="bg-dp-background-tertiary rounded-md p-4 mb-4">
               <h3 className="text-sm font-medium text-dp-text-primary mb-2">Adjustment Summary:</h3>
               <dl className="grid grid-cols-1 gap-y-2">
-                <div className="flex justify-between">
-                  <dt className="text-xs text-dp-text-secondary">Hierarchies:</dt>
-                  <dd className="text-sm">{getHierarchyInfo()}</dd>
-                </div>
                 <div className="flex justify-between">
                   <dt className="text-xs text-dp-text-secondary">Time Periods:</dt>
                   <dd className="text-sm">
@@ -640,7 +603,7 @@ export default function AdjustmentModal({
                 className="dp-btn dp-btn-primary"
                 disabled={
                   isProcessing ||
-                  (currentStep === 'selection' && (selectedHierarchies.length === 0 || adjustmentData.timePeriods.length === 0))
+                  (currentStep === 'selection' && adjustmentData.timePeriods.length === 0)
                 }
               >
                 Continue
