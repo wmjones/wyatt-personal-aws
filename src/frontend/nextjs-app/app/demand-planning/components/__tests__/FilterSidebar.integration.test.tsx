@@ -3,9 +3,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FilterSidebar from '../FilterSidebar';
 import React from 'react';
 
+// Create mock implementations
+const mockUseStateOptions = jest.fn();
+const mockUseDMAOptions = jest.fn();
+const mockUseDCOptions = jest.fn();
+const mockUseInventoryItemOptions = jest.fn();
+
 // Mock the dropdown hooks
 jest.mock('@/hooks/useDropdownOptions', () => ({
-  useStateOptions: () => ({
+  useStateOptions: () => mockUseStateOptions(),
+  useDMAOptions: () => mockUseDMAOptions(),
+  useDCOptions: () => mockUseDCOptions(),
+  useInventoryItemOptions: () => mockUseInventoryItemOptions()
+}));
+
+// Default mock return values
+const defaultMockData = {
+  states: {
     data: [
       { value: 'CA', label: 'CA' },
       { value: 'TX', label: 'TX' },
@@ -13,24 +27,24 @@ jest.mock('@/hooks/useDropdownOptions', () => ({
     ],
     isLoading: false,
     error: null
-  }),
-  useDMAOptions: () => ({
+  },
+  dmas: {
     data: [
       { value: 'DMA001', label: 'DMA DMA001' },
       { value: 'DMA002', label: 'DMA DMA002' }
     ],
     isLoading: false,
     error: null
-  }),
-  useDCOptions: () => ({
+  },
+  dcs: {
     data: [
       { value: '101', label: 'DC 101' },
       { value: '102', label: 'DC 102' }
     ],
     isLoading: false,
     error: null
-  }),
-  useInventoryItemOptions: () => ({
+  },
+  inventory: {
     data: [
       { value: '1', label: 'Item 1' },
       { value: '2', label: 'Item 2' },
@@ -38,8 +52,8 @@ jest.mock('@/hooks/useDropdownOptions', () => ({
     ],
     isLoading: false,
     error: null
-  })
-}));
+  }
+};
 
 describe('FilterSidebar Integration Tests', () => {
   let queryClient: QueryClient;
@@ -52,6 +66,13 @@ describe('FilterSidebar Integration Tests', () => {
         },
       },
     });
+
+    // Reset all mocks and set default return values
+    jest.clearAllMocks();
+    mockUseStateOptions.mockReturnValue(defaultMockData.states);
+    mockUseDMAOptions.mockReturnValue(defaultMockData.dmas);
+    mockUseDCOptions.mockReturnValue(defaultMockData.dcs);
+    mockUseInventoryItemOptions.mockReturnValue(defaultMockData.inventory);
   });
 
   const defaultSelections = {
@@ -124,15 +145,12 @@ describe('FilterSidebar Integration Tests', () => {
     });
   });
 
-  it.skip('should show loading state when data is being fetched', () => {
-    // TODO: This test needs to be rewritten to properly mock loading states
-    // Mock loading state
-    jest.mock('@/hooks/useDropdownOptions', () => ({
-      useStateOptions: () => ({ data: [], isLoading: true, error: null }),
-      useDMAOptions: () => ({ data: [], isLoading: true, error: null }),
-      useDCOptions: () => ({ data: [], isLoading: true, error: null }),
-      useInventoryItemOptions: () => ({ data: [], isLoading: true, error: null })
-    }));
+  it('should show loading state when data is being fetched', () => {
+    // Set up loading state for all hooks
+    mockUseStateOptions.mockReturnValue({ data: [], isLoading: true, error: null });
+    mockUseDMAOptions.mockReturnValue({ data: [], isLoading: true, error: null });
+    mockUseDCOptions.mockReturnValue({ data: [], isLoading: true, error: null });
+    mockUseInventoryItemOptions.mockReturnValue({ data: [], isLoading: true, error: null });
 
     renderWithQuery(
       <FilterSidebar
@@ -143,45 +161,31 @@ describe('FilterSidebar Integration Tests', () => {
 
     // Should show loading indicator
     expect(screen.getByText('Loading filter options...')).toBeInTheDocument();
+    // Should show loading text in all dropdown buttons
+    const loadingElements = screen.getAllByText('Loading...');
+    expect(loadingElements).toHaveLength(4); // One for each dropdown (inventory, states, DMAs, DCs)
   });
 
-  it.skip('should handle error state gracefully', async () => {
-    // TODO: This test needs to be rewritten to properly mock error states
+  it('should handle error state gracefully', () => {
     const error = new Error('Failed to load dropdown data');
 
-    // Mock error state
-    jest.mock('@/hooks/useDropdownOptions', () => ({
-      useStateOptions: () => ({ data: [], isLoading: false, error }),
-      useDMAOptions: () => ({ data: [], isLoading: false, error: null }),
-      useDCOptions: () => ({ data: [], isLoading: false, error: null }),
-      useInventoryItemOptions: () => ({ data: [], isLoading: false, error: null })
-    }));
+    // Set up error state
+    mockUseStateOptions.mockReturnValue({ data: [], isLoading: false, error });
+    mockUseDMAOptions.mockReturnValue({ data: [], isLoading: false, error: null });
+    mockUseDCOptions.mockReturnValue({ data: [], isLoading: false, error: null });
+    mockUseInventoryItemOptions.mockReturnValue({ data: [], isLoading: false, error: null });
 
-    const { rerender } = renderWithQuery(
+    renderWithQuery(
       <FilterSidebar
         selections={defaultSelections}
         onSelectionChange={jest.fn()}
       />
     );
 
-    // Create a new mock module for error state
-    jest.doMock('@/app/hooks/useDropdownOptions', () => ({
-      useStateOptions: () => ({ data: [], isLoading: false, error }),
-      useDMAOptions: () => ({ data: [], isLoading: false, error: null }),
-      useDCOptions: () => ({ data: [], isLoading: false, error: null }),
-      useInventoryItemOptions: () => ({ data: [], isLoading: false, error: null })
-    }));
-
-    // Force re-render with error
-    const { default: FilterSidebarWithError } = await import('../FilterSidebar');
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <FilterSidebarWithError
-          selections={defaultSelections}
-          onSelectionChange={jest.fn()}
-        />
-      </QueryClientProvider>
-    );
+    // Should show error message
+    expect(screen.getByText('Error Loading Filters')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load dropdown data')).toBeInTheDocument();
+    expect(screen.getByText('Reload Page')).toBeInTheDocument();
   });
 
   it('should demonstrate TanStack Query caching behavior', async () => {
