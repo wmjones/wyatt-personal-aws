@@ -54,7 +54,6 @@ export default function FilterSidebar({
 
         // Auto-select first inventory item if none selected
         if (!updatedSelections.inventoryItemId) {
-          console.log('Auto-selecting first inventory item:', inventoryOptions[0]);
           updatedSelections.inventoryItemId = inventoryOptions[0].value;
           hasChanges = true;
         }
