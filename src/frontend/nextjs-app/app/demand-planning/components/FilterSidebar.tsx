@@ -47,30 +47,37 @@ export default function FilterSidebar({
 
   // Initialize with first inventory item and default date range if not selected
   useEffect(() => {
-    let hasChanges = false;
-    const updatedSelections = { ...localSelections };
+    if (inventoryOptions.length > 0 && !isLoadingInventory) {
+      setLocalSelections((prevSelections) => {
+        let hasChanges = false;
+        const updatedSelections = { ...prevSelections };
 
-    // Auto-select first inventory item if none selected
-    if (!updatedSelections.inventoryItemId && inventoryOptions.length > 0 && !isLoadingInventory) {
-      console.log('Auto-selecting first inventory item:', inventoryOptions[0]);
-      updatedSelections.inventoryItemId = inventoryOptions[0].value;
-      hasChanges = true;
-    }
+        // Auto-select first inventory item if none selected
+        if (!updatedSelections.inventoryItemId) {
+          console.log('Auto-selecting first inventory item:', inventoryOptions[0]);
+          updatedSelections.inventoryItemId = inventoryOptions[0].value;
+          hasChanges = true;
+        }
 
-    // Set default date range if not selected (full data range)
-    if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
-      updatedSelections.dateRange = {
-        startDate: '2025-01-01',
-        endDate: '2025-03-31'
-      };
-      hasChanges = true;
-    }
+        // Set default date range if not selected (full data range)
+        if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
+          updatedSelections.dateRange = {
+            startDate: '2025-01-01',
+            endDate: '2025-03-31'
+          };
+          hasChanges = true;
+        }
 
-    if (hasChanges) {
-      setLocalSelections(updatedSelections);
-      onSelectionChange(updatedSelections);
+        if (hasChanges) {
+          // Call onSelectionChange in a separate effect to avoid issues
+          setTimeout(() => onSelectionChange(updatedSelections), 0);
+          return updatedSelections;
+        }
+
+        return prevSelections;
+      });
     }
-  }, [inventoryOptions, isLoadingInventory]); // Remove localSelections and onSelectionChange from deps to avoid infinite loop
+  }, [inventoryOptions, isLoadingInventory, onSelectionChange]);
 
   // Handle state selection changes
   const handleStateChange = (states: string[]) => {
