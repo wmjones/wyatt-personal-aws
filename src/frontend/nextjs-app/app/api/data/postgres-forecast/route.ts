@@ -178,9 +178,9 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     SELECT
       inventory_item_id,
       business_date::text as business_date,
-      'AGGREGATED' as dma_id,
-      -1 as dc_id,
-      'ALL' as state,
+      ${filters?.dmaId ? 'STRING_AGG(DISTINCT dma_id::text, \',\' ORDER BY dma_id::text)' : '\'AGGREGATED\''} as dma_id,
+      ${filters?.dcId ? 'STRING_AGG(DISTINCT dc_id::text, \',\' ORDER BY dc_id::text)' : '\'-1\''} as dc_id,
+      ${filters?.state ? 'STRING_AGG(DISTINCT state, \',\' ORDER BY state)' : '\'ALL\''} as state,
       1 as restaurant_id,
       SUM(y_05) as y_05,
       SUM(y_50) as y_50,
@@ -213,10 +213,18 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   if (aggregateByDate) {
     console.log('Aggregated forecast query:', {
       inventoryItemId: filters?.inventoryItemId,
+      appliedFilters: {
+        state: filters?.state,
+        dmaId: filters?.dmaId,
+        dcId: filters?.dcId
+      },
       rowCount: result.rows.length,
       sampleRows: result.rows.slice(0, 3).map(row => ({
         date: row.business_date,
-        y_50: row.y_50
+        y_50: row.y_50,
+        state: row.state,
+        dma_id: row.dma_id,
+        dc_id: row.dc_id
       }))
     });
   }
@@ -512,10 +520,32 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'summary') {
-      // For summary, aggregate the data
+      // For summary, get the already aggregated data from getForecastData
+      // When inventoryItemId is specified, getForecastData already does the aggregation
       const data = await getForecastData(filters);
 
-      // Aggregate by date for summary view
+      // If data is already aggregated (when inventoryItemId is specified), return it directly
+      if (data.length > 0 && (data[0].state === 'ALL' || data[0].dma_id === 'AGGREGATED')) {
+        console.log('Using pre-aggregated data from getForecastData for summary view');
+        // Data is already aggregated, just transform to expected format
+        const summaryData = data.map(row => ({
+          business_date: row.business_date,
+          inventory_item_id: row.inventory_item_id || itemIds[0],
+          restaurant_id: row.restaurant_id || '1',
+          state: row.state,
+          dma_id: row.dma_id,
+          dc_id: row.dc_id,
+          y_05: parseFloat(row.y_05) || 0,
+          y_50: parseFloat(row.y_50) || 0,
+          y_95: parseFloat(row.y_95) || 0,
+          avgForecast: parseFloat(row.y_50) || 0,
+          totalForecast: parseFloat(row.y_50) || 0
+        }));
+        return NextResponse.json(summaryData);
+      }
+
+      // Otherwise, do manual aggregation by date for summary view
+      console.log('Performing manual aggregation for summary view');
       const summaryMap = new Map<string, { y_05: number; y_50: number; y_95: number; count: number }>();
 
       data.forEach(row => {

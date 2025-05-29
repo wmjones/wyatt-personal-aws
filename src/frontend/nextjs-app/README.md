@@ -20,6 +20,62 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Testing
+
+This project uses Jest and React Testing Library for unit testing.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with coverage report
+npm test -- --coverage
+
+# Run tests for a specific file
+npm test -- --testPathPattern=chart-utils
+
+# Run tests that match a pattern
+npm test -- --testNamePattern="should calculate"
+```
+
+### Test Coverage
+
+The project maintains the following coverage thresholds:
+- Branches: 50%
+- Functions: 50%
+- Lines: 60%
+- Statements: 60%
+
+Utility functions in `app/demand-planning/lib/` maintain at least 80% coverage.
+
+### Pre-commit Hooks
+
+Tests are automatically run before commits through pre-commit hooks. The hooks will:
+1. Run ESLint to check for code quality issues
+2. Run TypeScript type checking
+3. Run Jest tests for changed files
+
+If any tests fail, the commit will be blocked until issues are resolved.
+
+### Writing Tests
+
+Test files should be placed in `__tests__` directories next to the code they test, with the naming convention `[filename].test.ts(x)`.
+
+Example structure:
+```
+app/services/
+  forecastService.ts
+  __tests__/
+    forecastService.test.ts
+```
+
+For more detailed testing guidelines, see [docs/testing-guide.md](docs/testing-guide.md).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

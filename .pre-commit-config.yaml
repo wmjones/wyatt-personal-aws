@@ -94,9 +94,18 @@ repos:
         files: "src/frontend/nextjs-app/.*\\.(ts|tsx)$"
         require_serial: true
 
-  #   - id: jest
-  #     name: "Jest unit tests"
-  #     entry: npx jest --bail
-  #     language: system
-  #     pass_filenames: false
-  #     stages: [push]
+      - id: jest
+        name: "Jest unit tests"
+        entry: bash -c 'cd src/frontend/nextjs-app && files="$@"; if [ -n "$files" ]; then relative_files=$(echo "$files" | sed "s|src/frontend/nextjs-app/||g"); npm test -- --bail --findRelatedTests $relative_files; else echo "No test files to run"; fi'
+        language: system
+        pass_filenames: true
+        files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
+        require_serial: true
+        # No stages specified = runs on commit by default
+
+      - id: jest-coverage
+        name: "Jest coverage check"
+        entry: bash -c "cd src/frontend/nextjs-app && npm test -- --coverage --coverageThreshold='{\"global\":{\"branches\":50,\"functions\":50,\"lines\":60,\"statements\":60}}'"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]  # Run only on push to avoid slowing down commits

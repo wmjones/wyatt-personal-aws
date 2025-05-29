@@ -43,6 +43,8 @@ export interface ForecastFilters {
   restaurantId?: number;
   inventoryItemId?: number;
   state?: string | string[];
+  dmaId?: string | string[];
+  dcId?: number | number[];
   startDate?: string;
   endDate?: string;
   limit?: number;
