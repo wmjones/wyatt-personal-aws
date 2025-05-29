@@ -147,3 +147,24 @@ variable "eventbridge_rule_name" {
   type        = string
   default     = "todoist-workflow-rule"
 }
+
+# Neon database configuration
+variable "neon_api_key" {
+  description = "API key for Neon database"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "neon_project_id" {
+  description = "Project ID for Neon database"
+  type        = string
+  default     = ""
+}
+
+# SNS topic for alerts
+variable "sns_alert_topic_arn" {
+  description = "ARN of SNS topic for CloudWatch alerts"
+  type        = string
+  default     = ""
+}

@@ -431,9 +431,45 @@ async function main() {
   }
 }
 
-// Run if called directly
-if (require.main === module) {
-  main();
+// Add function to record sync status
+async function recordSyncStatus(syncType: string, recordsCount: number, status: string, error?: string) {
+  try {
+    const query = `
+      INSERT INTO forecast_sync_status (
+        sync_type, last_sync_timestamp, last_sync_date,
+        records_synced, status, error_message
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+    `;
+
+    const lastSyncDate = await pgPool.query(
+      'SELECT MAX(business_date) as max_date FROM forecast_data'
+    );
+
+    await pgPool.query(query, [
+      syncType,
+      new Date(),
+      lastSyncDate.rows[0]?.max_date || null,
+      recordsCount,
+      status,
+      error || null
+    ]);
+  } catch (err) {
+    console.error('Failed to record sync status:', err);
+  }
 }
 
-export { createPostgresSchema, migrateData, verifyMigration };
+// Run if called directly
+if (require.main === module) {
+  // Check for sync type from environment or command line
+  const syncType = process.env.SYNC_TYPE || process.argv[2] || 'full';
+
+  main().then(async (recordsCount) => {
+    await recordSyncStatus(syncType, recordsCount || 0, 'success');
+  }).catch(async (error) => {
+    console.error('Migration failed:', error);
+    await recordSyncStatus(syncType, 0, 'failed', error.toString());
+    process.exit(1);
+  });
+}
+
+export { createPostgresSchema, migrateData, verifyMigration, recordSyncStatus };
