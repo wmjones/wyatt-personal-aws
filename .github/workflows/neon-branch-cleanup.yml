@@ -63,15 +63,20 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: |
-          # Construct the Neon branch name
-          NEON_BRANCH="preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_info.outputs.branch_name }}"
+          # Construct the Neon branch name (for both old preview and new branch naming)
+          NEON_BRANCH_OLD="preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_info.outputs.branch_name }}"
+          NEON_BRANCH_NEW="branch/${{ steps.branch_info.outputs.branch_name }}"
 
-          echo "🗑️ Attempting to delete Neon branch: $NEON_BRANCH"
+          echo "🗑️ Attempting to delete Neon branches for PR branch: ${{ steps.branch_info.outputs.branch_name }}"
 
-          # Delete the branch (continue on error as it might not exist)
-          neonctl branches delete "$NEON_BRANCH" \
+          # Try to delete both old and new naming patterns
+          neonctl branches delete "$NEON_BRANCH_OLD" \
             --project-id "$NEON_PROJECT_ID" \
-            --force || echo "⚠️ Branch might not exist or already deleted"
+            --force || echo "⚠️ Old preview branch might not exist or already deleted"
+
+          neonctl branches delete "$NEON_BRANCH_NEW" \
+            --project-id "$NEON_PROJECT_ID" \
+            --force || echo "⚠️ New branch might not exist or already deleted"
 
       - name: Comment on PR
         uses: actions/github-script@v7
@@ -79,7 +84,7 @@ jobs:
           script: |
             const body = `🧹 **Neon Branch Cleanup Complete**
 
-            The preview database branch \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_info.outputs.branch_name }}\` has been cleaned up.`;
+            Database branches for \`${{ steps.branch_info.outputs.branch_name }}\` have been cleaned up.`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -116,10 +121,20 @@ jobs:
           # List all branches
           BRANCHES=$(neonctl branches list --project-id "$NEON_PROJECT_ID" --output json || echo "[]")
 
-          # Find branches that match the deleted GitHub branch
+          # Sanitize branch name for Neon lookup
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_info.outputs.branch_name }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+
+          # Find branches that match the deleted GitHub branch (both old and new naming patterns)
+          BRANCH_TO_DELETE="branch/$SANITIZED_BRANCH"
+
+          echo "🗑️ Attempting to delete Neon branch: $BRANCH_TO_DELETE"
+          neonctl branches delete "$BRANCH_TO_DELETE" --project-id "$NEON_PROJECT_ID" --force || echo "⚠️ Branch might not exist or already deleted"
+
+          # Also check for any old preview branches that might match
           echo "$BRANCHES" | jq -r '.[] | select(.name | contains("${{ steps.branch_info.outputs.branch_name }}")) | .name' | while read -r branch; do
-            if [ ! -z "$branch" ]; then
-              echo "🗑️ Deleting Neon branch: $branch"
+            if [ ! -z "$branch" ] && [ "$branch" != "$BRANCH_TO_DELETE" ]; then
+              echo "🗑️ Deleting related Neon branch: $branch"
               neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
             fi
           done
@@ -176,13 +191,13 @@ jobs:
             fi
           done
 
-          # Also clean up any preview branches older than 7 days (orphaned branches)
-          echo "📋 Cleaning orphaned preview branches..."
+          # Also clean up any preview/branch branches older than 7 days (orphaned branches)
+          echo "📋 Cleaning orphaned preview and branch deployments..."
           echo "$BRANCHES" | jq -r --argjson cutoff "$SEVEN_DAYS_AGO" \
-            '.[] | select(.name | test("^preview/")) |
+            '.[] | select(.name | test("^(preview/|branch/)")) |
             select((.created_at | fromdateiso8601) < $cutoff) | .name' | while read -r branch; do
             if [ ! -z "$branch" ]; then
-              echo "🗑️ Deleting orphaned preview branch: $branch"
+              echo "🗑️ Deleting orphaned branch: $branch"
               neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
             fi
           done
@@ -206,11 +221,11 @@ jobs:
 
           case "$CLEANUP_TYPE" in
             "all-preview")
-              echo "🧹 Cleaning up ALL preview branches..."
+              echo "🧹 Cleaning up ALL preview and branch deployments..."
               neonctl branches list --project-id "$NEON_PROJECT_ID" --output json | \
-                jq -r '.[] | select(.name | test("^preview/")) | .name' | while read -r branch; do
+                jq -r '.[] | select(.name | test("^(preview/|branch/)")) | .name' | while read -r branch; do
                 if [ ! -z "$branch" ]; then
-                  echo "🗑️ Deleting preview branch: $branch"
+                  echo "🗑️ Deleting branch: $branch"
                   neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
                 fi
               done
@@ -281,12 +296,14 @@ jobs:
 
           # Break down by type
           PREVIEW_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^preview/"))] | length')
+          BRANCH_COUNT_NEW=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^branch/"))] | length')
           DEV_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^dev-deployment-"))] | length')
           MAIN_COUNT=$(echo "$BRANCHES" | jq '[.[] | select(.name | test("^main-deployment-"))] | length')
-          OTHER_COUNT=$((BRANCH_COUNT - PREVIEW_COUNT - DEV_COUNT - MAIN_COUNT))
+          OTHER_COUNT=$((BRANCH_COUNT - PREVIEW_COUNT - BRANCH_COUNT_NEW - DEV_COUNT - MAIN_COUNT))
 
           echo "### Branch Breakdown" >> $GITHUB_STEP_SUMMARY
-          echo "- **Preview Branches**: $PREVIEW_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Legacy Preview Branches**: $PREVIEW_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch Deployments**: $BRANCH_COUNT_NEW" >> $GITHUB_STEP_SUMMARY
           echo "- **Dev Deployments**: $DEV_COUNT" >> $GITHUB_STEP_SUMMARY
           echo "- **Main Deployments**: $MAIN_COUNT" >> $GITHUB_STEP_SUMMARY
           echo "- **Other**: $OTHER_COUNT" >> $GITHUB_STEP_SUMMARY
