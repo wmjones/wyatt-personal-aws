@@ -32,10 +32,6 @@ module "lambda_function" {
   # Add VPC policy statements if Lambda is deployed in VPC
   attach_network_policy = var.vpc_subnet_ids != null ? true : false
 
-  # CloudWatch Logs configuration
-  create_cloudwatch_log_group       = var.create_log_group
-  cloudwatch_logs_retention_in_days = var.log_retention_days
-
   tags = merge(var.tags, {
     Environment = var.environment
   })
