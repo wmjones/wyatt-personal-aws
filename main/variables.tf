@@ -147,3 +147,9 @@ variable "eventbridge_rule_name" {
   type        = string
   default     = "todoist-workflow-rule"
 }
+
+variable "sns_alert_topic_arn" {
+  description = "ARN of SNS topic for CloudWatch alarm notifications (optional)"
+  type        = string
+  default     = ""
+}

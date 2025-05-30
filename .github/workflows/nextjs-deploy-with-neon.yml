@@ -1,31 +1,35 @@
-name: Deploy Next.js to Vercel with Manual Neon Setup
+name: Deploy Next.js to Vercel with Branch-based Neon Setup
 
-# This workflow manually creates Neon database branches for preview deployments
+# This workflow creates Neon database branches for each branch deployment
 # and passes the connection strings to Vercel during deployment
 
 on:
-  pull_request:
+  push:
     branches:
       - main
       - dev
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
     paths:
       - 'src/frontend/nextjs-app/**'
       - '.github/workflows/nextjs-deploy-with-neon.yml'
+  delete:
 
 env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
 
-# Concurrency control to prevent multiple deployments for the same PR
+# Concurrency control to prevent multiple deployments for the same branch
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  deploy-preview:
-    name: Deploy Preview with Neon Branch
+  deploy-branch:
+    name: Deploy Branch with Neon Branch
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'push'
     steps:
       # Step 1: Checkout code
       - uses: actions/checkout@v4
@@ -53,19 +57,31 @@ jobs:
             echo "✅ NEON_PROJECT_ID is available (value: ${{ secrets.NEON_PROJECT_ID }})"
           fi
 
-      # Step 4: Create Neon Branch
+      # Step 4: Sanitize branch name for Neon
+      - name: Sanitize branch name
+        id: sanitize_branch
+        run: |
+          # Sanitize branch name for Neon (replace invalid chars with hyphens, lowercase)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens and limit length to 63 chars
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "Original: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Sanitized: $SANITIZED_BRANCH"
+
+      # Step 5: Create Neon Branch
       - name: Create Neon Branch
         id: create_neon_branch
         uses: neondatabase/create-branch-action@v5
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
+          branch_name: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           username: neondb_owner
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
-      # Step 5: Setup Node.js
+      # Step 6: Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -73,26 +89,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: src/frontend/nextjs-app/package-lock.json
 
-      # Step 6: Install dependencies
+      # Step 7: Install dependencies
       - name: Install dependencies
         working-directory: src/frontend/nextjs-app
         run: npm ci
 
-      # Step 7: Run linter
+      # Step 8: Run linter
       - name: Run linter
         id: lint
         working-directory: src/frontend/nextjs-app
         run: npm run lint
         continue-on-error: true
 
-      # Step 8: Run type check
+      # Step 9: Run type check
       - name: Run type check
         id: typecheck
         working-directory: src/frontend/nextjs-app
         run: npx tsc --noEmit
         continue-on-error: true
 
-      # Step 9: Code Quality Check Results
+      # Step 10: Code Quality Check Results
       - name: Code Quality Check Results
         if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
         run: |
@@ -107,16 +123,16 @@ jobs:
           echo "Please fix these issues before deployment."
           exit 1
 
-      # Step 10: Install Vercel CLI
+      # Step 11: Install Vercel CLI
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # Step 11: Pull Vercel Environment Information
+      # Step 12: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 12: Build Project
+      # Step 13: Build Project
       - name: Build Project Artifacts
         working-directory: src/frontend/nextjs-app
         env:
@@ -125,7 +141,7 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Step 12a: Create environment variables in Vercel
+      # Step 14: Create environment variables in Vercel
       - name: Set Vercel Environment Variables
         working-directory: src/frontend/nextjs-app
         run: |
@@ -141,7 +157,7 @@ jobs:
 
           echo "✅ Environment variables created in Vercel"
 
-      # Step 13: Deploy to Vercel
+      # Step 15: Deploy to Vercel
       - name: Deploy to Vercel
         id: deploy
         working-directory: src/frontend/nextjs-app
@@ -152,12 +168,12 @@ jobs:
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $DEPLOYMENT_URL"
 
-          # Set alias for easier access
-          ALIAS="pr-${{ github.event.pull_request.number }}-${{ github.repository_owner }}.vercel.app"
+          # Set alias for easier access using sanitized branch name
+          ALIAS="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ github.repository_owner }}.vercel.app"
           vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
           echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
 
-      # Step 14: Run Database Migrations
+      # Step 16: Run Database Migrations
       - name: Run Database Migrations
         working-directory: src/frontend/nextjs-app
         env:
@@ -169,73 +185,47 @@ jobs:
             echo "You can manually run migrations later if needed."
           }
 
-      # Step 15: Comment on PR
-      - name: Comment PR with deployment info
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const url = '${{ steps.deploy.outputs.url }}';
-            const alias = '${{ steps.deploy.outputs.alias }}';
-            const lintSuccess = '${{ steps.lint.outcome }}' === 'success';
-            const typeSuccess = '${{ steps.typecheck.outcome }}' === 'success';
+      # Step 17: Log deployment info
+      - name: Log deployment info
+        run: |
+          echo "## 🚀 Branch Deployment Complete!"
+          echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Sanitized: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          echo "Deployment URL: ${{ steps.deploy.outputs.url }}"
+          echo "Alias URL: ${{ steps.deploy.outputs.alias }}"
+          echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          echo "Lint Status: ${{ steps.lint.outcome }}"
+          echo "Type Check Status: ${{ steps.typecheck.outcome }}"
 
-            let body = `## 🚀 Preview Deployment Ready!\n\n`;
-
-            // Code quality section
-            body += `### 🔍 Code Quality Checks\n`;
-            body += `- Linting: ${lintSuccess ? '✅ Passed' : '❌ Failed'}\n`;
-            body += `- Type Check: ${typeSuccess ? '✅ Passed' : '❌ Failed'}\n\n`;
-
-            // Deployment section
-            body += `### 🌐 Deployment Details\n`;
-            body += `**Preview URL**: ${url}\n`;
-            if (alias) body += `**Alias URL**: ${alias}\n`;
-            body += `\n🗄️ **Database Branch**: \`preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}\`\n\n`;
-            body += `The preview includes a dedicated database branch with schema migrations applied.`;
-
-            // Check if we already commented
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const botComment = comments.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Preview Deployment Ready!')
-            );
-
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: body
-              });
-            }
-
-  # Cleanup job - runs when PR is closed
-  cleanup-preview:
-    name: Cleanup Preview Branch
+  # Cleanup job - runs when branch is deleted
+  cleanup-branch:
+    name: Cleanup Branch Deployment
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
     steps:
-      - name: Get branch name
+      - name: Extract and sanitize branch name from deleted ref
         id: branch_name
-        uses: tj-actions/branch-names@v8
+        run: |
+          BRANCH_NAME="${{ github.event.ref }}"
+          echo "current_branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Sanitize branch name for Neon (same logic as deployment)
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+
+          echo "Cleaning up branch: $BRANCH_NAME"
+          echo "Sanitized: $SANITIZED_BRANCH"
 
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
-          branch: preview/pr-${{ github.event.pull_request.number }}-${{ steps.branch_name.outputs.current_branch }}
+          branch: branch/${{ steps.branch_name.outputs.sanitized_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
+        continue-on-error: true
+
+      - name: Log cleanup completion
+        run: |
+          echo "🧹 Cleanup completed for branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Deleted Neon database branch: branch/${{ steps.branch_name.outputs.sanitized_branch }}"
