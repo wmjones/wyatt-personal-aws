@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForecastData } from './useForecastQuery';
 import {
   ForecastSeries,
@@ -9,8 +9,6 @@ import {
   InventoryItem
 } from '@/app/types/demand-planning';
 import { FilterSelections } from '../components/FilterSidebar';
-import { createAdjustment } from '../services/adjustmentService';
-import { AdjustmentData } from '../components/AdjustmentModal';
 import { postgresForecastService } from '@/app/services/postgresForecastService';
 
 interface UseForecastProps {
@@ -151,26 +149,10 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
     ? transformToForecastSeries(data)
     : null;
 
-  // Apply adjustment handler
-  const applyAdjustment = useCallback(async (adjustmentData: AdjustmentData) => {
-    if (!forecastData) return;
-
-    try {
-      await createAdjustment(adjustmentData, forecastData);
-
-      // Refetch data to get updated forecast with adjustments
-      await refetch();
-    } catch (error) {
-      console.error('Failed to apply adjustment:', error);
-      throw error;
-    }
-  }, [forecastData, refetch]);
-
   return {
     isLoading: isLoading || isLoadingFirstItem,
     forecastData,
     error: error?.message || null,
-    applyAdjustment,
     refetch
   };
 }

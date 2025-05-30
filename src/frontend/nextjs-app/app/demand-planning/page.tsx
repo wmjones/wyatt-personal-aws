@@ -2,13 +2,11 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import DashboardLayout from './components/DashboardLayout';
-import AdjustmentPanel from './components/AdjustmentPanel';
-import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
 import { FilterSelections } from './components/FilterSidebar';
 import useForecast from './hooks/useForecast';
-import useAdjustmentHistory from './hooks/useAdjustmentHistory';
-import { AdjustmentData } from './components/AdjustmentModal';
 import CacheStatus from './components/CacheStatus';
+import NewAdjustmentPanel from './components/NewAdjustmentPanel';
+import AdjustmentHistory, { AdjustmentEntry } from './components/AdjustmentHistory';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -25,6 +23,12 @@ export default function DemandPlanningPage() {
 
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
+  // Real-time adjustment state
+  const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
+
+  // Adjustment history state
+  const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentEntry[]>([]);
+
   // Initialize without hardcoded selections
   useEffect(() => {
     console.log("Page component mount - users will select their own hierarchies and filters");
@@ -34,20 +38,10 @@ export default function DemandPlanningPage() {
   const {
     forecastData,
     isLoading: isLoadingForecast,
-    error: forecastError,
-    applyAdjustment,
-    refetch,
+    error: forecastError
   } = useForecast({
     filterSelections,
   });
-
-  // Fetch adjustment history
-  const {
-    adjustmentHistory,
-    isLoading: isLoadingHistory,
-    error: historyError,
-    refreshHistory,
-  } = useAdjustmentHistory();
 
   // Handle filter changes from FilterSidebar
   const handleFilterChange = (newSelections: FilterSelections) => {
@@ -55,19 +49,64 @@ export default function DemandPlanningPage() {
     setFilterSelections(newSelections);
   };
 
-  // Handle adjustment application
-  const handleApplyAdjustment = async (adjustmentData: AdjustmentData) => {
-    console.log("Applying adjustment:", adjustmentData);
-    try {
-      await applyAdjustment(adjustmentData);
-      console.log("Adjustment applied successfully");
+  // Handle real-time adjustment changes
+  const handleAdjustmentChange = (adjustmentValue: number) => {
+    setCurrentAdjustmentValue(adjustmentValue);
+  };
 
-      // Refetch adjustment history to show the new adjustment
-      await refreshHistory();
+  // Handle saving adjustments
+  const handleSaveAdjustment = async (adjustmentValue: number, filterContext: FilterSelections) => {
+    try {
+      // Get inventory item name for display
+      const inventoryItemName = forecastData?.inventoryItems.find(
+        item => item.id === filterContext.inventoryItemId
+      )?.name;
+
+      const response = await fetch('/api/adjustments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adjustmentValue,
+          filterContext,
+          inventoryItemName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save adjustment');
+      }
+
+      const result = await response.json();
+
+      // Add the new adjustment to the history
+      setAdjustmentHistory(prev => [result.adjustment, ...prev]);
+
+      console.log('Adjustment saved successfully:', result);
     } catch (error) {
-      console.error("Failed to apply adjustment:", error);
+      console.error('Error saving adjustment:', error);
+      throw error;
     }
   };
+
+  // Load adjustment history on mount
+  const loadAdjustmentHistory = async () => {
+    try {
+      const response = await fetch('/api/adjustments');
+      if (response.ok) {
+        const result = await response.json();
+        setAdjustmentHistory(result.adjustments);
+      }
+    } catch (error) {
+      console.error('Error loading adjustment history:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadAdjustmentHistory();
+  }, []);
+
 
   // Calculate available periods based on forecast data (removed - not used)
   // const availablePeriods = forecastData?.timePeriods || [];
@@ -98,7 +137,10 @@ export default function DemandPlanningPage() {
                   <div className="text-red-500">{forecastError}</div>
                 </div>
               ) : forecastData ? (
-                <ForecastCharts forecastData={forecastData} />
+                <ForecastCharts
+                  forecastData={forecastData}
+                  adjustmentValue={currentAdjustmentValue}
+                />
               ) : (
                 <div className="flex items-center justify-center h-[400px]">
                   <div className="text-gray-500">Select filters to view forecast data</div>
@@ -107,33 +149,23 @@ export default function DemandPlanningPage() {
             </Suspense>
           </div>
 
-          {/* Adjustment Panel */}
+          {/* New Adjustment Panel */}
           {forecastData && (
-            <AdjustmentPanel
+            <NewAdjustmentPanel
               forecastData={forecastData}
-              isLoading={isLoadingForecast}
-              onApplyAdjustment={handleApplyAdjustment}
-              onResetAdjustments={async () => {
-                console.log("Reset adjustments not implemented");
-              }}
-              onRefreshForecast={async () => {
-                await refetch();
-              }}
+              filterSelections={filterSelections}
+              onAdjustmentChange={handleAdjustmentChange}
+              onSaveAdjustment={handleSaveAdjustment}
             />
           )}
+
+          {/* Adjustment History */}
+          <AdjustmentHistory entries={adjustmentHistory} />
         </div>
       )}
 
       {activeTab === 'history' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          {historyError && (
-            <div className="p-4 text-red-500">{historyError}</div>
-          )}
-          <AdjustmentHistoryTable
-            entries={adjustmentHistory}
-            isLoading={isLoadingHistory}
-          />
-        </div>
+        <AdjustmentHistory entries={adjustmentHistory} />
       )}
 
       {activeTab === 'settings' && (
