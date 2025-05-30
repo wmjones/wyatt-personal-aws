@@ -117,6 +117,28 @@ const migrations: Migration[] = [
     down: `
       DROP TABLE IF EXISTS migrations;
     `
+  },
+  {
+    id: '003',
+    name: 'create_forecast_adjustments_table',
+    up: `
+      -- Create table for storing forecast adjustments
+      CREATE TABLE IF NOT EXISTS forecast_adjustments (
+        id SERIAL PRIMARY KEY,
+        adjustment_value DECIMAL(5,2) NOT NULL,
+        filter_context JSONB NOT NULL,
+        inventory_item_name VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_created_at ON forecast_adjustments(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_inventory_item ON forecast_adjustments(inventory_item_name);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_filter_context ON forecast_adjustments USING GIN(filter_context);
+    `,
+    down: `
+      DROP TABLE IF EXISTS forecast_adjustments;
+    `
   }
 ];
 

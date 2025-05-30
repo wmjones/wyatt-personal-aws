@@ -6,20 +6,33 @@ import TimeSeriesChart from './charts/TimeSeriesChart';
 // ComparisonChart is imported but not used yet
 // import ComparisonChart from './charts/ComparisonChart';
 import ResponsiveChartWrapper from './charts/ResponsiveChartWrapper';
+import { applyAdjustmentToForecast } from '../lib/adjustment-utils';
 
 interface ForecastChartsProps {
   forecastData: ForecastSeries;
+  adjustmentValue?: number; // Real-time adjustment percentage
   className?: string;
 }
 
 // Memoize the component to prevent unnecessary re-renders
 const ForecastCharts = memo(function ForecastCharts({
   forecastData,
+  adjustmentValue = 0,
   className = ''
 }: ForecastChartsProps) {
   // Use the data as-is since filtering is now done by the parent component
   const filteredBaselineData = forecastData.baseline;
-  const filteredAdjustedData = forecastData.adjusted;
+
+  // Apply real-time adjustment to create adjusted data
+  const filteredAdjustedData = adjustmentValue !== 0
+    ? forecastData.baseline.map(point => ({
+        ...point,
+        value: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
+        y_05: point.y_05,
+        y_50: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
+        y_95: point.y_95
+      }))
+    : forecastData.adjusted;
 
 
   return (

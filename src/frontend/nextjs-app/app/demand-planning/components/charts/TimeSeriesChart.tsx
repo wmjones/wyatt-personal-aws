@@ -52,13 +52,15 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {
-    // Use actual forecast values from the dataset if available
+    // Use adjusted data for y_50 if available, otherwise use baseline
+    const dataSource = adjustedDataset.length > 0 ? adjustedDataset : baselineDataset;
+
     const y_05Data = baselineDataset.map(d => ({
       ...d,
       value: d.y_05 !== undefined ? d.y_05 : d.value * 0.85
     }));
 
-    const y_50Data = baselineDataset.map(d => ({
+    const y_50Data = dataSource.map(d => ({
       ...d,
       value: d.y_50 !== undefined ? d.y_50 : d.value
     }));
@@ -69,7 +71,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     }));
 
     return { y_05Data, y_50Data, y_95Data };
-  }, [baselineDataset]);
+  }, [baselineDataset, adjustedDataset]);
 
   // Get the period type from the first time period (assuming all periods have the same type)
   const periodType = timePeriods.length > 0 ? timePeriods[0].type : 'quarter';
