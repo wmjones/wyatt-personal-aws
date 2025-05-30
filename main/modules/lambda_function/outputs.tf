@@ -31,7 +31,7 @@ output "role_name" {
 
 output "log_group_name" {
   description = "The name of the CloudWatch Logs log group for the Lambda function"
-  value       = var.create_log_group ? aws_cloudwatch_log_group.lambda[0].name : "/aws/lambda/${var.function_name}"
+  value       = "/aws/lambda/${var.function_name}"
 }
 
 output "function_version" {

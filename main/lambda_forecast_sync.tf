@@ -17,7 +17,7 @@ module "forecast_sync_lambda" {
   memory_size   = 1024
   zip_file      = local.forecast_sync_lambda_zip_path
 
-  create_log_group = true
+  create_log_group = false
 
   environment_variables = {
     ATHENA_DB_NAME           = "default"
