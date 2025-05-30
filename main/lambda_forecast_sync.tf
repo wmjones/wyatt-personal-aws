@@ -22,14 +22,14 @@ module "forecast_sync_lambda" {
   create_log_group = false
 
   environment_variables = {
-    ATHENA_DB_NAME         = "default"
-    ATHENA_OUTPUT_LOCATION = "s3://${aws_s3_bucket.wyatt-datalake-35315550.id}/athena-results/"
-    FORECAST_TABLE_NAME    = "forecast"
-    NEON_API_KEY           = var.neon_api_key
-    NEON_PROJECT_ID        = var.neon_project_id
-    AWS_REGION             = var.aws_region
-    BATCH_SIZE             = "10000"
-    ENVIRONMENT            = var.environment
+    ATHENA_DB_NAME           = "default"
+    ATHENA_OUTPUT_LOCATION   = "s3://${aws_s3_bucket.wyatt-datalake-35315550.id}/athena-results/"
+    FORECAST_TABLE_NAME      = "forecast"
+    SSM_NEON_API_KEY_PATH    = "/forecast-sync/${var.environment}/neon-api-key"
+    SSM_NEON_PROJECT_ID_PATH = "/forecast-sync/${var.environment}/neon-project-id"
+    AWS_REGION               = var.aws_region
+    BATCH_SIZE               = "10000"
+    ENVIRONMENT              = var.environment
   }
 
   policy_statements = merge(
@@ -98,6 +98,31 @@ module "forecast_sync_lambda" {
         resources = [
           aws_kms_key.s3_key.arn
         ]
+      }
+      ssm_parameters = {
+        effect = "Allow"
+        actions = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        resources = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*"
+        ]
+      }
+      kms_decrypt_ssm = {
+        effect = "Allow"
+        actions = [
+          "kms:Decrypt"
+        ]
+        resources = [
+          "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/*"
+        ]
+        condition = {
+          test     = "StringEquals"
+          variable = "kms:ViaService"
+          values   = ["ssm.${var.aws_region}.amazonaws.com"]
+        }
       }
     }
   )

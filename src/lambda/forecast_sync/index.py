@@ -10,6 +10,7 @@ import logging
 import time
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from functools import lru_cache
 import boto3
 import psycopg2
 from psycopg2.extras import execute_batch
@@ -24,8 +25,8 @@ ATHENA_DB_NAME = os.environ.get("ATHENA_DB_NAME", "default")
 ATHENA_OUTPUT_LOCATION = os.environ.get("ATHENA_OUTPUT_LOCATION", "s3://wyatt-datalake-dev-35315550/athena-results/")
 FORECAST_TABLE_NAME = os.environ.get("FORECAST_TABLE_NAME", "forecast")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-NEON_API_KEY = os.environ.get("NEON_API_KEY")
-NEON_PROJECT_ID = os.environ.get("NEON_PROJECT_ID")
+SSM_NEON_API_KEY_PATH = os.environ.get("SSM_NEON_API_KEY_PATH")
+SSM_NEON_PROJECT_ID_PATH = os.environ.get("SSM_NEON_PROJECT_ID_PATH")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-2")
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "10000"))
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
@@ -33,6 +34,40 @@ ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
 # AWS clients
 athena_client = boto3.client("athena", region_name=AWS_REGION)
 s3_client = boto3.client("s3", region_name=AWS_REGION)
+ssm_client = boto3.client("ssm", region_name=AWS_REGION)
+
+
+@lru_cache(maxsize=1)
+def get_neon_credentials() -> Dict[str, str]:
+    """Fetch Neon credentials from SSM Parameter Store with caching"""
+    try:
+        # Check if SSM paths are configured
+        if not SSM_NEON_API_KEY_PATH or not SSM_NEON_PROJECT_ID_PATH:
+            # Fall back to environment variables if available (backward compatibility)
+            api_key = os.environ.get("NEON_API_KEY")
+            project_id = os.environ.get("NEON_PROJECT_ID")
+            if api_key and project_id:
+                logger.info("Using Neon credentials from environment variables")
+                return {"api_key": api_key, "project_id": project_id}
+            raise ValueError("SSM parameter paths not configured and no environment variables found")
+
+        logger.info("Fetching Neon credentials from SSM Parameter Store")
+
+        # Fetch parameters from SSM
+        response = ssm_client.get_parameters(Names=[SSM_NEON_API_KEY_PATH, SSM_NEON_PROJECT_ID_PATH], WithDecryption=True)
+
+        # Check for missing parameters
+        if len(response["Parameters"]) != 2:
+            missing = {SSM_NEON_API_KEY_PATH, SSM_NEON_PROJECT_ID_PATH} - {p["Name"] for p in response["Parameters"]}
+            raise ValueError(f"Missing SSM parameters: {missing}")
+
+        # Extract values
+        params = {p["Name"]: p["Value"] for p in response["Parameters"]}
+
+        return {"api_key": params[SSM_NEON_API_KEY_PATH], "project_id": params[SSM_NEON_PROJECT_ID_PATH]}
+    except Exception as e:
+        logger.error(f"Error fetching Neon credentials from SSM: {str(e)}")
+        raise
 
 
 class ForecastSyncHandler:
@@ -77,11 +112,11 @@ class ForecastSyncHandler:
         if DATABASE_URL:
             return DATABASE_URL
 
-        # Otherwise, try to get branch-specific URL from Neon API
-        if NEON_API_KEY and NEON_PROJECT_ID:
-            branch_name = self._get_branch_name()
-            if branch_name:
-                return self._get_neon_branch_url(branch_name)
+        # Otherwise, get credentials from SSM and build branch-specific URL
+        neon_creds = get_neon_credentials()
+        branch_name = self._get_branch_name()
+        if branch_name:
+            return self._get_neon_branch_url(branch_name, neon_creds)
 
         raise ValueError("No database URL available")
 
@@ -95,12 +130,12 @@ class ForecastSyncHandler:
             return "dev"
         return None
 
-    def _get_neon_branch_url(self, branch_name: str) -> str:
+    def _get_neon_branch_url(self, branch_name: str, neon_creds: Dict[str, str]) -> str:
         """Get database URL for specific Neon branch"""
-        headers = {"Authorization": f"Bearer {NEON_API_KEY}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {neon_creds['api_key']}", "Content-Type": "application/json"}
 
         # Get branches
-        response = requests.get(f"https://console.neon.tech/api/v2/projects/{NEON_PROJECT_ID}/branches", headers=headers)
+        response = requests.get(f"https://console.neon.tech/api/v2/projects/{neon_creds['project_id']}/branches", headers=headers)
         response.raise_for_status()
 
         branches = response.json()
@@ -108,7 +143,7 @@ class ForecastSyncHandler:
             if branch["name"] == branch_name:
                 branch_id = branch["id"]
                 # Get connection string
-                conn_response = requests.get(f"https://console.neon.tech/api/v2/projects/{NEON_PROJECT_ID}/branches/{branch_id}/connection_string", headers=headers)
+                conn_response = requests.get(f"https://console.neon.tech/api/v2/projects/{neon_creds['project_id']}/branches/{branch_id}/connection_string", headers=headers)
                 conn_response.raise_for_status()
                 return conn_response.json()["connection_string"]
 
