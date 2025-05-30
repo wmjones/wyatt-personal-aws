@@ -1,10 +1,8 @@
 # Lambda function for automated forecast data synchronization
 
-# Create Lambda deployment package
-data "archive_file" "forecast_sync_lambda" {
-  type        = "zip"
-  source_dir  = "${path.module}/../src/lambda/forecast_sync"
-  output_path = "${path.module}/../build/forecast_sync_lambda.zip"
+# Lambda deployment package path
+locals {
+  forecast_sync_lambda_zip_path = "${path.module}/forecast-sync-lambda.zip"
 }
 
 # Lambda function for forecast sync
@@ -17,7 +15,7 @@ module "forecast_sync_lambda" {
   runtime       = "python3.12"
   timeout       = 900 # 15 minutes for large data syncs
   memory_size   = 1024
-  zip_file      = data.archive_file.forecast_sync_lambda.output_path
+  zip_file      = local.forecast_sync_lambda_zip_path
 
   create_log_group = false
 
