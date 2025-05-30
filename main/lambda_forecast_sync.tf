@@ -17,7 +17,7 @@ module "forecast_sync_lambda" {
   memory_size   = 1024
   zip_file      = local.forecast_sync_lambda_zip_path
 
-  create_log_group = false
+  create_log_group = true
 
   environment_variables = {
     ATHENA_DB_NAME           = "default"
@@ -131,16 +131,16 @@ module "forecast_sync_lambda" {
   }
 }
 
-# CloudWatch Log Group for Lambda
-resource "aws_cloudwatch_log_group" "forecast_sync" {
-  name              = "/aws/lambda/forecast-sync-${var.environment}"
-  retention_in_days = 30
-
-  tags = {
-    Component = "Data Sync"
-    Function  = "Forecast Sync Logs"
-  }
-}
+# CloudWatch Log Group for Lambda - removed as lambda module will create it
+# resource "aws_cloudwatch_log_group" "forecast_sync" {
+#   name              = "/aws/lambda/forecast-sync-${var.environment}"
+#   retention_in_days = 30
+#
+#   tags = {
+#     Component = "Data Sync"
+#     Function  = "Forecast Sync Logs"
+#   }
+# }
 
 # Lambda permission for S3 to invoke the function
 resource "aws_lambda_permission" "s3_invoke" {
