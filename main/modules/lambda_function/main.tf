@@ -32,18 +32,10 @@ module "lambda_function" {
   # Add VPC policy statements if Lambda is deployed in VPC
   attach_network_policy = var.vpc_subnet_ids != null ? true : false
 
-  tags = merge(var.tags, {
-    Environment = var.environment
-  })
-}
+  # CloudWatch Logs configuration
+  create_cloudwatch_log_group       = var.create_log_group
+  cloudwatch_logs_retention_in_days = var.log_retention_days
 
-# Handle CloudWatch log groups using AWS provider directly
-resource "aws_cloudwatch_log_group" "lambda" {
-  # Only create if create_log_group is true
-  count = var.create_log_group ? 1 : 0
-
-  name              = "/aws/lambda/${var.function_name}"
-  retention_in_days = var.log_retention_days
   tags = merge(var.tags, {
     Environment = var.environment
   })

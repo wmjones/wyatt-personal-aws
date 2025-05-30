@@ -44,6 +44,12 @@ jobs:
           name: athena-lambda-package
           path: ./main/
 
+      - name: Download Forecast Sync Lambda package
+        uses: actions/download-artifact@v4
+        with:
+          name: forecast-sync-lambda-package
+          path: ./main/
+
       - name: Upload Configuration
         uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
         id: apply-upload
