@@ -56,32 +56,47 @@ export default function DemandPlanningPage() {
 
   // Handle saving adjustments
   const handleSaveAdjustment = async (adjustmentValue: number, filterContext: FilterSelections) => {
+    console.log('handleSaveAdjustment called with:', { adjustmentValue, filterContext });
     try {
       // Get inventory item name for display
       const inventoryItemName = forecastData?.inventoryItems.find(
         item => item.id === filterContext.inventoryItemId
       )?.name;
+      console.log('Found inventory item name:', inventoryItemName);
+
+      const requestBody = {
+        adjustmentValue,
+        filterContext,
+        inventoryItemName
+      };
+      console.log('Making API request with body:', requestBody);
 
       const response = await fetch('/api/adjustments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          adjustmentValue,
-          filterContext,
-          inventoryItemName
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('API response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to save adjustment');
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`Failed to save adjustment: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('API success response:', result);
 
       // Add the new adjustment to the history
-      setAdjustmentHistory(prev => [result.adjustment, ...prev]);
+      console.log('Current adjustment history before update:', adjustmentHistory);
+      setAdjustmentHistory(prev => {
+        const newHistory = [result.adjustment, ...prev];
+        console.log('New adjustment history after update:', newHistory);
+        return newHistory;
+      });
 
       console.log('Adjustment saved successfully:', result);
     } catch (error) {
