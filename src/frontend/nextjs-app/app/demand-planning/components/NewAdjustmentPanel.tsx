@@ -42,16 +42,25 @@ export default function NewAdjustmentPanel({
 
   // Handle save adjustment
   const handleSave = async () => {
-    if (adjustmentValue === 0) return;
+    console.log('handleSave called with adjustmentValue:', adjustmentValue);
+    if (adjustmentValue === 0) {
+      console.log('Skipping save - adjustment value is 0');
+      return;
+    }
 
+    console.log('Starting save process...');
     setIsSaving(true);
     try {
+      console.log('Calling onSaveAdjustment with:', adjustmentValue, filterSelections);
       await onSaveAdjustment(adjustmentValue, filterSelections);
+      console.log('Save successful, resetting adjustment value');
       // Reset adjustment value after successful save
       setAdjustmentValue(0);
       onAdjustmentChange(0);
     } catch (error) {
       console.error('Failed to save adjustment:', error);
+      // Show user-friendly error message
+      alert('Failed to save adjustment. Please check the console for details.');
     } finally {
       setIsSaving(false);
     }

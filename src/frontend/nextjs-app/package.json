@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "db:init": "npx tsx scripts/init-database.ts",
-    "db:migrate": "npx tsx scripts/init-database.ts",
+    "db:migrate": "npx tsx scripts/migrate-only.ts",
     "test:athena": "npx tsx scripts/test-athena-api.ts",
     "migrate:forecast": "npx tsx scripts/migrate-forecast-to-postgres.ts"
   },
