@@ -25,7 +25,6 @@ module "forecast_sync_lambda" {
     FORECAST_TABLE_NAME      = "forecast"
     SSM_NEON_API_KEY_PATH    = "/forecast-sync/${var.environment}/neon-api-key"
     SSM_NEON_PROJECT_ID_PATH = "/forecast-sync/${var.environment}/neon-project-id"
-    AWS_REGION               = var.aws_region
     BATCH_SIZE               = "10000"
     ENVIRONMENT              = var.environment
   }
