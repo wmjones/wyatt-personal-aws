@@ -16,6 +16,7 @@ interface AdjustmentHistoryProps {
 }
 
 export default function AdjustmentHistory({ entries }: AdjustmentHistoryProps) {
+  console.log('AdjustmentHistory rendered with entries:', entries);
 
   // Format timestamp
   const formatTimestamp = (timestamp: string) => {
