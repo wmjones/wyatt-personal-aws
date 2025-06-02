@@ -6,7 +6,7 @@
   "installCommand": "npm install",
   "ignoreCommand": "node skip-build.js",
   "git": {
-    "deploymentEnabled": true
+    "deploymentEnabled": false
   },
   "github": {
     "silent": false
