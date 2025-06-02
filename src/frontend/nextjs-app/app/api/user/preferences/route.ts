@@ -46,7 +46,8 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
     return NextResponse.json({
       preferences: result.rows[0]
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch user preferences:', error);
     return NextResponse.json(
       { error: 'Failed to fetch user preferences' },
       { status: 500 }
@@ -157,7 +158,8 @@ export const PUT = withAuth(async (request: AuthenticatedRequest) => {
     return NextResponse.json({
       preferences: result.rows[0]
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to update user preferences:', error);
     return NextResponse.json(
       { error: 'Failed to update user preferences' },
       { status: 500 }

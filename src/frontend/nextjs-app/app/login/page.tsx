@@ -24,7 +24,7 @@ export default function LoginPage() {
       const result = await signIn(email, password);
 
       if (result.success) {
-        router.push('/dashboard');
+        router.push('/demand-planning');
       } else {
         setError(result.error || 'Failed to sign in');
       }

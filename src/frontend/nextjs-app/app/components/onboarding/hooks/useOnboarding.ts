@@ -150,9 +150,24 @@ export function useOnboarding(): UseOnboardingReturn {
   // Load preferences on mount and auth change
   useEffect(() => {
     if (auth.isAuthenticated && !auth.loading) {
-      fetchPreferences();
+      // Initialize the preferences table if needed (temporary fix)
+      const initPreferences = async () => {
+        try {
+          const token = await auth.getIdToken();
+          await fetch('/api/user/preferences/init', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+        } catch (err) {
+          console.error('Failed to initialize preferences table:', err);
+        }
+        // Fetch preferences after initialization
+        fetchPreferences();
+      };
+      initPreferences();
     }
-  }, [auth.isAuthenticated, auth.loading, fetchPreferences]);
+  }, [auth.isAuthenticated, auth.loading, fetchPreferences, auth]);
 
   // Computed properties
   const shouldShowWelcome = !preferences?.has_seen_welcome && auth.isAuthenticated;
