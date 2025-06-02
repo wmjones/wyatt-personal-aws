@@ -216,25 +216,37 @@ jobs:
         run: |
           echo "Storing Neon configuration in SSM for ${ENVIRONMENT} environment..."
 
-          # Store API key as SecureString
+          # Store API key as SecureString (create/update parameter first)
           aws ssm put-parameter \
             --name "/forecast-sync/${ENVIRONMENT}/neon-api-key" \
             --value "${{ secrets.NEON_API_KEY }}" \
             --type "SecureString" \
             --overwrite \
             --description "Neon API key for forecast sync Lambda" \
-            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
             || { echo "Failed to store Neon API key"; exit 1; }
 
-          # Store project ID as regular String
+          # Add tags to the API key parameter
+          aws ssm add-tags-to-resource \
+            --resource-type "Parameter" \
+            --resource-id "/forecast-sync/${ENVIRONMENT}/neon-api-key" \
+            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
+            || { echo "Failed to tag Neon API key parameter"; exit 1; }
+
+          # Store project ID as regular String (create/update parameter first)
           aws ssm put-parameter \
             --name "/forecast-sync/${ENVIRONMENT}/neon-project-id" \
             --value "${{ secrets.NEON_PROJECT_ID }}" \
             --type "String" \
             --overwrite \
             --description "Neon project ID for forecast sync Lambda" \
-            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
             || { echo "Failed to store Neon project ID"; exit 1; }
+
+          # Add tags to the project ID parameter
+          aws ssm add-tags-to-resource \
+            --resource-type "Parameter" \
+            --resource-id "/forecast-sync/${ENVIRONMENT}/neon-project-id" \
+            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
+            || { echo "Failed to tag Neon project ID parameter"; exit 1; }
 
           echo "✅ Successfully stored Neon configuration in SSM for ${ENVIRONMENT} environment"
 
