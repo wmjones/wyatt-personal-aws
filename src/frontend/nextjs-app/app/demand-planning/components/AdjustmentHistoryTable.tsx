@@ -2,20 +2,32 @@
 
 import { useState } from 'react';
 import { AdjustmentHistoryEntry, AdjustmentReason } from '@/app/types/demand-planning';
+import { useAuth } from '@/app/context/AuthContext';
+import { updateAdjustment, deleteAdjustment } from '../services/adjustmentService';
 
 interface AdjustmentHistoryTableProps {
   entries: AdjustmentHistoryEntry[];
   isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
 export default function AdjustmentHistoryTable({
   entries,
-  isLoading = false
+  isLoading = false,
+  onRefresh
 }: AdjustmentHistoryTableProps) {
+  const { user } = useAuth();
   const [sortField, setSortField] = useState<keyof AdjustmentHistoryEntry>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [reasonFilter, setReasonFilter] = useState<AdjustmentReason | 'all'>('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Check if current user can edit an adjustment
+  const canEditAdjustment = (adjustment: AdjustmentHistoryEntry): boolean => {
+    if (!user) return false;
+    return adjustment.userId === user.attributes.sub;
+  };
 
   // Format reason for display
   const formatReason = (reason: AdjustmentReason): string => {
@@ -32,6 +44,40 @@ export default function AdjustmentHistoryTable({
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  // Handle toggle active/inactive
+  const handleToggleActive = async (adjustment: AdjustmentHistoryEntry) => {
+    if (!canEditAdjustment(adjustment)) return;
+
+    setActionLoading(adjustment.id);
+    try {
+      await updateAdjustment(adjustment.id, { isActive: !adjustment.isActive });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to update adjustment:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update adjustment');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle delete adjustment
+  const handleDelete = async (adjustment: AdjustmentHistoryEntry) => {
+    if (!canEditAdjustment(adjustment)) return;
+
+    if (!confirm('Are you sure you want to delete this adjustment?')) return;
+
+    setActionLoading(adjustment.id);
+    try {
+      await deleteAdjustment(adjustment.id);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to delete adjustment:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete adjustment');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -163,6 +209,8 @@ export default function AdjustmentHistoryTable({
                 User {renderSortIndicator('createdBy')}
               </th>
               <th className="px-4 py-2 text-left whitespace-nowrap font-medium border-b border-dp-border-light">Impact</th>
+              <th className="px-4 py-2 text-left whitespace-nowrap font-medium border-b border-dp-border-light">Status</th>
+              <th className="px-4 py-2 text-left whitespace-nowrap font-medium border-b border-dp-border-light">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -193,7 +241,12 @@ export default function AdjustmentHistoryTable({
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
-                    {entry.createdBy}
+                    <div className="flex flex-col">
+                      <span className="font-medium">{entry.createdBy}</span>
+                      {entry.userEmail && (
+                        <span className="text-xs text-dp-text-secondary">{entry.userEmail}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
                     <span
@@ -209,11 +262,44 @@ export default function AdjustmentHistoryTable({
                       {entry.impact.percentageChange.toFixed(1)}%
                     </span>
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        entry.isActive !== false
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {entry.isActive !== false ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap border-b border-dp-border-light">
+                    {canEditAdjustment(entry) ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleToggleActive(entry)}
+                          disabled={actionLoading === entry.id}
+                          className="text-xs text-dp-interactive-primary hover:text-dp-interactive-hover disabled:opacity-50"
+                        >
+                          {actionLoading === entry.id ? 'Loading...' : (entry.isActive !== false ? 'Deactivate' : 'Activate')}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(entry)}
+                          disabled={actionLoading === entry.id}
+                          className="text-xs text-dp-ui-negative hover:text-dp-ui-negative-hover disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-dp-text-secondary italic">View only</span>
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-4 text-center text-dp-text-secondary border-b border-dp-border-light">
+                <td colSpan={7} className="px-4 py-4 text-center text-dp-text-secondary border-b border-dp-border-light">
                   {searchTerm || reasonFilter !== 'all'
                     ? 'No adjustments match your filters'
                     : 'No adjustment history found'}
@@ -225,8 +311,13 @@ export default function AdjustmentHistoryTable({
       </div>
 
       {/* Summary */}
-      <div className="mt-4 text-xs text-dp-text-secondary">
-        Showing {filteredAndSortedEntries.length} of {entries.length} adjustments
+      <div className="mt-4 flex justify-between items-center text-xs text-dp-text-secondary">
+        <span>Showing {filteredAndSortedEntries.length} of {entries.length} adjustments</span>
+        {entries.length > 0 && (
+          <span className="text-dp-interactive-primary">
+            You can edit adjustments created by: {user?.email || 'Loading...'}
+          </span>
+        )}
       </div>
     </div>
   );

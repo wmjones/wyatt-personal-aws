@@ -117,6 +117,61 @@ const migrations: Migration[] = [
     down: `
       DROP TABLE IF EXISTS migrations;
     `
+  },
+  {
+    id: '003',
+    name: 'create_forecast_adjustments',
+    up: `
+      -- Create schema for forecast adjustments
+      CREATE SCHEMA IF NOT EXISTS forecast;
+
+      -- Create table for forecast adjustments with multi-user support
+      CREATE TABLE IF NOT EXISTS forecast.adjustments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        forecast_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        user_email VARCHAR(255) NOT NULL,
+        user_name VARCHAR(255) NOT NULL,
+        time_periods TEXT[] NOT NULL,
+        adjustment_type VARCHAR(20) NOT NULL CHECK (adjustment_type IN ('percentage', 'absolute')),
+        adjustment_value DECIMAL(10,2) NOT NULL,
+        reason VARCHAR(50) NOT NULL,
+        notes TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        -- Impact calculations
+        before_total DECIMAL(15,2),
+        after_total DECIMAL(15,2),
+        absolute_change DECIMAL(15,2),
+        percentage_change DECIMAL(10,2)
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_adjustments_forecast_id ON forecast.adjustments(forecast_id);
+      CREATE INDEX IF NOT EXISTS idx_adjustments_user_id ON forecast.adjustments(user_id);
+      CREATE INDEX IF NOT EXISTS idx_adjustments_is_active ON forecast.adjustments(is_active);
+      CREATE INDEX IF NOT EXISTS idx_adjustments_created_at ON forecast.adjustments(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_adjustments_forecast_active ON forecast.adjustments(forecast_id, is_active);
+
+      -- Create function to update updated_at timestamp
+      CREATE OR REPLACE FUNCTION forecast.update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      -- Create trigger to auto-update updated_at
+      CREATE TRIGGER update_adjustments_updated_at
+        BEFORE UPDATE ON forecast.adjustments
+        FOR EACH ROW
+        EXECUTE FUNCTION forecast.update_updated_at_column();
+    `,
+    down: `
+      DROP SCHEMA IF EXISTS forecast CASCADE;
+    `
   }
 ];
 

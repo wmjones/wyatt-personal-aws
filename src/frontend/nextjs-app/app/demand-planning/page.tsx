@@ -132,6 +132,7 @@ export default function DemandPlanningPage() {
           <AdjustmentHistoryTable
             entries={adjustmentHistory}
             isLoading={isLoadingHistory}
+            onRefresh={refreshHistory}
           />
         </div>
       )}

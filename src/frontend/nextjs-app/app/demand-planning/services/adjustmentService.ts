@@ -5,142 +5,155 @@ import {
   AdjustmentHistoryEntry,
   ForecastSeries
 } from '@/app/types/demand-planning';
+import { authService } from '@/app/services/auth';
 
-// Mock user for demo purposes
-const CURRENT_USER = 'demo.user';
+/**
+ * Get authorization header for API requests
+ */
+async function getAuthHeader(): Promise<HeadersInit> {
+  // Get the ID token from the auth service
+  const token = await authService.getIdToken();
 
-// Mock adjustment history data
-const mockAdjustmentHistory: AdjustmentHistoryEntry[] = [
-  {
-    id: 'adj-001',
-    timePeriods: ['Q2-2025', 'Q3-2025'],
-    type: 'percentage',
-    value: 5,
-    reason: 'marketing-campaign',
-    notes: 'Summer promotion expected to increase demand',
-    createdBy: 'john.doe',
-    createdAt: '2025-01-15T10:30:00Z',
-    appliedToForecasts: ['forecast-001'],
-    impact: {
-      beforeTotal: 10500,
-      afterTotal: 11025,
-      absoluteChange: 525,
-      percentageChange: 5
-    }
-  },
-  {
-    id: 'adj-002',
-    timePeriods: ['Q4-2025'],
-    type: 'percentage',
-    value: -3,
-    reason: 'economic-trends',
-    notes: 'Economic downturn expected to impact holiday sales',
-    createdBy: 'jane.smith',
-    createdAt: '2025-01-20T14:45:00Z',
-    appliedToForecasts: ['forecast-001'],
-    impact: {
-      beforeTotal: 8000,
-      afterTotal: 7760,
-      absoluteChange: -240,
-      percentageChange: -3
-    }
-  },
-  {
-    id: 'adj-003',
-    timePeriods: ['Q1-2025', 'Q2-2025'],
-    type: 'absolute',
-    value: 1000,
-    reason: 'supply-chain',
-    notes: 'Additional inventory becoming available',
-    createdBy: 'bob.johnson',
-    createdAt: '2025-01-22T09:15:00Z',
-    appliedToForecasts: ['forecast-001'],
-    impact: {
-      beforeTotal: 12000,
-      afterTotal: 13000,
-      absoluteChange: 1000,
-      percentageChange: 8.33
-    }
-  },
-  {
-    id: 'adj-004',
-    timePeriods: ['Q2-2025'],
-    type: 'percentage',
-    value: 12,
-    reason: 'marketing-campaign',
-    notes: 'Increased budget for promotional activities',
-    createdBy: 'sarah.lee',
-    createdAt: '2025-01-25T16:30:00Z',
-    appliedToForecasts: ['forecast-001'],
-    impact: {
-      beforeTotal: 7500,
-      afterTotal: 8400,
-      absoluteChange: 900,
-      percentageChange: 12
-    }
-  },
-  {
-    id: 'adj-005',
-    timePeriods: ['Q3-2025'],
-    type: 'percentage',
-    value: -8,
-    reason: 'competitive-activity',
-    notes: 'Competitor opening new location nearby',
-    createdBy: 'john.doe',
-    createdAt: '2025-01-28T11:00:00Z',
-    appliedToForecasts: ['forecast-001'],
-    impact: {
-      beforeTotal: 9000,
-      afterTotal: 8280,
-      absoluteChange: -720,
-      percentageChange: -8
-    }
+  if (!token) {
+    throw new Error('No authentication token found');
   }
-];
 
-// Get adjustment history
-export async function getAdjustmentHistory(): Promise<AdjustmentHistoryEntry[]> {
-  // In a real implementation, this would fetch from an API
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-
-  return [...mockAdjustmentHistory];
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
 }
 
-// Create a new adjustment
+/**
+ * Get adjustment history from the API
+ */
+export async function getAdjustmentHistory(forecastId?: string): Promise<AdjustmentHistoryEntry[]> {
+  try {
+    const headers = await getAuthHeader();
+    const queryParams = new URLSearchParams();
+    if (forecastId) {
+      queryParams.append('forecast_id', forecastId);
+    }
+
+    const response = await fetch(`/api/adjustments?${queryParams}`, {
+      method: 'GET',
+      headers
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch adjustments: ${response.statusText}`);
+    }
+
+    const adjustments = await response.json();
+    return adjustments;
+  } catch (error) {
+    console.error('Error fetching adjustment history:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new adjustment
+ */
 export async function createAdjustment(
   adjustment: Omit<Adjustment, 'id' | 'createdBy' | 'createdAt' | 'appliedToForecasts'>,
   forecastData: ForecastSeries
 ): Promise<AdjustmentHistoryEntry> {
-  // In a real implementation, this would send to an API
-  await new Promise(resolve => setTimeout(resolve, 600)); // Simulate API delay
+  try {
+    // Calculate baseline total for selected time periods
+    const baselineTotal = forecastData.baseline
+      .filter(point => adjustment.timePeriods.includes(point.periodId))
+      .reduce((sum, point) => sum + point.value, 0);
 
-  // Calculate baseline total for selected time periods
-  const baselineTotal = forecastData.baseline
-    .filter(point => adjustment.timePeriods.includes(point.periodId))
-    .reduce((sum, point) => sum + point.value, 0);
+    // Calculate adjusted total
+    const adjustedTotal = adjustment.type === 'percentage'
+      ? baselineTotal * (1 + adjustment.value / 100)
+      : baselineTotal + adjustment.value;
 
-  // Calculate adjusted total
-  const adjustedTotal = adjustment.type === 'percentage'
-    ? baselineTotal * (1 + adjustment.value / 100)
-    : baselineTotal + adjustment.value;
+    const headers = await getAuthHeader();
 
-  // Create a new adjustment entry
-  const newAdjustment: AdjustmentHistoryEntry = {
-    id: `adj-${Date.now()}`,
-    ...adjustment,
-    createdBy: CURRENT_USER,
-    createdAt: new Date().toISOString(),
-    appliedToForecasts: [forecastData.id],
-    impact: {
-      beforeTotal: baselineTotal,
-      afterTotal: adjustedTotal,
-      absoluteChange: adjustedTotal - baselineTotal,
-      percentageChange: ((adjustedTotal / baselineTotal) - 1) * 100
+    const response = await fetch('/api/adjustments', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        forecastId: forecastData.id,
+        timePeriods: adjustment.timePeriods,
+        type: adjustment.type,
+        value: adjustment.value,
+        reason: adjustment.reason,
+        notes: adjustment.notes,
+        impact: {
+          beforeTotal: baselineTotal,
+          afterTotal: adjustedTotal,
+          absoluteChange: adjustedTotal - baselineTotal,
+          percentageChange: ((adjustedTotal / baselineTotal) - 1) * 100
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create adjustment: ${response.statusText}`);
     }
-  };
 
-  // Add to mock history (in a real implementation, this would be saved to a backend)
-  mockAdjustmentHistory.unshift(newAdjustment);
+    const newAdjustment = await response.json();
+    return newAdjustment;
+  } catch (error) {
+    console.error('Error creating adjustment:', error);
+    throw error;
+  }
+}
 
-  return newAdjustment;
+/**
+ * Update an adjustment (e.g., toggle active state)
+ */
+export async function updateAdjustment(id: string, updates: { isActive?: boolean }): Promise<AdjustmentHistoryEntry> {
+  try {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/api/adjustments', {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        id,
+        ...updates
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error('You can only edit your own adjustments');
+      }
+      throw new Error(`Failed to update adjustment: ${response.statusText}`);
+    }
+
+    const updatedAdjustment = await response.json();
+    return updatedAdjustment;
+  } catch (error) {
+    console.error('Error updating adjustment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete an adjustment
+ */
+export async function deleteAdjustment(id: string): Promise<void> {
+  try {
+    const headers = await getAuthHeader();
+
+    const response = await fetch(`/api/adjustments?id=${id}`, {
+      method: 'DELETE',
+      headers
+    });
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error('You can only delete your own adjustments');
+      }
+      throw new Error(`Failed to delete adjustment: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error deleting adjustment:', error);
+    throw error;
+  }
 }

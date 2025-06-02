@@ -77,5 +77,10 @@ export interface AdjustmentHistoryEntry extends Adjustment {
     afterTotal: number;
     absoluteChange: number;
     percentageChange: number;
-  }
+  };
+  // Multi-user support fields
+  userId?: string;
+  userEmail?: string;
+  isActive?: boolean;
+  updatedAt?: string;
 }
