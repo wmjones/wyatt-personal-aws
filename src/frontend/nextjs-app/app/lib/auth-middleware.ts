@@ -20,7 +20,7 @@ export interface AuthenticatedRequest extends NextRequest {
 /**
  * Middleware to authenticate API requests using Cognito JWT tokens
  */
-export async function withAuth(
+export function withAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
 ) {
   return async (req: NextRequest) => {

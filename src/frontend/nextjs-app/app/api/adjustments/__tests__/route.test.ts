@@ -27,13 +27,13 @@ const mockQuery = jest.fn();
 (postgres as jest.Mocked<typeof postgres>).query = mockQuery;
 
 // Mock the auth middleware to pass through the handler
-(authMiddleware as jest.Mocked<typeof authMiddleware>).withAuth = (handler: (req: authMiddleware.AuthenticatedRequest) => Promise<Response>) => 
+(authMiddleware as jest.Mocked<typeof authMiddleware>).withAuth = (handler: (req: authMiddleware.AuthenticatedRequest) => Promise<Response>) =>
   async (req: authMiddleware.AuthenticatedRequest) => {
     // Add user to request
-    req.user = { 
-      sub: 'test-user-123', 
-      email: 'test@example.com', 
-      username: 'testuser' 
+    req.user = {
+      sub: 'test-user-123',
+      email: 'test@example.com',
+      username: 'testuser'
     };
     return handler(req);
   };
@@ -42,10 +42,10 @@ const mockQuery = jest.fn();
 const createRequest = (url: string, options: RequestInit = {}) => {
   const req = new NextRequest(url, options);
   // Add user property
-  (req as unknown as authMiddleware.AuthenticatedRequest).user = { 
-    sub: 'test-user-123', 
-    email: 'test@example.com', 
-    username: 'testuser' 
+  (req as unknown as authMiddleware.AuthenticatedRequest).user = {
+    sub: 'test-user-123',
+    email: 'test@example.com',
+    username: 'testuser'
   };
   return req as unknown as authMiddleware.AuthenticatedRequest;
 };
@@ -74,8 +74,8 @@ describe('/api/adjustments', () => {
         method: 'POST',
         body: JSON.stringify({
           adjustmentValue: 5.0,
-          filterContext: { 
-            states: ['TX'], 
+          filterContext: {
+            states: ['TX'],
             inventoryItemId: 'item1',
             dmaIds: [],
             dcIds: [],
@@ -99,7 +99,7 @@ describe('/api/adjustments', () => {
         method: 'POST',
         body: JSON.stringify({
           adjustmentValue: 150, // Out of range
-          filterContext: { 
+          filterContext: {
             states: ['TX'],
             dmaIds: [],
             dcIds: [],
