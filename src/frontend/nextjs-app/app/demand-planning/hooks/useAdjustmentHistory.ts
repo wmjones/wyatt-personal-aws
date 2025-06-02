@@ -1,38 +1,101 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { AdjustmentHistoryEntry } from '@/app/types/demand-planning';
-import { getAdjustmentHistory } from '../services/adjustmentService';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
+import { AdjustmentEntry } from '../components/AdjustmentHistory';
+import toast from 'react-hot-toast';
 
 export default function useAdjustmentHistory() {
+  const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentHistoryEntry[]>([]);
+  const auth = useAuth();
 
-  const fetchAdjustmentHistory = async () => {
+  // Fetch adjustment history
+  const fetchAdjustmentHistory = useCallback(async () => {
+    if (!auth.isAuthenticated) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const history = await getAdjustmentHistory();
-      setAdjustmentHistory(history);
-    } catch (err) {
-      console.error('Error fetching adjustment history:', err);
-      setError('Failed to load adjustment history. Please try again.');
+      const token = await auth.getIdToken();
+
+      const response = await fetch('/api/adjustments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch adjustment history');
+      }
+
+      const result = await response.json();
+      setAdjustmentHistory(result.adjustments || []);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load adjustment history';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [auth]);
 
-  // Load history on mount
-  useEffect(() => {
+  // Save adjustment and refresh history
+  const saveAdjustment = useCallback(async (
+    adjustmentValue: number,
+    filterContext: unknown,
+    inventoryItemName?: string
+  ) => {
+    if (!auth.isAuthenticated) {
+      throw new Error('You must be logged in to save adjustments');
+    }
+
+    const token = await auth.getIdToken();
+
+    const requestBody = {
+      adjustmentValue,
+      filterContext,
+      inventoryItemName
+    };
+
+    const response = await fetch('/api/adjustments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to save adjustment: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    // Optimistically update the local state
+    setAdjustmentHistory(prev => [result.adjustment, ...prev]);
+
+    // Refresh from server to ensure consistency
+    // This happens in background to avoid UI delay
     fetchAdjustmentHistory();
-  }, []);
+
+    return result.adjustment;
+  }, [auth, fetchAdjustmentHistory]);
+
+  // Load on mount if authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated && !auth.loading) {
+      fetchAdjustmentHistory();
+    }
+  }, [auth.isAuthenticated, auth.loading, fetchAdjustmentHistory]);
 
   return {
+    adjustmentHistory,
     isLoading,
     error,
-    adjustmentHistory,
+    saveAdjustment,
     refreshHistory: fetchAdjustmentHistory
   };
 }

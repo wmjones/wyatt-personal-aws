@@ -224,7 +224,7 @@ jobs:
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
         run: |
-          npx tsx scripts/init-database.ts || {
+          npx tsx scripts/migrate-only.ts || {
             echo "⚠️ Migration failed. This may be due to the database not being ready yet."
             echo "You can manually run migrations later if needed."
           }

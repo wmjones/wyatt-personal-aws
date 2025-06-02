@@ -2,13 +2,12 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import DashboardLayout from './components/DashboardLayout';
-import AdjustmentPanel from './components/AdjustmentPanel';
-import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
 import { FilterSelections } from './components/FilterSidebar';
 import useForecast from './hooks/useForecast';
-import useAdjustmentHistory from './hooks/useAdjustmentHistory';
-import { AdjustmentData } from './components/AdjustmentModal';
 import CacheStatus from './components/CacheStatus';
+import NewAdjustmentPanel from './components/NewAdjustmentPanel';
+import AdjustmentHistory from './components/AdjustmentHistory';
+import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -25,49 +24,54 @@ export default function DemandPlanningPage() {
 
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
+  // Real-time adjustment state
+  const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
+
+  // Use adjustment history hook for better state management
+  const {
+    adjustmentHistory,
+    isLoading: isLoadingHistory,
+    error: historyError,
+    saveAdjustment
+  } = useAdjustmentHistory();
+
   // Initialize without hardcoded selections
   useEffect(() => {
-    console.log("Page component mount - users will select their own hierarchies and filters");
+    // Page component mount - users will select their own hierarchies and filters
   }, []);
 
   // Fetch forecast data using TanStack Query
   const {
     forecastData,
     isLoading: isLoadingForecast,
-    error: forecastError,
-    applyAdjustment,
-    refetch,
+    error: forecastError
   } = useForecast({
     filterSelections,
   });
 
-  // Fetch adjustment history
-  const {
-    adjustmentHistory,
-    isLoading: isLoadingHistory,
-    error: historyError,
-    refreshHistory,
-  } = useAdjustmentHistory();
-
   // Handle filter changes from FilterSidebar
   const handleFilterChange = (newSelections: FilterSelections) => {
-    console.log("DemandPlanningPage: Filter selections changed", newSelections);
     setFilterSelections(newSelections);
   };
 
-  // Handle adjustment application
-  const handleApplyAdjustment = async (adjustmentData: AdjustmentData) => {
-    console.log("Applying adjustment:", adjustmentData);
-    try {
-      await applyAdjustment(adjustmentData);
-      console.log("Adjustment applied successfully");
-
-      // Refetch adjustment history to show the new adjustment
-      await refreshHistory();
-    } catch (error) {
-      console.error("Failed to apply adjustment:", error);
-    }
+  // Handle real-time adjustment changes
+  const handleAdjustmentChange = (adjustmentValue: number) => {
+    setCurrentAdjustmentValue(adjustmentValue);
   };
+
+  // Handle saving adjustments
+  const handleSaveAdjustment = async (adjustmentValue: number, filterContext: FilterSelections) => {
+    // Get inventory item name for display
+    const inventoryItemName = forecastData?.inventoryItems.find(
+      item => item.id === filterContext.inventoryItemId
+    )?.name;
+
+    // Use the hook's saveAdjustment method
+    await saveAdjustment(adjustmentValue, filterContext, inventoryItemName);
+  };
+
+  // Remove the manual loading as it's handled by the hook
+
 
   // Calculate available periods based on forecast data (removed - not used)
   // const availablePeriods = forecastData?.timePeriods || [];
@@ -98,7 +102,10 @@ export default function DemandPlanningPage() {
                   <div className="text-red-500">{forecastError}</div>
                 </div>
               ) : forecastData ? (
-                <ForecastCharts forecastData={forecastData} />
+                <ForecastCharts
+                  forecastData={forecastData}
+                  adjustmentValue={currentAdjustmentValue}
+                />
               ) : (
                 <div className="flex items-center justify-center h-[400px]">
                   <div className="text-gray-500">Select filters to view forecast data</div>
@@ -107,33 +114,35 @@ export default function DemandPlanningPage() {
             </Suspense>
           </div>
 
-          {/* Adjustment Panel */}
+          {/* New Adjustment Panel */}
           {forecastData && (
-            <AdjustmentPanel
+            <NewAdjustmentPanel
               forecastData={forecastData}
-              isLoading={isLoadingForecast}
-              onApplyAdjustment={handleApplyAdjustment}
-              onResetAdjustments={async () => {
-                console.log("Reset adjustments not implemented");
-              }}
-              onRefreshForecast={async () => {
-                await refetch();
-              }}
+              filterSelections={filterSelections}
+              onAdjustmentChange={handleAdjustmentChange}
+              onSaveAdjustment={handleSaveAdjustment}
             />
           )}
+
+          {/* Adjustment History */}
+          {historyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
+            </div>
+          )}
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
         </div>
       )}
 
       {activeTab === 'history' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <>
           {historyError && (
-            <div className="p-4 text-red-500">{historyError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
+            </div>
           )}
-          <AdjustmentHistoryTable
-            entries={adjustmentHistory}
-            isLoading={isLoadingHistory}
-          />
-        </div>
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
+        </>
       )}
 
       {activeTab === 'settings' && (

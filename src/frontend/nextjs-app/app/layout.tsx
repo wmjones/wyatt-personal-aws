@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { QueryProvider } from "./providers/query-provider";
 import Header from "./components/header";
 import Footer from "./components/footer";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,26 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#363636',
+                  color: '#fff',
+                },
+                success: {
+                  style: {
+                    background: '#10B981',
+                  },
+                },
+                error: {
+                  style: {
+                    background: '#EF4444',
+                  },
+                },
+              }}
+            />
           </AuthProvider>
         </QueryProvider>
       </body>
