@@ -33,7 +33,6 @@
     "react-date-range": "^2.0.1",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
-    "react-shepherd": "^6.1.8",
     "shepherd.js": "^14.5.0",
     "tailwind-merge": "^3.3.0"
   },
