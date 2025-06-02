@@ -14,7 +14,6 @@ on:
     paths:
       - 'src/frontend/nextjs-app/**'
       - '.github/workflows/nextjs-deploy-with-neon.yml'
-  delete:
 
 env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
@@ -162,16 +161,33 @@ jobs:
         id: deploy
         working-directory: src/frontend/nextjs-app
         run: |
-          # Deploy to Vercel (env vars are already set in the project)
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          # Determine deployment type based on branch
+          if [ "${{ steps.branch_name.outputs.current_branch }}" = "dev" ]; then
+            echo "🚀 Deploying dev branch as production deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Production URL: $DEPLOYMENT_URL"
+            echo "deployment_type=production" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.branch_name.outputs.current_branch }}" = "main" ]; then
+            echo "🚀 Deploying main branch as production deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Production URL: $DEPLOYMENT_URL"
+            echo "deployment_type=production" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          else
+            echo "🔄 Deploying feature branch as preview deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Preview URL: $DEPLOYMENT_URL"
+            echo "deployment_type=preview" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
-          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          echo "Preview URL: $DEPLOYMENT_URL"
-
-          # Set alias for easier access using sanitized branch name
-          ALIAS="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ github.repository_owner }}.vercel.app"
-          vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
-          echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
+            # Set alias for easier access using sanitized branch name
+            ALIAS="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ github.repository_owner }}.vercel.app"
+            vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
+            echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
+          fi
 
       # Step 16: Run Database Migrations
       - name: Run Database Migrations
@@ -190,42 +206,12 @@ jobs:
         run: |
           echo "## 🚀 Branch Deployment Complete!"
           echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Deployment Type: ${{ steps.deploy.outputs.deployment_type }}"
           echo "Sanitized: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"
           echo "Deployment URL: ${{ steps.deploy.outputs.url }}"
-          echo "Alias URL: ${{ steps.deploy.outputs.alias }}"
+          if [ "${{ steps.deploy.outputs.deployment_type }}" = "preview" ]; then
+            echo "Alias URL: ${{ steps.deploy.outputs.alias }}"
+          fi
           echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
           echo "Lint Status: ${{ steps.lint.outcome }}"
           echo "Type Check Status: ${{ steps.typecheck.outcome }}"
-
-  # Cleanup job - runs when branch is deleted
-  cleanup-branch:
-    name: Cleanup Branch Deployment
-    runs-on: ubuntu-latest
-    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
-    steps:
-      - name: Extract and sanitize branch name from deleted ref
-        id: branch_name
-        run: |
-          BRANCH_NAME="${{ github.event.ref }}"
-          echo "current_branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-          # Sanitize branch name for Neon (same logic as deployment)
-          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
-          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
-          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
-
-          echo "Cleaning up branch: $BRANCH_NAME"
-          echo "Sanitized: $SANITIZED_BRANCH"
-
-      - name: Delete Neon Branch
-        uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ secrets.NEON_PROJECT_ID }}
-          branch: branch/${{ steps.branch_name.outputs.sanitized_branch }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-        continue-on-error: true
-
-      - name: Log cleanup completion
-        run: |
-          echo "🧹 Cleanup completed for branch: ${{ steps.branch_name.outputs.current_branch }}"
-          echo "Deleted Neon database branch: branch/${{ steps.branch_name.outputs.sanitized_branch }}"
