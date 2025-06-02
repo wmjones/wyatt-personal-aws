@@ -17,7 +17,7 @@ module "forecast_sync_lambda" {
   memory_size   = 1024
   zip_file      = local.forecast_sync_lambda_zip_path
 
-  create_log_group = true
+  create_log_group = false
 
   environment_variables = {
     ATHENA_DB_NAME           = "default"
@@ -25,7 +25,6 @@ module "forecast_sync_lambda" {
     FORECAST_TABLE_NAME      = "forecast"
     SSM_NEON_API_KEY_PATH    = "/forecast-sync/${var.environment}/neon-api-key"
     SSM_NEON_PROJECT_ID_PATH = "/forecast-sync/${var.environment}/neon-project-id"
-    AWS_REGION               = var.aws_region
     BATCH_SIZE               = "10000"
     ENVIRONMENT              = var.environment
   }

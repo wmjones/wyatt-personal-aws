@@ -42,7 +42,6 @@ repos:
           - --args=--severity=HIGH,CRITICAL
           - --args=--skip-dirs=.terraform
           - --args=--skip-dirs="**/.terraform/**"
-          - --args=--tf-vars=main/environments/dev.tfvars
       - id: terraform_docs # auto-fills README tables
         stages: [pre-push] # heavy ⟶ run only on push
 

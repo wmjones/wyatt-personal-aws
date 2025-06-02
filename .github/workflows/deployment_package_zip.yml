@@ -52,6 +52,24 @@ jobs:
                 # Copy to main directory for Terraform
                 cp athena-lambda.zip ../../../main/
 
+            - name: Build Python Forecast Sync Lambda package
+              run: |
+                # Create forecast sync package directory
+                mkdir -p deploy/forecast_sync
+
+                # Copy forecast sync Python files
+                cp src/lambda/forecast_sync/*.py deploy/forecast_sync/
+
+                # Install forecast sync dependencies
+                pip install -r src/lambda/forecast_sync/requirements.txt -t deploy/forecast_sync/
+
+                # Create ZIP package
+                cd deploy/forecast_sync
+                zip -r9 forecast-sync-lambda.zip . -x "*.git*" -x "*.pyc" -x "__pycache__/*"
+
+                # Copy to main directory for Terraform
+                cp forecast-sync-lambda.zip ../../main/
+
             - name: Zip Python dependencies
               run: zip -r9 ./deployment_package.zip ./
               working-directory: ./deploy
@@ -67,3 +85,9 @@ jobs:
               with:
                   name: athena-lambda-package
                   path: ./main/athena-lambda.zip
+
+            - name: Upload Forecast Sync Lambda package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: forecast-sync-lambda-package
+                  path: ./main/forecast-sync-lambda.zip

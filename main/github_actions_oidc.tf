@@ -124,10 +124,23 @@ resource "aws_iam_policy" "github_actions_permissions" {
         Effect = "Allow"
         Action = [
           "ssm:GetParameter",
+          "ssm:GetParameters",
           "ssm:PutParameter",
-          "ssm:ListParameters"
+          "ssm:ListParameters",
+          "ssm:AddTagsToResource"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*"
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*"
+        ]
+      },
+      # SSM DescribeParameters requires wildcard resource when using parameter filters
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:DescribeParameters"
+        ]
+        Resource = "*"
       },
       # Terraform State Access (if using S3 backend)
       {
