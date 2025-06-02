@@ -124,6 +124,7 @@ resource "aws_iam_policy" "github_actions_permissions" {
         Effect = "Allow"
         Action = [
           "ssm:GetParameter",
+          "ssm:GetParameters",
           "ssm:PutParameter",
           "ssm:ListParameters",
           "ssm:DescribeParameters",
