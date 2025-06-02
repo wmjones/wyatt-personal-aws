@@ -129,7 +129,16 @@ jobs:
       # Step 12: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Determine environment type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "Pulling production environment information..."
+            vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Pulling preview environment information..."
+            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          fi
 
       # Step 13: Build Project
       - name: Build Project Artifacts
@@ -138,23 +147,39 @@ jobs:
           # Pass database URLs during build
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Determine build type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "Building for production deployment..."
+            vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Building for preview deployment..."
+            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          fi
 
       # Step 14: Create environment variables in Vercel
       - name: Set Vercel Environment Variables
         working-directory: src/frontend/nextjs-app
         run: |
-          echo "Creating environment variables in Vercel for preview..."
+          # Determine environment type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "✅ Skipping environment variable updates for production deployment"
+            echo "Production database URLs should be configured in Vercel dashboard"
+          else
+            echo "Creating environment variables in Vercel for preview..."
 
-          # Remove existing env vars if they exist (to update them)
-          vercel env rm DATABASE_URL preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
-          vercel env rm DATABASE_URL_UNPOOLED preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+            # Remove existing env vars if they exist (to update them)
+            vercel env rm DATABASE_URL preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+            vercel env rm DATABASE_URL_UNPOOLED preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
 
-          # Add new env vars for preview environment
-          echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview --token=${{ secrets.VERCEL_TOKEN }}
-          echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview --token=${{ secrets.VERCEL_TOKEN }}
+            # Add new env vars for preview environment
+            echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview --token=${{ secrets.VERCEL_TOKEN }}
+            echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview --token=${{ secrets.VERCEL_TOKEN }}
 
-          echo "✅ Environment variables created in Vercel"
+            echo "✅ Environment variables created in Vercel for preview"
+          fi
 
       # Step 15: Deploy to Vercel
       - name: Deploy to Vercel
