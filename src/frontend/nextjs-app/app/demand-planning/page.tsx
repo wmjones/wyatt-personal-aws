@@ -6,7 +6,8 @@ import { FilterSelections } from './components/FilterSidebar';
 import useForecast from './hooks/useForecast';
 import CacheStatus from './components/CacheStatus';
 import NewAdjustmentPanel from './components/NewAdjustmentPanel';
-import AdjustmentHistory, { AdjustmentEntry } from './components/AdjustmentHistory';
+import AdjustmentHistory from './components/AdjustmentHistory';
+import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -26,12 +27,17 @@ export default function DemandPlanningPage() {
   // Real-time adjustment state
   const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
 
-  // Adjustment history state
-  const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentEntry[]>([]);
+  // Use adjustment history hook for better state management
+  const {
+    adjustmentHistory,
+    isLoading: isLoadingHistory,
+    error: historyError,
+    saveAdjustment
+  } = useAdjustmentHistory();
 
   // Initialize without hardcoded selections
   useEffect(() => {
-    console.log("Page component mount - users will select their own hierarchies and filters");
+    // Page component mount - users will select their own hierarchies and filters
   }, []);
 
   // Fetch forecast data using TanStack Query
@@ -45,7 +51,6 @@ export default function DemandPlanningPage() {
 
   // Handle filter changes from FilterSidebar
   const handleFilterChange = (newSelections: FilterSelections) => {
-    console.log("DemandPlanningPage: Filter selections changed", newSelections);
     setFilterSelections(newSelections);
   };
 
@@ -56,71 +61,16 @@ export default function DemandPlanningPage() {
 
   // Handle saving adjustments
   const handleSaveAdjustment = async (adjustmentValue: number, filterContext: FilterSelections) => {
-    console.log('handleSaveAdjustment called with:', { adjustmentValue, filterContext });
-    try {
-      // Get inventory item name for display
-      const inventoryItemName = forecastData?.inventoryItems.find(
-        item => item.id === filterContext.inventoryItemId
-      )?.name;
-      console.log('Found inventory item name:', inventoryItemName);
+    // Get inventory item name for display
+    const inventoryItemName = forecastData?.inventoryItems.find(
+      item => item.id === filterContext.inventoryItemId
+    )?.name;
 
-      const requestBody = {
-        adjustmentValue,
-        filterContext,
-        inventoryItemName
-      };
-      console.log('Making API request with body:', requestBody);
-
-      const response = await fetch('/api/adjustments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('API response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error response:', errorText);
-        throw new Error(`Failed to save adjustment: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('API success response:', result);
-
-      // Add the new adjustment to the history
-      console.log('Current adjustment history before update:', adjustmentHistory);
-      setAdjustmentHistory(prev => {
-        const newHistory = [result.adjustment, ...prev];
-        console.log('New adjustment history after update:', newHistory);
-        return newHistory;
-      });
-
-      console.log('Adjustment saved successfully:', result);
-    } catch (error) {
-      console.error('Error saving adjustment:', error);
-      throw error;
-    }
+    // Use the hook's saveAdjustment method
+    await saveAdjustment(adjustmentValue, filterContext, inventoryItemName);
   };
 
-  // Load adjustment history on mount
-  const loadAdjustmentHistory = async () => {
-    try {
-      const response = await fetch('/api/adjustments');
-      if (response.ok) {
-        const result = await response.json();
-        setAdjustmentHistory(result.adjustments);
-      }
-    } catch (error) {
-      console.error('Error loading adjustment history:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadAdjustmentHistory();
-  }, []);
+  // Remove the manual loading as it's handled by the hook
 
 
   // Calculate available periods based on forecast data (removed - not used)
@@ -175,12 +125,24 @@ export default function DemandPlanningPage() {
           )}
 
           {/* Adjustment History */}
-          <AdjustmentHistory entries={adjustmentHistory} />
+          {historyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
+            </div>
+          )}
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
         </div>
       )}
 
       {activeTab === 'history' && (
-        <AdjustmentHistory entries={adjustmentHistory} />
+        <>
+          {historyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
+            </div>
+          )}
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
+        </>
       )}
 
       {activeTab === 'settings' && (

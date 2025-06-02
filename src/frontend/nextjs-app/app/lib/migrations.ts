@@ -128,6 +128,7 @@ const migrations: Migration[] = [
         adjustment_value DECIMAL(5,2) NOT NULL,
         filter_context JSONB NOT NULL,
         inventory_item_name VARCHAR(255),
+        user_id VARCHAR(255) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
@@ -135,6 +136,7 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_created_at ON forecast_adjustments(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_inventory_item ON forecast_adjustments(inventory_item_name);
       CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_filter_context ON forecast_adjustments USING GIN(filter_context);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_id ON forecast_adjustments(user_id);
     `,
     down: `
       DROP TABLE IF EXISTS forecast_adjustments;

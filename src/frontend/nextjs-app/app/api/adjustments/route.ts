@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/postgres';
+import { withAuth, AuthenticatedRequest } from '@/app/lib/auth-middleware';
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json();
     const { adjustmentValue, filterContext, inventoryItemName } = body;
@@ -14,9 +15,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate adjustment range (-100% to +100%)
+    if (adjustmentValue < -100 || adjustmentValue > 100) {
+      return NextResponse.json(
+        { error: 'Adjustment value must be between -100% and 100%' },
+        { status: 400 }
+      );
+    }
+
     if (!filterContext) {
       return NextResponse.json(
         { error: 'Filter context is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate filter context structure
+    if (!filterContext.dateRange ||
+        !Array.isArray(filterContext.states) ||
+        !Array.isArray(filterContext.dmaIds) ||
+        !Array.isArray(filterContext.dcIds)) {
+      return NextResponse.json(
+        { error: 'Invalid filter context structure' },
         { status: 400 }
       );
     }
@@ -27,16 +47,18 @@ export async function POST(request: NextRequest) {
       adjustment_value: number;
       filter_context: Record<string, unknown>;
       inventory_item_name: string | null;
+      user_id: string;
       created_at: string;
     }>(`
       INSERT INTO forecast_adjustments (
         adjustment_value,
         filter_context,
         inventory_item_name,
+        user_id,
         created_at
-      ) VALUES ($1, $2, $3, NOW())
-      RETURNING id, adjustment_value, filter_context, inventory_item_name, created_at
-    `, [adjustmentValue, JSON.stringify(filterContext), inventoryItemName || null]);
+      ) VALUES ($1, $2, $3, $4, NOW())
+      RETURNING id, adjustment_value, filter_context, inventory_item_name, user_id, created_at
+    `, [adjustmentValue, JSON.stringify(filterContext), inventoryItemName || null, request.user?.sub]);
 
     const savedAdjustment = result.rows[0];
 
@@ -47,50 +69,52 @@ export async function POST(request: NextRequest) {
         adjustmentValue: savedAdjustment.adjustment_value,
         filterContext: savedAdjustment.filter_context,
         inventoryItemName: savedAdjustment.inventory_item_name,
+        userId: savedAdjustment.user_id,
         timestamp: savedAdjustment.created_at
       }
     });
 
-  } catch (error) {
-    console.error('Error saving adjustment:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to save adjustment' },
       { status: 500 }
     );
   }
-}
+});
 
-export async function GET() {
+export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
-    // Fetch recent adjustments, ordered by most recent first
+    // Fetch recent adjustments for the authenticated user
     const result = await query<{
       id: number;
       adjustment_value: number;
       filter_context: Record<string, unknown>;
       inventory_item_name: string | null;
+      user_id: string;
       created_at: string;
     }>(`
-      SELECT id, adjustment_value, filter_context, inventory_item_name, created_at
+      SELECT id, adjustment_value, filter_context, inventory_item_name, user_id, created_at
       FROM forecast_adjustments
+      WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT 20
-    `);
+    `, [request.user?.sub]);
 
     const adjustments = result.rows.map((row) => ({
       id: row.id,
       adjustmentValue: row.adjustment_value,
       filterContext: row.filter_context,
       inventoryItemName: row.inventory_item_name,
+      userId: row.user_id,
       timestamp: row.created_at
     }));
 
     return NextResponse.json({ adjustments });
 
-  } catch (error) {
-    console.error('Error fetching adjustments:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch adjustments' },
       { status: 500 }
     );
   }
-}
+});

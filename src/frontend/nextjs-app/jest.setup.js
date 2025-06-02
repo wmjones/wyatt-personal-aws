@@ -1,4 +1,35 @@
 import '@testing-library/jest-dom'
+import { TextEncoder, TextDecoder } from 'util'
+
+// Polyfill TextEncoder/TextDecoder for Node.js environment
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
+
+// Polyfill Request/Response for Next.js server components
+global.Request = class Request {
+  constructor(input, init) {
+    this.url = input
+    this.method = init?.method || 'GET'
+    this.headers = new Map(Object.entries(init?.headers || {}))
+    this.body = init?.body
+  }
+
+  async json() {
+    return JSON.parse(this.body)
+  }
+}
+
+global.Response = class Response {
+  constructor(body, init) {
+    this.body = body
+    this.status = init?.status || 200
+    this.headers = new Map(Object.entries(init?.headers || {}))
+  }
+
+  async json() {
+    return JSON.parse(this.body)
+  }
+}
 
 // Mock environment variables
 process.env = {

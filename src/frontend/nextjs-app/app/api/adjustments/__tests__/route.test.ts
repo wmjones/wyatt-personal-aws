@@ -1,0 +1,155 @@
+/**
+ * @jest-environment node
+ */
+
+// Mock modules before imports
+jest.mock('@/lib/postgres');
+jest.mock('@/lib/auth-middleware');
+jest.mock('aws-jwt-verify', () => ({
+  CognitoJwtVerifier: {
+    create: jest.fn().mockReturnValue({
+      verify: jest.fn().mockResolvedValue({
+        sub: 'test-user-123',
+        email: 'test@example.com',
+        'cognito:username': 'testuser'
+      })
+    })
+  }
+}));
+
+import { POST, GET } from '../route';
+import { NextRequest } from 'next/server';
+import * as postgres from '@/lib/postgres';
+import * as authMiddleware from '@/lib/auth-middleware';
+
+// Setup mocks
+const mockQuery = jest.fn();
+(postgres as jest.Mocked<typeof postgres>).query = mockQuery;
+
+// Mock the auth middleware to pass through the handler
+(authMiddleware as jest.Mocked<typeof authMiddleware>).withAuth = (handler: (req: authMiddleware.AuthenticatedRequest) => Promise<Response>) => 
+  async (req: authMiddleware.AuthenticatedRequest) => {
+    // Add user to request
+    req.user = { 
+      sub: 'test-user-123', 
+      email: 'test@example.com', 
+      username: 'testuser' 
+    };
+    return handler(req);
+  };
+
+// Helper to create authenticated request
+const createRequest = (url: string, options: RequestInit = {}) => {
+  const req = new NextRequest(url, options);
+  // Add user property
+  (req as unknown as authMiddleware.AuthenticatedRequest).user = { 
+    sub: 'test-user-123', 
+    email: 'test@example.com', 
+    username: 'testuser' 
+  };
+  return req as unknown as authMiddleware.AuthenticatedRequest;
+};
+
+describe('/api/adjustments', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('POST', () => {
+    it('should save adjustment with valid data', async () => {
+      const mockResult = {
+        rows: [{
+          id: 1,
+          adjustment_value: 5.0,
+          filter_context: { states: ['TX'], inventoryItemId: 'item1' },
+          inventory_item_name: 'Test Item',
+          user_id: 'test-user-123',
+          created_at: '2025-01-01T00:00:00Z'
+        }]
+      };
+
+      mockQuery.mockResolvedValue(mockResult);
+
+      const request = createRequest('http://localhost:3000/api/adjustments', {
+        method: 'POST',
+        body: JSON.stringify({
+          adjustmentValue: 5.0,
+          filterContext: { 
+            states: ['TX'], 
+            inventoryItemId: 'item1',
+            dmaIds: [],
+            dcIds: [],
+            dateRange: { startDate: null, endDate: null }
+          },
+          inventoryItemName: 'Test Item'
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.adjustment.id).toBe(1);
+      expect(data.adjustment.adjustmentValue).toBe(5.0);
+    });
+
+    it('should validate adjustment value range', async () => {
+      const request = createRequest('http://localhost:3000/api/adjustments', {
+        method: 'POST',
+        body: JSON.stringify({
+          adjustmentValue: 150, // Out of range
+          filterContext: { 
+            states: ['TX'],
+            dmaIds: [],
+            dcIds: [],
+            dateRange: { startDate: null, endDate: null }
+          }
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+    });
+
+    it('should require filter context', async () => {
+      const request = createRequest('http://localhost:3000/api/adjustments', {
+        method: 'POST',
+        body: JSON.stringify({
+          adjustmentValue: 5.0
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+    });
+  });
+
+  describe('GET', () => {
+    it('should return user adjustments', async () => {
+      const mockResult = {
+        rows: [{
+          id: 1,
+          adjustment_value: 5.0,
+          filter_context: { states: ['TX'] },
+          inventory_item_name: 'Test Item',
+          user_id: 'test-user-123',
+          created_at: '2025-01-01T00:00:00Z'
+        }]
+      };
+
+      mockQuery.mockResolvedValue(mockResult);
+
+      const request = createRequest('http://localhost:3000/api/adjustments', {
+        method: 'GET'
+      });
+
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.adjustments).toHaveLength(1);
+      expect(data.adjustments[0].adjustmentValue).toBe(5.0);
+    });
+  });
+});
