@@ -14,7 +14,8 @@ export default function Header() {
     { href: '/about', label: 'About' },
     ...(isAuthenticated ? [
       { href: '/dashboard', label: 'Dashboard' },
-      { href: '/visualizations', label: 'Visualizations' }
+      { href: '/demand-planning', label: 'Demand Planning' },
+      { href: '/visualizations', label: 'Reports' }
     ] : []),
   ]
 
@@ -32,7 +33,7 @@ export default function Header() {
               D3 Dashboard
             </Link>
 
-            <ul className="hidden md:flex items-center space-x-6">
+            <ul className="main-navigation hidden md:flex items-center space-x-6">
               {navItems.map((item) => (
                 <li key={item.href}>
                   <Link
