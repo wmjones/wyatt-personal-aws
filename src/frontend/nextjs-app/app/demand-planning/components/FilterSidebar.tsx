@@ -144,7 +144,7 @@ export default function FilterSidebar({
   }
 
   return (
-    <aside className={`w-64 bg-white shadow-md p-6 ${className}`}>
+    <aside className={`filter-sidebar w-64 bg-white shadow-md p-6 ${className}`}>
       <h2 className="text-lg font-semibold mb-6">Filters</h2>
 
       <div className="space-y-6">

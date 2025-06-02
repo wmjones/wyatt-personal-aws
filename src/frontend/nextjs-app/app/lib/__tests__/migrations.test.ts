@@ -48,7 +48,7 @@ describe('Database Migrations', () => {
     it('should include multi-user support migration', () => {
       const multiUserMigration = migrations.find(m => m.name === 'add_multiuser_support_to_adjustments');
       expect(multiUserMigration).toBeDefined();
-      expect(multiUserMigration?.id).toBe('004');
+      expect(multiUserMigration?.id).toBe('005');
     });
 
     it('should have proper up migration for multi-user support', () => {
