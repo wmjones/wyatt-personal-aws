@@ -78,13 +78,60 @@ jobs:
             --project-id "$NEON_PROJECT_ID" \
             --force || echo "⚠️ New branch might not exist or already deleted"
 
+      - name: Install Vercel CLI
+        run: |
+          npm install --global vercel@latest
+          echo "✅ Vercel CLI installed"
+
+      - name: Cleanup Vercel Preview Deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+        run: |
+          echo "🧹 Cleaning up Vercel deployments for PR branch: ${{ steps.branch_info.outputs.branch_name }}"
+
+          # Skip cleanup for main and dev branches (these are production deployments)
+          if [ "${{ steps.branch_info.outputs.branch_name }}" = "main" ] || [ "${{ steps.branch_info.outputs.branch_name }}" = "dev" ]; then
+            echo "⚠️ Skipping cleanup for production branch: ${{ steps.branch_info.outputs.branch_name }}"
+            exit 0
+          fi
+
+          # Sanitize branch name for deployment matching (same logic as deployment)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_info.outputs.branch_name }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+
+          # Get all deployments for this project and filter by branch
+          DEPLOYMENTS=$(vercel ls --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID | grep "$SANITIZED_BRANCH" || true)
+
+          if [ -n "$DEPLOYMENTS" ]; then
+            echo "Found deployments to clean up:"
+            echo "$DEPLOYMENTS"
+
+            # Extract deployment URLs and delete them
+            echo "$DEPLOYMENTS" | while read -r line; do
+              if [[ $line =~ $SANITIZED_BRANCH ]]; then
+                DEPLOYMENT_URL=$(echo "$line" | awk '{print $2}')
+                if [ -n "$DEPLOYMENT_URL" ]; then
+                  echo "🗑️ Deleting deployment: $DEPLOYMENT_URL"
+                  vercel rm "$DEPLOYMENT_URL" --yes --token=$VERCEL_TOKEN || true
+                fi
+              fi
+            done
+
+            echo "✅ Vercel deployment cleanup completed"
+          else
+            echo "ℹ️ No Vercel deployments found for branch ${{ steps.branch_info.outputs.branch_name }}"
+          fi
+        continue-on-error: true
+
       - name: Comment on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `🧹 **Neon Branch Cleanup Complete**
+            const body = `🧹 **Branch Cleanup Complete**
 
-            Database branches for \`${{ steps.branch_info.outputs.branch_name }}\` have been cleaned up.`;
+            ✅ **Neon Database**: Database branches for \`${{ steps.branch_info.outputs.branch_name }}\` have been cleaned up.
+            ✅ **Vercel Deployments**: Preview deployments for \`${{ steps.branch_info.outputs.branch_name }}\` have been removed.`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -138,6 +185,52 @@ jobs:
               neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
             fi
           done
+
+      - name: Install Vercel CLI
+        run: |
+          npm install --global vercel@latest
+          echo "✅ Vercel CLI installed"
+
+      - name: Cleanup Vercel Preview Deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+        run: |
+          echo "🧹 Cleaning up Vercel deployments for deleted branch: ${{ steps.branch_info.outputs.branch_name }}"
+
+          # Skip cleanup for main and dev branches (these are production deployments)
+          if [ "${{ steps.branch_info.outputs.branch_name }}" = "main" ] || [ "${{ steps.branch_info.outputs.branch_name }}" = "dev" ]; then
+            echo "⚠️ Skipping cleanup for production branch: ${{ steps.branch_info.outputs.branch_name }}"
+            exit 0
+          fi
+
+          # Sanitize branch name for deployment matching (same logic as deployment)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_info.outputs.branch_name }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+
+          # Get all deployments for this project and filter by branch
+          DEPLOYMENTS=$(vercel ls --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID | grep "$SANITIZED_BRANCH" || true)
+
+          if [ -n "$DEPLOYMENTS" ]; then
+            echo "Found deployments to clean up:"
+            echo "$DEPLOYMENTS"
+
+            # Extract deployment URLs and delete them
+            echo "$DEPLOYMENTS" | while read -r line; do
+              if [[ $line =~ $SANITIZED_BRANCH ]]; then
+                DEPLOYMENT_URL=$(echo "$line" | awk '{print $2}')
+                if [ -n "$DEPLOYMENT_URL" ]; then
+                  echo "🗑️ Deleting deployment: $DEPLOYMENT_URL"
+                  vercel rm "$DEPLOYMENT_URL" --yes --token=$VERCEL_TOKEN || true
+                fi
+              fi
+            done
+
+            echo "✅ Vercel deployment cleanup completed"
+          else
+            echo "ℹ️ No Vercel deployments found for branch ${{ steps.branch_info.outputs.branch_name }}"
+          fi
+        continue-on-error: true
 
   # Scheduled cleanup of old deployment branches
   cleanup-old-deployments:
