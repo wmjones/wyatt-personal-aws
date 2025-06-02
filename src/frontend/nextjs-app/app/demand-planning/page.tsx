@@ -32,7 +32,11 @@ export default function DemandPlanningPage() {
     adjustmentHistory,
     isLoading: isLoadingHistory,
     error: historyError,
-    saveAdjustment
+    showAllUsers,
+    setShowAllUsers,
+    saveAdjustment,
+    toggleAdjustmentActive,
+    deleteAdjustment
   } = useAdjustmentHistory();
 
   // Initialize without hardcoded selections
@@ -130,7 +134,14 @@ export default function DemandPlanningPage() {
               Error loading adjustment history: {historyError}
             </div>
           )}
-          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
+          <AdjustmentHistory
+            entries={adjustmentHistory}
+            isLoading={isLoadingHistory}
+            onToggleActive={toggleAdjustmentActive}
+            onDelete={deleteAdjustment}
+            showAllUsers={showAllUsers}
+            onToggleShowAllUsers={setShowAllUsers}
+          />
         </div>
       )}
 
@@ -141,7 +152,14 @@ export default function DemandPlanningPage() {
               Error loading adjustment history: {historyError}
             </div>
           )}
-          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
+          <AdjustmentHistory
+            entries={adjustmentHistory}
+            isLoading={isLoadingHistory}
+            onToggleActive={toggleAdjustmentActive}
+            onDelete={deleteAdjustment}
+            showAllUsers={showAllUsers}
+            onToggleShowAllUsers={setShowAllUsers}
+          />
         </>
       )}
 

@@ -61,6 +61,9 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Mock window.confirm for component tests
+global.confirm = jest.fn(() => true);
+
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}

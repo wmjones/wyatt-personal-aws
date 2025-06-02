@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { FilterSelections } from './FilterSidebar';
 import { formatFilterContext } from '../lib/adjustment-utils';
 
@@ -9,18 +10,65 @@ interface AdjustmentEntry {
   filterContext: FilterSelections;
   timestamp: string;
   inventoryItemName?: string;
+  userEmail?: string;
+  userName?: string;
+  userId?: string;
+  isOwn?: boolean;
+  isActive?: boolean;
 }
 
 interface AdjustmentHistoryProps {
   entries: AdjustmentEntry[];
   isLoading?: boolean;
+  onToggleActive?: (id: string, isActive: boolean) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  showAllUsers?: boolean;
+  onToggleShowAllUsers?: (showAll: boolean) => void;
 }
 
-export default function AdjustmentHistory({ entries, isLoading = false }: AdjustmentHistoryProps) {
+export default function AdjustmentHistory({
+  entries,
+  isLoading = false,
+  onToggleActive,
+  onDelete,
+  showAllUsers = true,
+  onToggleShowAllUsers
+}: AdjustmentHistoryProps) {
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Format timestamp
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
+  };
+
+  // Handle toggle active/inactive
+  const handleToggleActive = async (entry: AdjustmentEntry) => {
+    if (!onToggleActive || !entry.isOwn) return;
+
+    setActionLoading(entry.id);
+    try {
+      await onToggleActive(entry.id, !entry.isActive);
+    } catch (error) {
+      console.error('Failed to toggle adjustment:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (entry: AdjustmentEntry) => {
+    if (!onDelete || !entry.isOwn) return;
+
+    if (!confirm('Are you sure you want to delete this adjustment?')) return;
+
+    setActionLoading(entry.id);
+    try {
+      await onDelete(entry.id);
+    } catch (error) {
+      console.error('Failed to delete adjustment:', error);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   if (isLoading) {
@@ -51,13 +99,36 @@ export default function AdjustmentHistory({ entries, isLoading = false }: Adjust
 
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold mb-4">Recent Adjustments</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Recent Adjustments</h3>
+        {onToggleShowAllUsers && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Show all users</span>
+            <button
+              onClick={() => onToggleShowAllUsers(!showAllUsers)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                showAllUsers ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showAllUsers ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-3">
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors"
+            className={`border rounded-md p-4 transition-colors ${
+              entry.isActive !== false
+                ? 'border-gray-200 hover:bg-gray-50'
+                : 'border-gray-300 bg-gray-100 opacity-60'
+            }`}
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center space-x-2">
@@ -73,18 +144,58 @@ export default function AdjustmentHistory({ entries, isLoading = false }: Adjust
                 <span className="text-sm text-gray-600">
                   {formatFilterContext(entry.filterContext, entry.inventoryItemName)}
                 </span>
+                {entry.isActive === false && (
+                  <span className="text-xs text-gray-500 italic">(Inactive)</span>
+                )}
               </div>
-              <span className="text-xs text-gray-500">
-                {formatTimestamp(entry.timestamp)}
-              </span>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">
+                  {formatTimestamp(entry.timestamp)}
+                </span>
+              </div>
             </div>
 
-            {/* Period info if available */}
-            {entry.filterContext.dateRange.startDate && entry.filterContext.dateRange.endDate && (
-              <div className="text-xs text-gray-500">
-                Period: {entry.filterContext.dateRange.startDate} to {entry.filterContext.dateRange.endDate}
+            {/* User info and period info */}
+            <div className="flex justify-between items-end">
+              <div className="space-y-1">
+                {/* Period info if available */}
+                {entry.filterContext.dateRange.startDate && entry.filterContext.dateRange.endDate && (
+                  <div className="text-xs text-gray-500">
+                    Period: {entry.filterContext.dateRange.startDate} to {entry.filterContext.dateRange.endDate}
+                  </div>
+                )}
+                {/* User info */}
+                {entry.userName && (
+                  <div className="text-xs text-gray-500">
+                    By: {entry.userName} {entry.userEmail && `(${entry.userEmail})`}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Actions for own adjustments */}
+              {entry.isOwn && (onToggleActive || onDelete) && (
+                <div className="flex items-center space-x-2">
+                  {onToggleActive && (
+                    <button
+                      onClick={() => handleToggleActive(entry)}
+                      disabled={actionLoading === entry.id}
+                      className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    >
+                      {actionLoading === entry.id ? 'Loading...' : (entry.isActive !== false ? 'Deactivate' : 'Activate')}
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => handleDelete(entry)}
+                      disabled={actionLoading === entry.id}
+                      className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
