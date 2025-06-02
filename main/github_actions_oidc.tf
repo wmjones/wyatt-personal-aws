@@ -125,7 +125,9 @@ resource "aws_iam_policy" "github_actions_permissions" {
         Action = [
           "ssm:GetParameter",
           "ssm:PutParameter",
-          "ssm:ListParameters"
+          "ssm:ListParameters",
+          "ssm:DescribeParameters",
+          "ssm:AddTagsToResource"
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*",

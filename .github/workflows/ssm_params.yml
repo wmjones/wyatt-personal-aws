@@ -1,4 +1,4 @@
-name: Configure SSM Parameters for Deployment
+name: Configure SSM Parameters
 
 on:
   # Trigger automatically after successful Terraform apply
@@ -33,7 +33,7 @@ env:
 
 jobs:
   set-ssm-parameters:
-    name: Set SSM Parameters
+    name: Configure Infrastructure & Application Parameters
     runs-on: ubuntu-latest
     # Only run if manually triggered OR if Terraform apply was successful
     if: >-
@@ -67,8 +67,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # Use dynamic role ARN construction with AWS_ACCOUNT_ID secret
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-oidc-role-${{ steps.env.outputs.environment }}
+          # Use the shared github-actions-role (not environment-specific)
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
           role-session-name: GitHubActionsDeployment
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
@@ -210,6 +210,56 @@ jobs:
             echo "No API Endpoint found from Terraform outputs"
           fi
 
+      - name: Store Neon credentials in SSM
+        env:
+          ENVIRONMENT: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "Storing Neon configuration in SSM for ${ENVIRONMENT} environment..."
+
+          # Store API key as SecureString
+          aws ssm put-parameter \
+            --name "/forecast-sync/${ENVIRONMENT}/neon-api-key" \
+            --value "${{ secrets.NEON_API_KEY }}" \
+            --type "SecureString" \
+            --overwrite \
+            --description "Neon API key for forecast sync Lambda" \
+            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
+            || { echo "Failed to store Neon API key"; exit 1; }
+
+          # Store project ID as regular String
+          aws ssm put-parameter \
+            --name "/forecast-sync/${ENVIRONMENT}/neon-project-id" \
+            --value "${{ secrets.NEON_PROJECT_ID }}" \
+            --type "String" \
+            --overwrite \
+            --description "Neon project ID for forecast sync Lambda" \
+            --tags "Key=Environment,Value=${ENVIRONMENT}" "Key=Service,Value=forecast-sync" \
+            || { echo "Failed to store Neon project ID"; exit 1; }
+
+          echo "✅ Successfully stored Neon configuration in SSM for ${ENVIRONMENT} environment"
+
+      - name: Verify SSM parameters
+        env:
+          ENVIRONMENT: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "Verifying stored parameters..."
+
+          # Check infrastructure parameters
+          echo "Infrastructure parameters:"
+          aws ssm describe-parameters \
+            --parameter-filters "Key=Name,Option=BeginsWith,Values=/wyatt-personal-aws-${ENVIRONMENT}/" \
+            --query "Parameters[*].[Name,Type,LastModifiedDate]" \
+            --output table
+
+          # Check application parameters
+          echo "Application parameters:"
+          aws ssm describe-parameters \
+            --parameter-filters "Key=Name,Option=BeginsWith,Values=/forecast-sync/${ENVIRONMENT}/" \
+            --query "Parameters[*].[Name,Type,LastModifiedDate]" \
+            --output table
+
+          echo "✅ Parameter verification complete"
+
       - name: Deployment Summary
         run: |
           echo "## SSM Parameters Configuration Summary" >> $GITHUB_STEP_SUMMARY
@@ -221,4 +271,13 @@ jobs:
           fi
           echo "- **Timestamp**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ SSM parameters updated successfully for **${{ steps.env.outputs.environment }}** environment" >> $GITHUB_STEP_SUMMARY
+          echo "### Parameters Configured" >> $GITHUB_STEP_SUMMARY
+          echo "**Infrastructure Parameters:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Cognito User Pool ID & Client ID" >> $GITHUB_STEP_SUMMARY
+          echo "- API Gateway Endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application Parameters:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Neon API Key (SecureString)" >> $GITHUB_STEP_SUMMARY
+          echo "- Neon Project ID" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All SSM parameters updated successfully for **${{ steps.env.outputs.environment }}** environment" >> $GITHUB_STEP_SUMMARY
