@@ -6,6 +6,7 @@ import { QueryProvider } from "./providers/query-provider";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import { Toaster } from "react-hot-toast";
+import OnboardingManager from "./components/onboarding/OnboardingManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,31 +38,33 @@ export default function RootLayout({
       >
         <QueryProvider>
           <AuthProvider>
-            <Header />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-                success: {
+            <OnboardingManager>
+              <Header />
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
                   style: {
-                    background: '#10B981',
+                    background: '#363636',
+                    color: '#fff',
                   },
-                },
-                error: {
-                  style: {
-                    background: '#EF4444',
+                  success: {
+                    style: {
+                      background: '#10B981',
+                    },
                   },
-                },
-              }}
-            />
+                  error: {
+                    style: {
+                      background: '#EF4444',
+                    },
+                  },
+                }}
+              />
+            </OnboardingManager>
           </AuthProvider>
         </QueryProvider>
       </body>

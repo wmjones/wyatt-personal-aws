@@ -141,6 +141,48 @@ const migrations: Migration[] = [
     down: `
       DROP TABLE IF EXISTS forecast_adjustments;
     `
+  },
+  {
+    id: '004',
+    name: 'create_user_preferences_table',
+    up: `
+      -- Create table for storing user preferences including onboarding status
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) UNIQUE NOT NULL,
+        has_seen_welcome BOOLEAN DEFAULT FALSE,
+        has_completed_tour BOOLEAN DEFAULT FALSE,
+        tour_progress JSON DEFAULT '{}',
+        onboarding_completed_at TIMESTAMP WITH TIME ZONE,
+        tooltips_enabled BOOLEAN DEFAULT TRUE,
+        preferred_help_format VARCHAR(20) DEFAULT 'text',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_preferences_onboarding ON user_preferences(has_seen_welcome, has_completed_tour);
+
+      -- Create trigger to update updated_at timestamp
+      CREATE OR REPLACE FUNCTION update_user_preferences_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      CREATE TRIGGER user_preferences_updated_at_trigger
+      BEFORE UPDATE ON user_preferences
+      FOR EACH ROW
+      EXECUTE FUNCTION update_user_preferences_updated_at();
+    `,
+    down: `
+      DROP TRIGGER IF EXISTS user_preferences_updated_at_trigger ON user_preferences;
+      DROP FUNCTION IF EXISTS update_user_preferences_updated_at();
+      DROP TABLE IF EXISTS user_preferences;
+    `
   }
 ];
 
