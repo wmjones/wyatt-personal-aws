@@ -8,7 +8,6 @@
   "git": {
     "deploymentEnabled": false
   },
-  "gitFork": false,
   "github": {
     "silent": false
   },

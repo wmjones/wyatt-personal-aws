@@ -162,14 +162,17 @@ jobs:
         working-directory: src/frontend/nextjs-app
         run: |
           # Determine deployment type based on branch
-          if [ "${{ steps.branch_name.outputs.current_branch }}" = "dev" ]; then
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          echo "Current branch: $CURRENT_BRANCH"
+
+          if [ "$CURRENT_BRANCH" = "dev" ]; then
             echo "🚀 Deploying dev branch as production deployment..."
             DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
             echo "Production URL: $DEPLOYMENT_URL"
             echo "deployment_type=production" >> $GITHUB_OUTPUT
             echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
             echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          elif [ "${{ steps.branch_name.outputs.current_branch }}" = "main" ]; then
+          elif [ "$CURRENT_BRANCH" = "main" ]; then
             echo "🚀 Deploying main branch as production deployment..."
             DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
             echo "Production URL: $DEPLOYMENT_URL"
