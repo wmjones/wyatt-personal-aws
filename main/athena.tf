@@ -110,6 +110,39 @@ resource "aws_iam_policy" "athena_access" {
           aws_s3_bucket.athena_results.arn,
           "${aws_s3_bucket.athena_results.arn}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:CreateGrant",
+          "kms:DescribeKey"
+        ]
+        Resource = [
+          aws_kms_key.s3_key.arn
+        ]
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = [
+              "s3.${var.aws_region}.amazonaws.com",
+              "athena.${var.aws_region}.amazonaws.com"
+            ]
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:GetDatabase",
+          "glue:GetTable",
+          "glue:GetPartitions"
+        ]
+        Resource = [
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/${aws_athena_database.forecast_db.name}",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${aws_athena_database.forecast_db.name}/*"
+        ]
       }
     ]
   })
@@ -120,12 +153,12 @@ resource "aws_lambda_function" "athena_query" {
   function_name = "${var.project_name}-athena-query-${var.environment}"
   role          = aws_iam_role.athena_lambda_role.arn
   handler       = "index.handler"
-  runtime       = "nodejs18.x"
+  runtime       = "nodejs20.x"
   timeout       = 30
   memory_size   = 256
 
-  filename         = local.lambda_zip_path
-  source_code_hash = filebase64sha256(local.lambda_zip_path)
+  filename         = local.athena_lambda_zip_path
+  source_code_hash = filebase64sha256(local.athena_lambda_zip_path)
 
   environment {
     variables = {

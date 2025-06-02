@@ -284,5 +284,6 @@ export class ApiClient {
 }
 
 // Create and export singleton instance
-const API_BASE_URL = config.app.url.replace('http://localhost:3000', '') + '/api';
+// For client-side requests, use relative URLs to ensure they go to the Next.js server
+const API_BASE_URL = typeof window !== 'undefined' ? '' : config.app.url;
 export const apiClient = new ApiClient(API_BASE_URL);

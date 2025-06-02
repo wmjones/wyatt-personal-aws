@@ -9,11 +9,14 @@
     "deploymentEnabled": false
   },
   "github": {
-    "silent": true
+    "silent": false
   },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
     }
+  },
+  "env": {
+    "NODE_ENV": "production"
   }
 }

@@ -17,7 +17,7 @@ export default function AboutPage() {
           <p className="text-muted-foreground mb-4">
             The D3 Dashboard & Productivity System combines powerful data visualization tools
             with automated productivity workflows to help teams make data-driven decisions
-            and streamline their workflows.
+            and streamline their workflows. TODO
           </p>
         </div>
 
@@ -100,10 +100,10 @@ export default function AboutPage() {
           <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
           <div className="flex gap-4 justify-center">
             <Link
-              href="/demo"
+              href="/signup"
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
-              Try the Demo
+              Sign Up Now
             </Link>
             <Link
               href="/"

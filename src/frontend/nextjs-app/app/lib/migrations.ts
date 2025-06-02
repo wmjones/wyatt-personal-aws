@@ -33,7 +33,7 @@ const migrations: Migration[] = [
         id SERIAL PRIMARY KEY,
         cache_key VARCHAR(255) UNIQUE NOT NULL,
         query_fingerprint VARCHAR(64) NOT NULL,
-        state VARCHAR(10),
+        state VARCHAR(50),
         data JSONB NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -46,7 +46,7 @@ const migrations: Migration[] = [
         id SERIAL PRIMARY KEY,
         cache_key VARCHAR(255) UNIQUE NOT NULL,
         query_fingerprint VARCHAR(64) NOT NULL,
-        state VARCHAR(10),
+        state VARCHAR(50),
         start_date DATE,
         end_date DATE,
         data JSONB NOT NULL,
@@ -116,6 +116,30 @@ const migrations: Migration[] = [
     `,
     down: `
       DROP TABLE IF EXISTS migrations;
+    `
+  },
+  {
+    id: '003',
+    name: 'create_forecast_adjustments_table',
+    up: `
+      -- Create table for storing forecast adjustments
+      CREATE TABLE IF NOT EXISTS forecast_adjustments (
+        id SERIAL PRIMARY KEY,
+        adjustment_value DECIMAL(5,2) NOT NULL,
+        filter_context JSONB NOT NULL,
+        inventory_item_name VARCHAR(255),
+        user_id VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_created_at ON forecast_adjustments(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_inventory_item ON forecast_adjustments(inventory_item_name);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_filter_context ON forecast_adjustments USING GIN(filter_context);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_id ON forecast_adjustments(user_id);
+    `,
+    down: `
+      DROP TABLE IF EXISTS forecast_adjustments;
     `
   }
 ];

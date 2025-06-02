@@ -43,12 +43,6 @@ This document provides detailed technical specifications for the hybrid architec
 │  │   Tables    │   Streams    │  User Pools           │    │
 │  └─────────────┴──────────────┴───────────────────────┘    │
 │                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │          Step Functions (Productivity)               │    │
-│  │  ┌──────────┬──────────┬────────────────────────┐   │    │
-│  │  │ getTodoist│putChatGPT│    putNotion          │   │    │
-│  │  └──────────┴──────────┴────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -78,7 +72,6 @@ src/frontend/nextjs-app/
 │   │   └── reset-password/
 │   ├── (dashboard)/
 │   │   ├── visualizations/
-│   │   ├── productivity/
 │   │   └── settings/
 │   ├── api/
 │   │   └── [...proxy]/

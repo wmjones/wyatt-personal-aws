@@ -70,6 +70,6 @@ export * from './api/errors';
 export type { RequestOptions } from './api/client';
 export { ApiError } from './api/client';
 
-// Export Athena service
-export { athenaService } from './athenaService';
-export type { AthenaQueryRequest, AthenaQueryResponse, ForecastSummary, ForecastByDate } from './athenaService';
+// Export forecast service and types
+export { forecastService } from './forecastService';
+export type { QueryResponse, ForecastSummary, ForecastByDate } from '../types/forecast';

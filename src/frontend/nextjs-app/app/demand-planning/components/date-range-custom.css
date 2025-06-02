@@ -1,0 +1,139 @@
+/* Custom styles for react-date-range to match demand planning theme */
+
+/* Override default colors with our theme colors */
+.rdrCalendarWrapper {
+  color: var(--dp-text-primary);
+  font-family: inherit;
+}
+
+.rdrDateDisplay {
+  margin: 0;
+}
+
+.rdrDateDisplayItem {
+  background-color: var(--dp-surface-secondary);
+  border: 1px solid var(--dp-frame-border);
+}
+
+.rdrDateDisplayItem input {
+  color: var(--dp-text-primary);
+}
+
+.rdrMonthAndYearWrapper {
+  height: 50px;
+  padding-top: 10px;
+}
+
+.rdrMonthAndYearPickers select {
+  color: var(--dp-text-primary);
+  background-color: var(--dp-surface-primary);
+  border: 1px solid var(--dp-frame-border);
+  padding: 2px 20px 2px 10px;
+  border-radius: 4px;
+}
+
+.rdrNextPrevButton {
+  background: var(--dp-surface-secondary);
+  border: 1px solid var(--dp-frame-border);
+}
+
+.rdrNextPrevButton:hover {
+  background: var(--dp-surface-tertiary);
+}
+
+.rdrPprevButton i {
+  border-color: transparent var(--dp-text-secondary) transparent transparent;
+}
+
+.rdrNextButton i {
+  border-color: transparent transparent transparent var(--dp-text-secondary);
+}
+
+.rdrWeekDay {
+  color: var(--dp-text-secondary);
+}
+
+.rdrDay {
+  color: var(--dp-text-primary);
+}
+
+.rdrDay:not(.rdrDayPassive) .rdrInRange ~ .rdrDayNumber span {
+  color: var(--dp-text-primary);
+}
+
+.rdrDay:not(.rdrDayPassive) .rdrStartEdge ~ .rdrDayNumber span,
+.rdrDay:not(.rdrDayPassive) .rdrEndEdge ~ .rdrDayNumber span {
+  color: white;
+}
+
+.rdrDayNumber span {
+  color: var(--dp-text-primary);
+}
+
+.rdrDayPassive .rdrDayNumber span {
+  color: var(--dp-text-tertiary);
+}
+
+.rdrDayToday .rdrDayNumber span:after {
+  background: var(--dp-cfa-red);
+}
+
+.rdrDayStartPreview,
+.rdrDayInRange,
+.rdrDayEndPreview {
+  background: rgba(229, 27, 35, 0.1); /* CFA red with low opacity */
+}
+
+.rdrDayHovered {
+  background: var(--dp-surface-tertiary);
+}
+
+.rdrDayActive {
+  background: var(--dp-cfa-red);
+}
+
+.rdrDayStartEdge,
+.rdrDayEndEdge {
+  background: var(--dp-cfa-red);
+}
+
+.rdrDayStartEdge:hover,
+.rdrDayEndEdge:hover {
+  background: var(--dp-cfa-red);
+}
+
+.rdrDefinedRangesWrapper {
+  border-right: 1px solid var(--dp-frame-border);
+}
+
+.rdrStaticRange {
+  border: none;
+  background: none;
+  color: var(--dp-text-primary);
+  padding: 10px 20px;
+}
+
+.rdrStaticRange:hover,
+.rdrStaticRange:focus {
+  background: var(--dp-surface-secondary);
+}
+
+.rdrStaticRange.rdrStaticRangeSelected {
+  background: var(--dp-surface-tertiary);
+  color: var(--dp-cfa-red);
+  font-weight: 500;
+}
+
+.rdrInputRange {
+  border: 1px solid var(--dp-frame-border);
+  color: var(--dp-text-primary);
+}
+
+.rdrInputRange:focus {
+  border-color: var(--dp-cfa-red);
+}
+
+.rdrInputRangeInput {
+  color: var(--dp-text-primary);
+  background: transparent;
+}

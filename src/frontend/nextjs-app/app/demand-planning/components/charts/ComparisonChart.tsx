@@ -17,6 +17,7 @@ interface ComparisonChartProps extends Omit<BaseChartProps, 'className'> {
   adjustedData: ForecastDataPoint[];
   timePeriods: TimePeriod[];
   className?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
 }
 
 export default function ComparisonChart({
@@ -169,7 +170,7 @@ export default function ComparisonChart({
 
     // Add tooltip interaction
     bars
-      .on('mouseover', function(event, d) {
+      .on('mouseover', function(_, d) {
         const isPositive = d.percentChange >= 0;
         const tooltipContent = `
           <div class="p-2">

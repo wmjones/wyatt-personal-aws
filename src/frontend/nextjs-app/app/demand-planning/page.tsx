@@ -1,208 +1,154 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import DashboardLayout from './components/DashboardLayout';
-import ForecastCharts from './components/ForecastCharts';
-import AdjustmentPanel from './components/AdjustmentPanel';
-import AdjustmentHistoryTable from './components/AdjustmentHistoryTable';
 import { FilterSelections } from './components/FilterSidebar';
-import { HierarchySelection, TimePeriod } from '@/app/types/demand-planning';
 import useForecast from './hooks/useForecast';
+import CacheStatus from './components/CacheStatus';
+import NewAdjustmentPanel from './components/NewAdjustmentPanel';
+import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
-import { AdjustmentData } from './components/AdjustmentModal';
+
+// Lazy load the heavy chart component
+const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
 
 export default function DemandPlanningPage() {
   // Filter selections state
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
-    dcIds: []
+    dcIds: [],
+    inventoryItemId: null,
+    dateRange: { startDate: null, endDate: null }
   });
 
-  // Keep hierarchy selections for backward compatibility with useForecast hook
-  const [selectedHierarchies, setSelectedHierarchies] = useState<HierarchySelection[]>([]);
-  // Initialize with all daily periods from Jan 1 to Apr 1, 2025
-  const [selectedTimePeriods, setSelectedTimePeriods] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
-  // Generate daily periods for the full range (matches useForecast hook)
-  const timePeriods: TimePeriod[] = (() => {
-    const periods: TimePeriod[] = [];
-    const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-04-01');
+  // Real-time adjustment state
+  const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      periods.push({
-        id: `day-${dateStr}`,
-        name: currentDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        }),
-        startDate: dateStr,
-        endDate: dateStr,
-        type: 'day'
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return periods;
-  })();
-
-  // Initialize with some demo selections for visualization
-  useEffect(() => {
-    console.log("Setting initial hierarchy selections");
-    setSelectedHierarchies([
-      {
-        type: 'geography',
-        selectedNodes: ['region-1-1-1', 'region-1-1-2'] // NY, MA
-      },
-      {
-        type: 'product',
-        selectedNodes: ['category-1-1-1'] // Laptops
-      }
-    ]);
-
-    // Select all daily periods for the full date range
-    const allPeriodIds = timePeriods.map(period => period.id);
-    setSelectedTimePeriods(allPeriodIds);
-    console.log("Page component mount - setting all daily periods:", allPeriodIds.length);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch forecast data based on selections
-  const {
-    forecastData,
-    isLoading: isLoadingForecast,
-    error: forecastError,
-    applyAdjustment,
-    resetAdjustments,
-    refreshForecast
-  } = useForecast({
-    hierarchySelections: selectedHierarchies,
-    timePeriodIds: selectedTimePeriods,
-    filterSelections
-  });
-
-  // Fetch adjustment history
+  // Use adjustment history hook for better state management
   const {
     adjustmentHistory,
     isLoading: isLoadingHistory,
-    // Error variable is available but not currently used in the UI
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     error: historyError,
-    refreshHistory
+    saveAdjustment
   } = useAdjustmentHistory();
 
-  // Handle filter selection changes from sidebar
-  const handleFilterSelectionChange = (selections: FilterSelections) => {
-    setFilterSelections(selections);
-    console.log("Filter selections changed:", selections);
+  // Initialize without hardcoded selections
+  useEffect(() => {
+    // Page component mount - users will select their own hierarchies and filters
+  }, []);
 
-    // You can add logic here to convert filter selections to hierarchy selections
-    // if needed for backward compatibility with existing hooks
+  // Fetch forecast data using TanStack Query
+  const {
+    forecastData,
+    isLoading: isLoadingForecast,
+    error: forecastError
+  } = useForecast({
+    filterSelections,
+  });
+
+  // Handle filter changes from FilterSidebar
+  const handleFilterChange = (newSelections: FilterSelections) => {
+    setFilterSelections(newSelections);
   };
 
-  // Handle tab change
-  const handleTabChange = (tab: 'forecast' | 'history' | 'settings') => {
-    setActiveTab(tab);
-
-    // If switching to history tab, refresh the history data
-    if (tab === 'history') {
-      refreshHistory();
-    }
+  // Handle real-time adjustment changes
+  const handleAdjustmentChange = (adjustmentValue: number) => {
+    setCurrentAdjustmentValue(adjustmentValue);
   };
 
-  // Handle adjustment creation
-  const handleApplyAdjustment = async (adjustment: AdjustmentData) => {
-    await applyAdjustment(adjustment);
+  // Handle saving adjustments
+  const handleSaveAdjustment = async (adjustmentValue: number, filterContext: FilterSelections) => {
+    // Get inventory item name for display
+    const inventoryItemName = forecastData?.inventoryItems.find(
+      item => item.id === filterContext.inventoryItemId
+    )?.name;
 
-    // Refresh history after applying adjustment
-    refreshHistory();
+    // Use the hook's saveAdjustment method
+    await saveAdjustment(adjustmentValue, filterContext, inventoryItemName);
   };
+
+  // Remove the manual loading as it's handled by the hook
+
+
+  // Calculate available periods based on forecast data (removed - not used)
+  // const availablePeriods = forecastData?.timePeriods || [];
 
   return (
     <DashboardLayout
       filterSelections={filterSelections}
-      onFilterSelectionChange={handleFilterSelectionChange}
+      onFilterSelectionChange={handleFilterChange}
       activeTab={activeTab}
-      onTabChange={handleTabChange}
+      onTabChange={setActiveTab}
     >
+      {/* Main content area based on active tab */}
       {activeTab === 'forecast' && (
-        <div className="grid gap-6">
-          {/* Forecast View */}
-          <div className="bg-dp-surface-primary border border-dp-border-light rounded-lg shadow-dp-light mb-6">
-            <div className="flex justify-between items-center p-5 border-b border-dp-border-light">
-              <div>
-                <h1 className="text-2xl font-medium text-dp-text-primary">Sales Forecast</h1>
-                <p className="text-dp-text-secondary mt-1">
-                  {selectedHierarchies.length > 0
-                    ? `Viewing forecast data for ${selectedHierarchies.map(h => h.type).join(', ')}`
-                    : 'Select hierarchies from the sidebar to view forecast data.'
-                  }
-                </p>
+        <div className="space-y-6">
+          {/* Chart Section */}
+          <div className="bg-gray-50 rounded-lg shadow p-6">
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-[400px]">
+                <div className="text-gray-500">Loading charts...</div>
               </div>
-            </div>
-
-            {isLoadingForecast ? (
-              <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dp-cfa-red mb-4"></div>
-                  <p className="text-dp-text-tertiary">Loading forecast data...</p>
+            }>
+              {isLoadingForecast ? (
+                <div className="flex items-center justify-center h-[400px]">
+                  <div className="text-gray-500">Loading forecast data...</div>
                 </div>
-              </div>
-            ) : forecastError ? (
-              <div className="bg-red-50 text-red-700 rounded-lg p-4 flex items-center">
-                <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span>{forecastError}</span>
-              </div>
-            ) : forecastData ? (
-              <div className="p-4">
+              ) : forecastError ? (
+                <div className="flex items-center justify-center h-[400px]">
+                  <div className="text-red-500">{forecastError}</div>
+                </div>
+              ) : forecastData ? (
                 <ForecastCharts
                   forecastData={forecastData}
+                  adjustmentValue={currentAdjustmentValue}
                 />
-              </div>
-            ) : (
-              <div className="bg-dp-background-tertiary rounded-lg p-4 h-80 flex items-center justify-center">
-                <p className="text-dp-text-tertiary">Select hierarchies to view forecast data</p>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center justify-center h-[400px]">
+                  <div className="text-gray-500">Select filters to view forecast data</div>
+                </div>
+              )}
+            </Suspense>
           </div>
 
-          {/* Adjustment Panel */}
+          {/* New Adjustment Panel */}
           {forecastData && (
-            <div className="max-w-md">
-              <AdjustmentPanel
-                forecastData={forecastData}
-                isLoading={isLoadingForecast}
-                onApplyAdjustment={handleApplyAdjustment}
-                onResetAdjustments={resetAdjustments}
-                onRefreshForecast={refreshForecast}
-                selectedHierarchies={selectedHierarchies}
-              />
+            <NewAdjustmentPanel
+              forecastData={forecastData}
+              filterSelections={filterSelections}
+              onAdjustmentChange={handleAdjustmentChange}
+              onSaveAdjustment={handleSaveAdjustment}
+            />
+          )}
+
+          {/* Adjustment History */}
+          {historyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
             </div>
           )}
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
         </div>
       )}
 
       {activeTab === 'history' && (
-        <div className="grid gap-6">
-          {/* History View */}
-          <AdjustmentHistoryTable
-            entries={adjustmentHistory}
-            isLoading={isLoadingHistory}
-          />
-        </div>
+        <>
+          {historyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              Error loading adjustment history: {historyError}
+            </div>
+          )}
+          <AdjustmentHistory entries={adjustmentHistory} isLoading={isLoadingHistory} />
+        </>
       )}
 
       {activeTab === 'settings' && (
-        <div className="dp-card p-6">
-          <h1 className="text-2xl font-light mb-4 text-dp-text-primary">Settings</h1>
-          <p className="text-dp-text-secondary">
-            Dashboard settings will be implemented in a future update.
-          </p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Cache Performance</h2>
+          <CacheStatus />
         </div>
       )}
     </DashboardLayout>

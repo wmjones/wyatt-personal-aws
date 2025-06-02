@@ -2,7 +2,6 @@
  * Types for forecast data in the demand planning dashboard
  */
 
-import { HierarchySelection } from './hierarchy';
 
 // Time period definition
 export interface TimePeriod {
@@ -22,6 +21,10 @@ export interface ForecastDataPoint {
   dmaId?: string;
   dcId?: string;
   metadata?: Record<string, unknown>;
+  // Optional fields for confidence intervals
+  y_05?: number;
+  y_50?: number;
+  y_95?: number;
 }
 
 // Inventory item information
@@ -33,7 +36,6 @@ export interface InventoryItem {
 // Complete forecast series
 export interface ForecastSeries {
   id: string;
-  hierarchySelections: HierarchySelection[];
   timePeriods: TimePeriod[];
   baseline: ForecastDataPoint[];
   adjusted?: ForecastDataPoint[];
@@ -58,7 +60,6 @@ export type AdjustmentReason =
 // Adjustment definition
 export interface Adjustment {
   id: string;
-  hierarchySelections: HierarchySelection[];
   timePeriods: string[]; // Array of period IDs
   type: AdjustmentType;
   value: number;

@@ -11,7 +11,7 @@
  * Query filter interface for standardization
  */
 export interface QueryFilters {
-  state?: string;
+  state?: string | string[];
   startDate?: string;
   endDate?: string;
   restaurantId?: number;
@@ -61,7 +61,9 @@ export function generateQueryFingerprint(
 ): string {
   // Normalize filters for consistent hashing
   const normalizedFilters = {
-    state: filters.state?.toLowerCase(),
+    state: Array.isArray(filters.state)
+      ? filters.state.map(s => s.toLowerCase()).sort()
+      : filters.state?.toLowerCase(),
     startDate: filters.startDate,
     endDate: filters.endDate,
     restaurantId: filters.restaurantId,
@@ -185,8 +187,11 @@ export function shouldUseHotPath(
 
   // Use hot path for popular states
   const popularStates = ['CA', 'TX', 'FL', 'NY', 'IL'];
-  if (filters.state && popularStates.includes(filters.state.toUpperCase())) {
-    return true;
+  if (filters.state) {
+    const states = Array.isArray(filters.state) ? filters.state : [filters.state];
+    if (states.some(state => popularStates.includes(state.toUpperCase()))) {
+      return true;
+    }
   }
 
   // Use hot path for small result sets
@@ -224,7 +229,9 @@ export function isCacheExpired(expiresAt: Date): boolean {
  */
 export function normalizeFilters(filters: QueryFilters): QueryFilters {
   return {
-    state: filters.state?.toUpperCase(),
+    state: Array.isArray(filters.state)
+      ? filters.state.map(s => s.toUpperCase())
+      : filters.state?.toUpperCase(),
     startDate: filters.startDate,
     endDate: filters.endDate,
     restaurantId: filters.restaurantId,

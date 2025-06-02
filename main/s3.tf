@@ -20,7 +20,7 @@ resource "aws_kms_key" "s3_key" {
   deletion_window_in_days = 10
   enable_key_rotation     = true
 
-  # Basic policy for KMS key management
+  # Policy that allows Athena, Lambda, and S3 services to use the key
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -32,6 +32,57 @@ resource "aws_kms_key" "s3_key" {
         }
         Action   = "kms:*"
         Resource = "*"
+      },
+      {
+        Sid    = "Allow Athena service to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "athena.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow Lambda role to use the key"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.athena_lambda_role.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:CreateGrant",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = [
+              "s3.${var.aws_region}.amazonaws.com",
+              "athena.${var.aws_region}.amazonaws.com"
+            ]
+          }
+        }
+      },
+      {
+        Sid    = "Allow S3 service to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
       }
     ]
   })

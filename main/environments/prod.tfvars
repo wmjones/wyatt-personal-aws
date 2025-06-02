@@ -10,11 +10,11 @@ cognito_domain_prefix = "wyatt-personal-aws"
 
 # Network Configuration
 vpc_cidr = "10.0.0.0/16"
-# NAT Gateway Configuration - Use multiple NAT gateways for high availability in production
-single_nat_gateway     = false
-one_nat_gateway_per_az = true
-# Enable interface endpoints in production for enhanced security and performance
-create_interface_endpoints = true
+# NAT Gateway Configuration
+single_nat_gateway     = true
+one_nat_gateway_per_az = false
+# Skip interface endpoints in prod to reduce costs (shared NAT Gateway approach)
+create_interface_endpoints = false
 
 # Cognito Configuration
 cognito_deletion_protection = true

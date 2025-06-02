@@ -1,0 +1,245 @@
+name: Deploy Next.js to Vercel with Branch-based Neon Setup
+
+# This workflow creates Neon database branches for each branch deployment
+# and passes the connection strings to Vercel during deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+    paths:
+      - 'src/frontend/nextjs-app/**'
+      - '.github/workflows/nextjs-deploy-with-neon.yml'
+
+env:
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
+
+# Concurrency control to prevent multiple deployments for the same branch
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-branch:
+    name: Deploy Branch with Neon Branch
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      # Step 1: Checkout code
+      - uses: actions/checkout@v4
+
+      # Step 2: Get branch name
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+      # Step 3: Debug - Check if secrets are available
+      - name: Check secrets availability
+        run: |
+          if [ -z "${{ secrets.NEON_API_KEY }}" ]; then
+            echo "❌ NEON_API_KEY is not set in GitHub secrets"
+            echo "Please add NEON_API_KEY to your repository secrets"
+            exit 1
+          else
+            echo "✅ NEON_API_KEY is available"
+          fi
+          if [ -z "${{ secrets.NEON_PROJECT_ID }}" ]; then
+            echo "❌ NEON_PROJECT_ID is not set in GitHub secrets"
+            echo "Please add NEON_PROJECT_ID to your repository secrets"
+            exit 1
+          else
+            echo "✅ NEON_PROJECT_ID is available (value: ${{ secrets.NEON_PROJECT_ID }})"
+          fi
+
+      # Step 4: Sanitize branch name for Neon
+      - name: Sanitize branch name
+        id: sanitize_branch
+        run: |
+          # Sanitize branch name for Neon (replace invalid chars with hyphens, lowercase)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens and limit length to 63 chars
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "Original: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Sanitized: $SANITIZED_BRANCH"
+
+      # Step 5: Create Neon Branch
+      - name: Create Neon Branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          username: neondb_owner
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+
+      # Step 6: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/nextjs-app/package-lock.json
+
+      # Step 7: Install dependencies
+      - name: Install dependencies
+        working-directory: src/frontend/nextjs-app
+        run: npm ci
+
+      # Step 8: Run linter
+      - name: Run linter
+        id: lint
+        working-directory: src/frontend/nextjs-app
+        run: npm run lint
+        continue-on-error: true
+
+      # Step 9: Run type check
+      - name: Run type check
+        id: typecheck
+        working-directory: src/frontend/nextjs-app
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      # Step 10: Code Quality Check Results
+      - name: Code Quality Check Results
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
+        run: |
+          echo "## ❌ Code Quality Issues Found"
+          if [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "- Linting failed"
+          fi
+          if [ "${{ steps.typecheck.outcome }}" == "failure" ]; then
+            echo "- Type checking failed"
+          fi
+          echo ""
+          echo "Please fix these issues before deployment."
+          exit 1
+
+      # Step 11: Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Step 12: Pull Vercel Environment Information
+      - name: Pull Vercel Environment Information
+        working-directory: src/frontend/nextjs-app
+        run: |
+          # Determine environment type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "Pulling production environment information..."
+            vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Pulling preview environment information..."
+            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+
+      # Step 13: Build Project
+      - name: Build Project Artifacts
+        working-directory: src/frontend/nextjs-app
+        env:
+          # Pass database URLs during build
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          # Determine build type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "Building for production deployment..."
+            vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            echo "Building for preview deployment..."
+            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+
+      # Step 14: Create environment variables in Vercel
+      - name: Set Vercel Environment Variables
+        working-directory: src/frontend/nextjs-app
+        run: |
+          # Determine environment type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "✅ Skipping environment variable updates for production deployment"
+            echo "Production database URLs should be configured in Vercel dashboard"
+          else
+            echo "Creating environment variables in Vercel for preview..."
+
+            # Remove existing env vars if they exist (to update them)
+            vercel env rm DATABASE_URL preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+            vercel env rm DATABASE_URL_UNPOOLED preview --yes --token=${{ secrets.VERCEL_TOKEN }} || true
+
+            # Add new env vars for preview environment
+            echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview --token=${{ secrets.VERCEL_TOKEN }}
+            echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview --token=${{ secrets.VERCEL_TOKEN }}
+
+            echo "✅ Environment variables created in Vercel for preview"
+          fi
+
+      # Step 15: Deploy to Vercel
+      - name: Deploy to Vercel
+        id: deploy
+        working-directory: src/frontend/nextjs-app
+        run: |
+          # Determine deployment type based on branch
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+          echo "Current branch: $CURRENT_BRANCH"
+
+          if [ "$CURRENT_BRANCH" = "dev" ]; then
+            echo "🚀 Deploying dev branch as production deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Production URL: $DEPLOYMENT_URL"
+            echo "deployment_type=production" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          elif [ "$CURRENT_BRANCH" = "main" ]; then
+            echo "🚀 Deploying main branch as production deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Production URL: $DEPLOYMENT_URL"
+            echo "deployment_type=production" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          else
+            echo "🔄 Deploying feature branch as preview deployment..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+            echo "Preview URL: $DEPLOYMENT_URL"
+            echo "deployment_type=preview" >> $GITHUB_OUTPUT
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+            # Set alias for easier access using sanitized branch name
+            ALIAS="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ github.repository_owner }}.vercel.app"
+            vercel alias set $DEPLOYMENT_URL $ALIAS --token=${{ secrets.VERCEL_TOKEN }} || true
+            echo "alias=https://$ALIAS" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 16: Run Database Migrations
+      - name: Run Database Migrations
+        working-directory: src/frontend/nextjs-app
+        env:
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DATABASE_URL_UNPOOLED: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          npx tsx scripts/migrate-only.ts || {
+            echo "⚠️ Migration failed. This may be due to the database not being ready yet."
+            echo "You can manually run migrations later if needed."
+          }
+
+      # Step 17: Log deployment info
+      - name: Log deployment info
+        run: |
+          echo "## 🚀 Branch Deployment Complete!"
+          echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Deployment Type: ${{ steps.deploy.outputs.deployment_type }}"
+          echo "Sanitized: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          echo "Deployment URL: ${{ steps.deploy.outputs.url }}"
+          if [ "${{ steps.deploy.outputs.deployment_type }}" = "preview" ]; then
+            echo "Alias URL: ${{ steps.deploy.outputs.alias }}"
+          fi
+          echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          echo "Lint Status: ${{ steps.lint.outcome }}"
+          echo "Type Check Status: ${{ steps.typecheck.outcome }}"

@@ -41,8 +41,10 @@ locals {
 }
 
 # IAM Role for GitHub Actions with necessary permissions
+# Only create in dev environment to avoid conflicts
 resource "aws_iam_role" "github_actions" {
-  name = "github-actions-oidc-role-${var.environment}"
+  count = var.environment == "dev" ? 1 : 0
+  name  = "github-actions-role"
 
   # Trust policy that allows GitHub Actions to assume this role via OIDC
   assume_role_policy = jsonencode({
@@ -77,8 +79,10 @@ resource "aws_iam_role" "github_actions" {
 }
 
 # Permissions policy for GitHub Actions to interact with AWS resources
+# Only create in dev environment to avoid conflicts
 resource "aws_iam_policy" "github_actions_permissions" {
-  name        = "github-actions-permissions-${var.environment}"
+  count       = var.environment == "dev" ? 1 : 0
+  name        = "github-actions-permissions"
   description = "Permissions for GitHub Actions to deploy infrastructure and applications"
 
   policy = jsonencode({
@@ -120,10 +124,23 @@ resource "aws_iam_policy" "github_actions_permissions" {
         Effect = "Allow"
         Action = [
           "ssm:GetParameter",
+          "ssm:GetParameters",
           "ssm:PutParameter",
-          "ssm:ListParameters"
+          "ssm:ListParameters",
+          "ssm:AddTagsToResource"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*"
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*"
+        ]
+      },
+      # SSM DescribeParameters requires wildcard resource when using parameter filters
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:DescribeParameters"
+        ]
+        Resource = "*"
       },
       # Terraform State Access (if using S3 backend)
       {
@@ -152,14 +169,15 @@ resource "aws_iam_policy" "github_actions_permissions" {
 
 # Attach the permissions policy to the GitHub Actions role
 resource "aws_iam_role_policy_attachment" "github_actions_permissions" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = aws_iam_policy.github_actions_permissions.arn
+  count      = var.environment == "dev" ? 1 : 0
+  role       = aws_iam_role.github_actions[0].name
+  policy_arn = aws_iam_policy.github_actions_permissions[0].arn
 }
 
 # Add outputs to make it easy to use the role ARN in GitHub secrets
 output "github_actions_role_arn" {
   description = "ARN of the IAM role for GitHub Actions OIDC authentication"
-  value       = aws_iam_role.github_actions.arn
+  value       = var.environment == "dev" ? aws_iam_role.github_actions[0].arn : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/github-actions-role"
 }
 
 output "github_actions_oidc_provider_arn" {

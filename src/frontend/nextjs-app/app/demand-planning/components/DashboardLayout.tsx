@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
-import { DashboardView } from '@/app/types/demand-planning';
+// Dashboard view type
+type DashboardView = 'forecast' | 'history' | 'settings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -14,7 +15,7 @@ interface DashboardLayoutProps {
   onTabChange: (tab: DashboardView) => void;
 }
 
-export default function DashboardLayout({
+const DashboardLayout = memo(function DashboardLayout({
   children,
   filterSelections,
   onFilterSelectionChange,
@@ -23,16 +24,16 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleFilterSelectionChange = (selections: FilterSelections) => {
+  const handleFilterSelectionChange = useCallback((selections: FilterSelections) => {
     // Pass the selections up to the parent component if the callback is provided
     if (onFilterSelectionChange) {
       onFilterSelectionChange(selections);
     }
-  };
+  }, [onFilterSelectionChange]);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setSidebarOpen(!sidebarOpen);
-  };
+  }, [sidebarOpen]);
 
   // Mock refresh data function that would be implemented in a real application
   const refreshData = async () => {
@@ -116,4 +117,6 @@ export default function DashboardLayout({
       <Footer />
     </div>
   );
-}
+});
+
+export default DashboardLayout;
