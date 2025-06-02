@@ -20,7 +20,7 @@ interface Migration {
 /**
  * Schema migrations for forecast caching system
  */
-const migrations: Migration[] = [
+export const migrations: Migration[] = [
   {
     id: '001',
     name: 'create_forecast_cache_tables',
@@ -182,6 +182,48 @@ const migrations: Migration[] = [
       DROP TRIGGER IF EXISTS user_preferences_updated_at_trigger ON user_preferences;
       DROP FUNCTION IF EXISTS update_user_preferences_updated_at();
       DROP TABLE IF EXISTS user_preferences;
+    `
+  },
+  {
+    id: '005',
+    name: 'add_multiuser_support_to_adjustments',
+    up: `
+      -- Add columns to support multi-user collaboration
+      ALTER TABLE forecast_adjustments
+      ADD COLUMN IF NOT EXISTS user_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS user_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      -- Add indexes for the new columns
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_is_active ON forecast_adjustments(is_active);
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_email ON forecast_adjustments(user_email);
+
+      -- Add update trigger for updated_at
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql';
+
+      CREATE TRIGGER update_forecast_adjustments_updated_at
+        BEFORE UPDATE ON forecast_adjustments
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `,
+    down: `
+      -- Drop trigger first
+      DROP TRIGGER IF EXISTS update_forecast_adjustments_updated_at ON forecast_adjustments;
+      DROP FUNCTION IF EXISTS update_updated_at_column();
+
+      -- Remove columns
+      ALTER TABLE forecast_adjustments
+      DROP COLUMN IF EXISTS user_email,
+      DROP COLUMN IF EXISTS user_name,
+      DROP COLUMN IF EXISTS is_active,
+      DROP COLUMN IF EXISTS updated_at;
     `
   }
 ];
