@@ -176,7 +176,7 @@ jobs:
         if: steps.check-drift.outputs.drift_detected == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: drift-reports-${{ needs.setup.outputs.timestamp }}
+          name: drift-report-${{ matrix.environment }}-${{ needs.setup.outputs.timestamp }}
           path: drift-reports/
           retention-days: 30
 
@@ -189,8 +189,9 @@ jobs:
       - name: Download Drift Reports
         uses: actions/download-artifact@v4
         with:
-          name: drift-reports-${{ needs.setup.outputs.timestamp }}
+          pattern: drift-report-*-${{ needs.setup.outputs.timestamp }}
           path: ./drift-reports
+          merge-multiple: true
 
       - name: Create or Update Issue
         uses: actions/github-script@v7
