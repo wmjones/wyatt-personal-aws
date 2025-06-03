@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { AdjustmentEntry } from '../components/AdjustmentHistory';
 import toast from 'react-hot-toast';
+import { errorLogger, formatErrorForUser } from '@/app/lib/error-logger';
 
 export default function useAdjustmentHistory() {
   const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentEntry[]>([]);
@@ -27,13 +28,18 @@ export default function useAdjustmentHistory() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch adjustment history');
+        errorLogger.logNetworkError('/api/adjustments', response.status, await response.text());
+        throw new Error(`Failed to fetch adjustment history: ${response.status}`);
       }
 
       const result = await response.json();
       setAdjustmentHistory(result.adjustments || []);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load adjustment history';
+      errorLogger.logLoadError(error, {
+        userId: auth.user?.sub,
+        request: { showAllUsers }
+      });
+      const errorMessage = formatErrorForUser(error);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -70,6 +76,11 @@ export default function useAdjustmentHistory() {
 
     if (!response.ok) {
       const errorData = await response.json();
+      errorLogger.logSaveError(errorData, {
+        userId: auth.user?.sub,
+        request: requestBody,
+        response: errorData
+      });
       throw new Error(errorData.error || `Failed to save adjustment: ${response.status}`);
     }
 
