@@ -8,6 +8,7 @@ import CacheStatus from './components/CacheStatus';
 import NewAdjustmentPanel from './components/NewAdjustmentPanel';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
+import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -184,6 +185,9 @@ export default function DemandPlanningPage() {
           <CacheStatus />
         </div>
       )}
+      
+      {/* Debug panel for troubleshooting */}
+      {process.env.NODE_ENV === 'development' && <AdjustmentDebugPanel />}
     </DashboardLayout>
   );
 }
