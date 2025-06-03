@@ -2,156 +2,238 @@ name: Terraform Drift Detection
 
 on:
   schedule:
-    # Run daily at 3 AM UTC
-    - cron: '0 3 * * *'
+    # Run every 6 hours for more frequent monitoring
+    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to check (dev/prod/all)'
         required: false
         default: 'all'
+        type: choice
+        options:
+          - all
+          - dev
+          - prod
       fix_drift:
-        description: 'Attempt to fix detected drift'
+        description: 'Attempt to fix detected drift (requires approval)'
         required: false
         type: boolean
         default: false
+  pull_request:
+    paths:
+      - 'main/**/*.tf'
+      - '.github/workflows/drift-detection.yml'
 
 env:
   TF_CLOUD_ORGANIZATION: "wyatt-personal-aws"
-  TF_LOG: "INFO"
   TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+  TF_LOG: "INFO"
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
-  drift-detection:
-    name: Check State Drift
+  setup:
+    name: Setup Drift Detection
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
+    outputs:
+      environments: ${{ steps.set-matrix.outputs.environments }}
+      timestamp: ${{ steps.set-matrix.outputs.timestamp }}
+    steps:
+      - name: Determine Environments
+        id: set-matrix
+        run: |
+          if [[ "${{ github.event.inputs.environment }}" == "dev" ]]; then
+            echo "environments=[\"dev\"]" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+            echo "environments=[\"prod\"]" >> $GITHUB_OUTPUT
+          else
+            echo "environments=[\"dev\", \"prod\"]" >> $GITHUB_OUTPUT
+          fi
+          echo "timestamp=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+  deployment-packages:
+    name: Build Deployment Packages
+    uses: ./.github/workflows/deployment_package_zip.yml
+
+  drift-detection:
+    name: Check ${{ matrix.environment }} Environment
+    needs: [setup, deployment-packages]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJson(needs.setup.outputs.environments) }}
+    env:
+      TF_WORKSPACE: wyatt-personal-aws-${{ matrix.environment }}
+    outputs:
+      drift_detected: ${{ steps.check-drift.outputs.drift_detected }}
+      plan_url: ${{ steps.plan-run.outputs.run_link }}
+      changes_summary: ${{ steps.check-drift.outputs.changes_summary }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Download Python deployment package
+        uses: actions/download-artifact@v4
         with:
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          name: deployment-package
+          path: ./main/
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Download Athena Lambda package
+        uses: actions/download-artifact@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+          name: athena-lambda-package
+          path: ./main/
 
-      - name: Initialize Terraform
+      - name: Download Forecast Sync Lambda package
+        uses: actions/download-artifact@v4
+        with:
+          name: forecast-sync-lambda-package
+          path: ./main/
+
+      - name: Cache Terraform Modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            ./main/.terraform
+          key: ${{ runner.os }}-terraform-${{ matrix.environment }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-${{ matrix.environment }}-
+            ${{ runner.os }}-terraform-
+
+      - name: Upload Configuration
+        uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
+        id: upload
+        with:
+          workspace: ${{ env.TF_WORKSPACE }}
+          directory: ./main
+          speculative: true
+
+      - name: Create Plan Run
+        uses: hashicorp/tfc-workflows-github/actions/create-run@v1.0.0
+        id: plan-run
+        with:
+          workspace: ${{ env.TF_WORKSPACE }}
+          configuration_version: ${{ steps.upload.outputs.configuration_version_id }}
+          plan_only: true
+          message: "Drift Detection Run - ${{ needs.setup.outputs.timestamp }}"
+
+      - name: Get Plan Output
+        uses: hashicorp/tfc-workflows-github/actions/plan-output@v1.0.0
+        id: plan-output
+        with:
+          plan: ${{ fromJSON(steps.plan-run.outputs.payload).data.relationships.plan.data.id }}
+
+      - name: Check for Drift
+        id: check-drift
         run: |
-          cd main
-          echo "Initializing Terraform..."
-          terraform init
+          ADD="${{ steps.plan-output.outputs.add }}"
+          CHANGE="${{ steps.plan-output.outputs.change }}"
+          DESTROY="${{ steps.plan-output.outputs.destroy }}"
 
-      - name: Check Development Workspace
-        if: ${{ github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'all' || github.event_name == 'schedule' }}
-        env:
-          TF_WORKSPACE: "wyatt-personal-aws-dev"
-        run: |
-          cd main
-
-          # Validate workspace exists
-          echo "Validating workspace: wyatt-personal-aws-dev"
-          if ! terraform workspace list | grep -q "wyatt-personal-aws-dev"; then
-            echo "ERROR: Workspace 'wyatt-personal-aws-dev' not found in Terraform Cloud"
-            echo "Available workspaces:"
-            terraform workspace list
-            exit 1
-          fi
-
-          echo "Using workspace: $TF_WORKSPACE"
-
-          # Run drift detection
-          echo "Running drift detection for development environment..."
-          PLAN_EXIT_CODE=0
-          terraform plan -var-file=environments/dev.tfvars -detailed-exitcode -no-color > /tmp/drift-dev.txt 2>&1 || PLAN_EXIT_CODE=$?
-
-          if [ $PLAN_EXIT_CODE -eq 0 ]; then
-            echo "✅ No drift detected in development"
-          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
-            echo "⚠️ Drift detected in development!"
-            cat /tmp/drift-dev.txt
-            echo "drift_detected_dev=true" >> $GITHUB_ENV
+          if [[ "$ADD" == "0" && "$CHANGE" == "0" && "$DESTROY" == "0" ]]; then
+            echo "✅ No drift detected in ${{ matrix.environment }}"
+            echo "drift_detected=false" >> $GITHUB_OUTPUT
           else
-            echo "❌ Error checking development workspace (exit code: $PLAN_EXIT_CODE)"
-            cat /tmp/drift-dev.txt
-            exit 1
+            echo "⚠️ Drift detected in ${{ matrix.environment }}!"
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+
+            SUMMARY="Resources to add: $ADD, change: $CHANGE, destroy: $DESTROY"
+            echo "changes_summary=$SUMMARY" >> $GITHUB_OUTPUT
+
+            # Set environment-specific output for reporting
+            echo "drift_${{ matrix.environment }}=true" >> $GITHUB_ENV
           fi
 
-      - name: Check Production Workspace
-        if: ${{ github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'all' || github.event_name == 'schedule' }}
-        env:
-          TF_WORKSPACE: "wyatt-personal-aws-prod"
+      - name: Export Drift Details
+        if: steps.check-drift.outputs.drift_detected == 'true'
         run: |
-          cd main
+          # Create drift report directory
+          mkdir -p drift-reports
 
-          # Validate workspace exists
-          echo "Validating workspace: wyatt-personal-aws-prod"
-          if ! terraform workspace list | grep -q "wyatt-personal-aws-prod"; then
-            echo "ERROR: Workspace 'wyatt-personal-aws-prod' not found in Terraform Cloud"
-            echo "Available workspaces:"
-            terraform workspace list
-            exit 1
-          fi
+          # Save drift summary
+          cat > drift-reports/${{ matrix.environment }}-summary.json << EOF
+          {
+            "environment": "${{ matrix.environment }}",
+            "timestamp": "${{ needs.setup.outputs.timestamp }}",
+            "drift_detected": true,
+            "changes": {
+              "add": ${{ steps.plan-output.outputs.add }},
+              "change": ${{ steps.plan-output.outputs.change }},
+              "destroy": ${{ steps.plan-output.outputs.destroy }}
+            },
+            "plan_url": "${{ steps.plan-run.outputs.run_link }}"
+          }
+          EOF
 
-          echo "Using workspace: $TF_WORKSPACE"
+      - name: Upload Drift Report
+        if: steps.check-drift.outputs.drift_detected == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: drift-reports-${{ needs.setup.outputs.timestamp }}
+          path: drift-reports/
+          retention-days: 30
 
-          # Run drift detection
-          echo "Running drift detection for production environment..."
-          PLAN_EXIT_CODE=0
-          terraform plan -var-file=environments/prod.tfvars -detailed-exitcode -no-color > /tmp/drift-prod.txt 2>&1 || PLAN_EXIT_CODE=$?
+  create-issue:
+    name: Create Drift Report Issue
+    needs: [setup, drift-detection]
+    runs-on: ubuntu-latest
+    if: contains(needs.drift-detection.outputs.drift_detected, 'true')
+    steps:
+      - name: Download Drift Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: drift-reports-${{ needs.setup.outputs.timestamp }}
+          path: ./drift-reports
 
-          if [ $PLAN_EXIT_CODE -eq 0 ]; then
-            echo "✅ No drift detected in production"
-          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
-            echo "⚠️ CRITICAL: Drift detected in production!"
-            cat /tmp/drift-prod.txt
-            echo "drift_detected_prod=true" >> $GITHUB_ENV
-          else
-            echo "❌ Error checking production workspace (exit code: $PLAN_EXIT_CODE)"
-            cat /tmp/drift-prod.txt
-            exit 1
-          fi
-
-      - name: Create Drift Report Issue
-        if: env.drift_detected_dev == 'true' || env.drift_detected_prod == 'true'
+      - name: Create or Update Issue
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const title = `Terraform State Drift Detected - ${new Date().toISOString().split('T')[0]}`;
 
-            let body = '## Terraform State Drift Report\n\n';
-            body += `**Date**: ${new Date().toISOString()}\n\n`;
+            let body = '## 🔍 Terraform State Drift Report\n\n';
+            body += `**Detection Time**: ${new Date().toISOString()}\n`;
+            body += `**Workflow Run**: [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
 
-            if (process.env.drift_detected_dev === 'true') {
-              body += '### Development Environment\n';
-              body += 'State drift detected in the development workspace.\n';
-              body += 'Please review the workflow logs for details.\n\n';
+            // Read drift reports
+            const reports = fs.readdirSync('./drift-reports')
+              .filter(f => f.endsWith('-summary.json'))
+              .map(f => JSON.parse(fs.readFileSync(`./drift-reports/${f}`, 'utf8')));
+
+            // Add environment-specific details
+            for (const report of reports) {
+              const emoji = report.environment === 'prod' ? '🚨' : '⚠️';
+              body += `### ${emoji} ${report.environment.toUpperCase()} Environment\n`;
+              body += `- **Resources to Add**: ${report.changes.add}\n`;
+              body += `- **Resources to Change**: ${report.changes.change}\n`;
+              body += `- **Resources to Destroy**: ${report.changes.destroy}\n`;
+              body += `- **[View Terraform Plan](${report.plan_url})**\n\n`;
             }
 
-            if (process.env.drift_detected_prod === 'true') {
-              body += '### Production Environment\n';
-              body += '⚠️ **CRITICAL**: State drift detected in the production workspace.\n';
-              body += 'Please review the workflow logs for details and take immediate action.\n\n';
-            }
+            body += '## 📋 Action Required\n\n';
+            body += '1. Review the drift details in the Terraform Cloud plans linked above\n';
+            body += '2. Determine if the drift is expected or unexpected\n';
+            body += '3. If unexpected, investigate the cause (manual changes, failed deployments, etc.)\n';
+            body += '4. Apply fixes using one of these methods:\n';
+            body += '   - Run the drift detection workflow with `fix_drift: true`\n';
+            body += '   - Create a PR with necessary changes\n';
+            body += '   - Use `terraform import` for resources created outside Terraform\n\n';
 
-            body += '## Action Required\n';
-            body += '1. Review the drift details in the workflow logs\n';
-            body += '2. Run `./scripts/detect-drift.sh <environment>` locally to see full details\n';
-            body += '3. Use `./scripts/reconcile-state.sh <environment>` to fix the drift\n';
-            body += '4. Verify the fixes with `terraform plan`\n\n';
+            body += '## 🔧 Quick Actions\n\n';
+            body += '- [Run Drift Fix Workflow](';
+            body += `${{ github.server_url }}/${{ github.repository }}/actions/workflows/drift-detection.yml`;
+            body += ')\n';
+            body += '- [View Terraform Cloud Workspaces](https://app.terraform.io/app/wyatt-personal-aws/workspaces)\n';
 
-            body += '## Workflow Run\n';
-            body += `[View Workflow Run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
-
-            // Create or update the drift issue
+            // Check for existing open drift issues
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -167,6 +249,14 @@ jobs:
                 issue_number: issues.data[0].number,
                 body: body
               });
+
+              // Add a comment about the new detection
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `🔄 Updated with new drift detection results from workflow run [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+              });
             } else {
               // Create new issue
               await github.rest.issues.create({
@@ -178,16 +268,73 @@ jobs:
               });
             }
 
-      - name: Slack Notification (if configured)
-        if: (env.drift_detected_dev == 'true' || env.drift_detected_prod == 'true') && env.SLACK_WEBHOOK_URL != ''
+  slack-notification:
+    name: Send Slack Notification
+    needs: [drift-detection]
+    runs-on: ubuntu-latest
+    if: contains(needs.drift-detection.outputs.drift_detected, 'true') && vars.SLACK_WEBHOOK_URL != ''
+    steps:
+      - name: Send Notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          MESSAGE="Terraform state drift detected!"
-          if [ "$drift_detected_prod" = "true" ]; then
-            MESSAGE="🚨 CRITICAL: Production state drift detected! 🚨"
+          # Determine severity based on environments
+          if [[ "${{ contains(needs.drift-detection.outputs.*, 'prod') }}" == "true" ]]; then
+            EMOJI="🚨"
+            SEVERITY="CRITICAL"
+            COLOR="danger"
+          else
+            EMOJI="⚠️"
+            SEVERITY="Warning"
+            COLOR="warning"
           fi
 
+          # Create Slack message
+          cat > message.json << EOF
+          {
+            "attachments": [{
+              "color": "$COLOR",
+              "title": "$EMOJI Terraform Drift Detected",
+              "text": "$SEVERITY: State drift detected in infrastructure",
+              "fields": [
+                {
+                  "title": "Environments Affected",
+                  "value": "${{ join(needs.drift-detection.outputs.*, ', ') }}",
+                  "short": true
+                },
+                {
+                  "title": "Action Required",
+                  "value": "Review GitHub Issue for details",
+                  "short": true
+                }
+              ],
+              "actions": [
+                {
+                  "type": "button",
+                  "text": "View Workflow",
+                  "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              ]
+            }]
+          }
+          EOF
+
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"$MESSAGE\nCheck GitHub Issues for details.\"}" \
+            --data @message.json \
             $SLACK_WEBHOOK_URL || true
+
+  apply-fixes:
+    name: Apply Drift Fixes
+    needs: [drift-detection]
+    if: github.event.inputs.fix_drift == 'true' && contains(needs.drift-detection.outputs.drift_detected, 'true')
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}-drift-fix  # Requires manual approval
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.setup.outputs.environments) }}
+    steps:
+      - name: Apply Changes
+        uses: hashicorp/tfc-workflows-github/actions/apply-run@v1.0.0
+        with:
+          run: ${{ needs.drift-detection.outputs.run_id[matrix.environment] }}
+          comment: "Auto-fixing drift in ${{ matrix.environment }} environment"
