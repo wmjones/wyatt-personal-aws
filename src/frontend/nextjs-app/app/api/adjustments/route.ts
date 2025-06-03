@@ -2,8 +2,96 @@ import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/postgres';
 import { withAuth, AuthenticatedRequest } from '@/app/lib/auth-middleware';
 
+// Helper to ensure table exists
+async function ensureForecastAdjustmentsTable() {
+  try {
+    // Check if table exists
+    const tableCheck = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'forecast_adjustments'
+      ) as exists
+    `);
+
+    if (!tableCheck.rows[0]?.exists) {
+      console.log('Creating forecast_adjustments table...');
+
+      // Create the table
+      await query(`
+        CREATE TABLE IF NOT EXISTS forecast_adjustments (
+          id SERIAL PRIMARY KEY,
+          adjustment_value DECIMAL(5,2) NOT NULL,
+          filter_context JSONB NOT NULL,
+          inventory_item_name VARCHAR(255),
+          user_id VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          user_email VARCHAR(255),
+          user_name VARCHAR(255),
+          is_active BOOLEAN DEFAULT true,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `);
+
+      // Create indexes
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_created_at ON forecast_adjustments(created_at DESC)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_inventory_item ON forecast_adjustments(inventory_item_name)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_filter_context ON forecast_adjustments USING GIN(filter_context)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_id ON forecast_adjustments(user_id)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_is_active ON forecast_adjustments(is_active)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_email ON forecast_adjustments(user_email)
+      `);
+
+      // Create update trigger
+      await query(`
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+          NEW.updated_at = NOW();
+          RETURN NEW;
+        END;
+        $$ language 'plpgsql'
+      `);
+
+      await query(`
+        DROP TRIGGER IF EXISTS update_forecast_adjustments_updated_at ON forecast_adjustments
+      `);
+
+      await query(`
+        CREATE TRIGGER update_forecast_adjustments_updated_at
+        BEFORE UPDATE ON forecast_adjustments
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+      `);
+
+      console.log('Forecast adjustments table created successfully');
+    }
+  } catch (error) {
+    console.error('Failed to ensure forecast adjustments table:', error);
+    throw error;
+  }
+}
+
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    // Ensure table exists
+    await ensureForecastAdjustmentsTable();
+
     const body = await request.json();
     const { adjustmentValue, filterContext, inventoryItemName } = body;
 
@@ -100,6 +188,9 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
 
 export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    // Ensure table exists
+    await ensureForecastAdjustmentsTable();
+
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     const showAll = searchParams.get('all') === 'true';
@@ -176,6 +267,9 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
 
 export const PATCH = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    // Ensure table exists
+    await ensureForecastAdjustmentsTable();
+
     const body = await request.json();
     const { id, isActive } = body;
 
@@ -244,6 +338,9 @@ export const PATCH = withAuth(async (request: AuthenticatedRequest) => {
 
 export const DELETE = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    // Ensure table exists
+    await ensureForecastAdjustmentsTable();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
