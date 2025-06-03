@@ -36,7 +36,7 @@ export default function useAdjustmentHistory() {
       setAdjustmentHistory(result.adjustments || []);
     } catch (error) {
       errorLogger.logLoadError(error, {
-        userId: auth.user?.sub,
+        userId: auth.user?.attributes?.sub,
         request: { showAllUsers }
       });
       const errorMessage = formatErrorForUser(error);
@@ -77,7 +77,7 @@ export default function useAdjustmentHistory() {
     if (!response.ok) {
       const errorData = await response.json();
       errorLogger.logSaveError(errorData, {
-        userId: auth.user?.sub,
+        userId: auth.user?.attributes?.sub,
         request: requestBody,
         response: errorData
       });

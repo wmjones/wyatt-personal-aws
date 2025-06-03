@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { runMigrations, getMigrationStatus } from '@/app/lib/migrations';
-import { withAuth, AuthenticatedRequest } from '@/app/lib/auth-middleware';
+import { withAuth } from '@/app/lib/auth-middleware';
 
-export const GET = withAuth(async (_request: AuthenticatedRequest) => {
+export const GET = withAuth(async () => {
   try {
     // Get current migration status
     const status = await getMigrationStatus();
@@ -19,7 +19,7 @@ export const GET = withAuth(async (_request: AuthenticatedRequest) => {
   }
 });
 
-export const POST = withAuth(async (_request: AuthenticatedRequest) => {
+export const POST = withAuth(async () => {
   try {
     // Run pending migrations
     await runMigrations();

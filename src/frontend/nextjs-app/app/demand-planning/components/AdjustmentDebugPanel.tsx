@@ -6,9 +6,9 @@ import { useAuth } from '@/app/context/AuthContext';
 interface DebugInfo {
   timestamp: string;
   action: string;
-  request?: unknown;
-  response?: unknown;
-  error?: unknown;
+  request?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+  error?: Error | Record<string, unknown> | string;
 }
 
 export default function AdjustmentDebugPanel() {
@@ -74,7 +74,7 @@ export default function AdjustmentDebugPanel() {
         addLog({ action: 'Error response', error: responseData });
       }
     } catch (error) {
-      addLog({ action: 'Caught exception', error: error instanceof Error ? error.message : error });
+      addLog({ action: 'Caught exception', error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -107,7 +107,7 @@ export default function AdjustmentDebugPanel() {
         addLog({ action: 'Error response', error: responseData });
       }
     } catch (error) {
-      addLog({ action: 'Caught exception', error: error instanceof Error ? error.message : error });
+      addLog({ action: 'Caught exception', error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -135,7 +135,7 @@ export default function AdjustmentDebugPanel() {
         }
       });
     } catch (error) {
-      addLog({ action: 'Table check error', error: error instanceof Error ? error.message : error });
+      addLog({ action: 'Table check error', error: error instanceof Error ? error.message : String(error) });
     }
   };
 

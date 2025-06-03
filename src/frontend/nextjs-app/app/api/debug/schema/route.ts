@@ -22,7 +22,7 @@ export async function GET() {
         WHERE table_name = 'forecast_adjustments'
         ORDER BY ordinal_position
       `);
-      columns = columnsResult.rows;
+      columns = columnsResult.rows as Array<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>;
     }
 
     // Check migration status
@@ -40,7 +40,7 @@ export async function GET() {
         FROM migrations
         ORDER BY id
       `);
-      migrations = migrationsResult.rows;
+      migrations = migrationsResult.rows as Array<{ id: string; name: string; applied_at: string }>;
     }
 
     return NextResponse.json({
