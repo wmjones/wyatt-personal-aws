@@ -87,7 +87,7 @@ permissions:
 
 ```yaml
 - name: Cache Terraform Modules
-  uses: actions/cache@v3
+  uses: actions/cache@v4
   with:
     path: |
       ~/.terraform.d/plugin-cache
@@ -116,7 +116,7 @@ env:
     # Parse and create structured report
 
 - name: Upload Drift Report
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
     name: drift-reports
     path: drift-*.json
