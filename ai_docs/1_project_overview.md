@@ -1,8 +1,8 @@
-# Project Overview: D3 Dashboard (Hybrid Architecture)
+# Project Overview: LTO Demand Planning (Hybrid Architecture)
 
 ## Executive Summary
 
-This project implements a hybrid architecture for the D3 Dashboard, combining Vercel's modern frontend hosting capabilities with AWS's robust backend infrastructure. This approach allows us to leverage the best of both platforms while avoiding costly migrations and maintaining proven infrastructure.
+This project implements a hybrid architecture for LTO (Limited Time Offer) Demand Planning by RedClay, combining Vercel's modern frontend hosting capabilities with AWS's robust backend infrastructure. This approach allows us to leverage the best of both platforms while avoiding costly migrations and maintaining proven infrastructure.
 
 ## Architecture Overview
 

@@ -2,15 +2,15 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'D3 Dashboard & Productivity System',
-  description: 'Interactive data visualizations and automated productivity workflows',
+  title: 'LTO Demand Planning',
+  description: 'Limited Time Offer Demand Planning by RedClay',
 }
 
 export default function StaticHomePage() {
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">D3 Dashboard</h1>
+        <h1 className="text-4xl font-bold">LTO Demand Planning</h1>
         <div className="w-[180px] h-10"></div> {/* Theme toggle placeholder */}
       </div>
 

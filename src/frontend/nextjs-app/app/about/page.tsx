@@ -2,22 +2,22 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'About - D3 Dashboard',
-  description: 'Learn about the D3 Dashboard and Productivity System',
+  title: 'About',
+  description: 'Learn about LTO Demand Planning by RedClay',
 }
 
 export default function AboutPage() {
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">About D3 Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-8">About LTO Demand Planning</h1>
 
       <div className="prose prose-lg max-w-none">
         <div className="bg-card p-6 rounded-lg border border-border mb-8">
           <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
           <p className="text-muted-foreground mb-4">
-            The D3 Dashboard & Productivity System combines powerful data visualization tools
-            with automated productivity workflows to help teams make data-driven decisions
-            and streamline their workflows. TODO
+            LTO (Limited Time Offer) Demand Planning by RedClay provides powerful forecasting
+            and demand planning tools to help businesses optimize their inventory and sales
+            strategies for limited time offers and seasonal campaigns.
           </p>
         </div>
 

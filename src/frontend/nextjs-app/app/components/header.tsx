@@ -30,7 +30,7 @@ export default function Header() {
         <nav className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
             <Link href="/" className="text-xl font-bold">
-              D3 Dashboard
+              LTO Demand Planning
             </Link>
 
             <ul className="main-navigation hidden md:flex items-center space-x-6">

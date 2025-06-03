@@ -20,10 +20,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "D3 Dashboard",
-    template: "%s | D3 Dashboard"
+    default: "LTO Demand Planning",
+    template: "%s | LTO Demand Planning"
   },
-  description: "Interactive data visualizations and productivity workflows",
+  description: "Limited Time Offer Demand Planning by RedClay",
 };
 
 export default function RootLayout({

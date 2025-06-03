@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module creates and configures AWS Lambda functions that power both the D3 Visualization Dashboard backend and the Productivity Workflow System. It provides a standardized approach to Lambda deployment with consistent permissions, monitoring, and integration capabilities.
+This module creates and configures AWS Lambda functions that power both the LTO Demand Planning backend and the Productivity Workflow System. It provides a standardized approach to Lambda deployment with consistent permissions, monitoring, and integration capabilities.
 
 ## Components
 
@@ -51,7 +51,7 @@ This module creates and configures AWS Lambda functions that power both the D3 V
 
 The Lambda Function module is the core processing component for both parts of the project:
 
-### D3 Dashboard Integration
+### LTO Demand Planning Integration
 - **API Handlers**: Provides backend logic for API Gateway endpoints
 - **Data Processing**: Manages reading and writing visualization data to DynamoDB
 - **Authentication Flows**: Custom authentication workflows with Cognito

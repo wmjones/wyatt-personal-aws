@@ -2,13 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# D3 Dashboard & Productivity System
+# LTO (Limited Time Offer) Demand Planning by RedClay
 
 ## Project Overview
 
 This project consists of two distinct but related serverless applications:
 
-1. **Interactive D3 Visualization Dashboard**: A dynamic web application that allows users to view and modify data visualizations built with D3.js. The application features user authentication, private data storage, and interactive visualization editing capabilities.
+1. **LTO Demand Planning Application**: A dynamic web application for demand planning and forecasting with interactive data visualizations built with D3.js. The application features user authentication, private data storage, and real-time forecast adjustment capabilities.
 
 2. **Productivity Workflow System**: An automated pipeline that integrates Todoist tasks with ChatGPT and Notion for task enrichment and organization.
 
@@ -40,9 +40,9 @@ Each module in the project has its own README.md that details:
 - Outputs provided by the module
 - How the module integrates with the overall project
 
-## D3 Dashboard Components
+## LTO Demand Planning Components
 
-The visualization dashboard consists of:
+The demand planning application consists of:
 
 ### Frontend
 - **Next.js Application**: Modern React framework deployed on Vercel

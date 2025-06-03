@@ -1,8 +1,8 @@
-# D3 Dashboard - Hybrid Architecture Implementation
+# LTO Demand Planning - Hybrid Architecture Implementation
 
 ## Overview
 
-The D3 Dashboard is an interactive data visualization platform that allows users to create, modify, and collaborate on data visualizations in real-time. In the hybrid architecture, the frontend is hosted on Vercel while the backend services remain on AWS, providing optimal performance and developer experience.
+LTO Demand Planning is an interactive forecasting and demand planning platform that allows businesses to optimize inventory and sales strategies for limited time offers and seasonal campaigns. In the hybrid architecture, the frontend is hosted on Vercel while the backend services remain on AWS, providing optimal performance and developer experience.
 
 ## Architecture Components
 

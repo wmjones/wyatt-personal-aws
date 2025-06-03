@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module creates and configures AWS DynamoDB tables for data storage in the D3 Visualization Dashboard and Productivity Workflow System. It provides a flexible, serverless NoSQL database solution with configurable capacity, indexes, and encryption settings.
+This module creates and configures AWS DynamoDB tables for data storage in the LTO Demand Planning and Productivity Workflow System. It provides a flexible, serverless NoSQL database solution with configurable capacity, indexes, and encryption settings.
 
 ## Components
 
@@ -44,7 +44,7 @@ This module creates and configures AWS DynamoDB tables for data storage in the D
 
 The DynamoDB module serves as the primary data store for both components of the project:
 
-### D3 Dashboard Integration
+### LTO Demand Planning Integration
 - **Visualization Storage**: Stores user visualization configurations and settings
 - **User Data**: Stores user-specific dashboard data and preferences
 - **Real-time Updates**: Enables real-time updates to dashboards via DynamoDB Streams

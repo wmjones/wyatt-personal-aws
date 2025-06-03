@@ -12,8 +12,8 @@ if (typeof window === 'undefined') {
  */
 export const config = {
   app: {
-    name: 'D3 Dashboard',
-    description: 'Interactive visualizations and productivity workflows',
+    name: 'LTO Demand Planning',
+    description: 'Limited Time Offer Demand Planning by RedClay',
     url: getEnvVar('NEXT_PUBLIC_API_URL') || 'http://localhost:3000',
     env: getEnvVar('NODE_ENV') || 'development',
   },
