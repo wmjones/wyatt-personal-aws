@@ -6,6 +6,11 @@
  */
 
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from .env.local
+dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
 // Simple database connection using only DATABASE_URL
 function getDatabaseUrl(): string {
