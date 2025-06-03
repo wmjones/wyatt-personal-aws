@@ -2,8 +2,8 @@ name: Terraform Drift Detection
 
 on:
   schedule:
-    # Run every 6 hours for more frequent monitoring
-    - cron: '0 */6 * * *'
+    # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       environment:
