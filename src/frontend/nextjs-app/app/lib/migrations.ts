@@ -225,6 +225,34 @@ export const migrations: Migration[] = [
       DROP COLUMN IF EXISTS is_active,
       DROP COLUMN IF EXISTS updated_at;
     `
+  },
+  {
+    id: '006',
+    name: 'add_adjustment_time_window_columns',
+    up: `
+      -- Add time window columns for adjustment date ranges
+      ALTER TABLE forecast_adjustments
+      ADD COLUMN IF NOT EXISTS adjustment_start_date DATE,
+      ADD COLUMN IF NOT EXISTS adjustment_end_date DATE;
+
+      -- Add index for date range queries (for performance when filtering adjustments by date)
+      CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_date_range
+      ON forecast_adjustments(adjustment_start_date, adjustment_end_date)
+      WHERE adjustment_start_date IS NOT NULL;
+
+      -- Add comment to document the purpose
+      COMMENT ON COLUMN forecast_adjustments.adjustment_start_date IS 'Start date for when this adjustment should be applied to forecasts';
+      COMMENT ON COLUMN forecast_adjustments.adjustment_end_date IS 'End date for when this adjustment should be applied to forecasts';
+    `,
+    down: `
+      -- Remove the index first
+      DROP INDEX IF EXISTS idx_forecast_adjustments_date_range;
+
+      -- Remove the columns
+      ALTER TABLE forecast_adjustments
+      DROP COLUMN IF EXISTS adjustment_start_date,
+      DROP COLUMN IF EXISTS adjustment_end_date;
+    `
   }
 ];
 

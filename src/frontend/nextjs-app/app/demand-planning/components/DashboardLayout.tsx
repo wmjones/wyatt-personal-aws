@@ -6,6 +6,7 @@ import Footer from './Footer';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
 import IntegratedControlPanel from './IntegratedControlPanel';
 import { ForecastSeries } from '@/app/types/demand-planning';
+import { ErrorBoundary } from '../../components/error-boundary';
 
 // Dashboard view type
 type DashboardView = 'forecast' | 'history' | 'settings';
@@ -107,19 +108,37 @@ const DashboardLayout = memo(function DashboardLayout({
           }`}
         >
           {useIntegratedPanel && onAdjustmentChange && onSaveAdjustment ? (
-            <IntegratedControlPanel
-              filterSelections={filterSelections}
-              onFilterSelectionChange={handleFilterSelectionChange}
-              forecastData={forecastData}
-              currentAdjustmentValue={currentAdjustmentValue}
-              onAdjustmentChange={onAdjustmentChange}
-              onSaveAdjustment={onSaveAdjustment}
-            />
+            <ErrorBoundary
+              resetKeys={[
+                JSON.stringify(filterSelections),
+                currentAdjustmentValue,
+                forecastData?.baseline?.length || 0
+              ]}
+              onError={(error, errorInfo) => {
+                console.error('IntegratedControlPanel Error:', error, errorInfo);
+              }}
+            >
+              <IntegratedControlPanel
+                filterSelections={filterSelections}
+                onFilterSelectionChange={handleFilterSelectionChange}
+                forecastData={forecastData}
+                currentAdjustmentValue={currentAdjustmentValue}
+                onAdjustmentChange={onAdjustmentChange}
+                onSaveAdjustment={onSaveAdjustment}
+              />
+            </ErrorBoundary>
           ) : (
-            <FilterSidebar
-              selections={filterSelections}
-              onSelectionChange={handleFilterSelectionChange}
-            />
+            <ErrorBoundary
+              resetKeys={[JSON.stringify(filterSelections)]}
+              onError={(error, errorInfo) => {
+                console.error('FilterSidebar Error:', error, errorInfo);
+              }}
+            >
+              <FilterSidebar
+                selections={filterSelections}
+                onSelectionChange={handleFilterSelectionChange}
+              />
+            </ErrorBoundary>
           )}
         </div>
 

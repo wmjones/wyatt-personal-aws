@@ -171,7 +171,83 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   // When filtering by specific inventory item, aggregate by date
   const aggregateByDate = filters?.inventoryItemId != null;
 
-  // Get active adjustments that apply to this filter context
+  // Build adjustment subquery with parameterized queries to prevent SQL injection
+  const adjustmentConditions: string[] = ['fa.is_active = true'];
+  const adjustmentValues: (string | number)[] = [];
+  let adjustmentParamCount = paramCount;
+
+  // Match inventory item if specified
+  if (filters?.inventoryItemId) {
+    adjustmentConditions.push(`(fa.filter_context->>'inventoryItemId' IS NULL OR fa.filter_context->>'inventoryItemId' = $${++adjustmentParamCount})`);
+    adjustmentValues.push(filters.inventoryItemId);
+  }
+
+  // Match states
+  const stateConditions = [
+    'fa.filter_context->\'states\' IS NULL',
+    'fa.filter_context->\'states\' = \'[]\'::jsonb'
+  ];
+
+  if (filters?.state) {
+    if (Array.isArray(filters.state)) {
+      for (const state of filters.state) {
+        stateConditions.push(`fa.filter_context->'states' @> $${++adjustmentParamCount}::jsonb`);
+        adjustmentValues.push(JSON.stringify([state]));
+      }
+    } else {
+      stateConditions.push(`fa.filter_context->'states' @> $${++adjustmentParamCount}::jsonb`);
+      adjustmentValues.push(JSON.stringify([filters.state]));
+    }
+  }
+  adjustmentConditions.push(`(${stateConditions.join(' OR ')})`);
+
+  // Match DMAs
+  const dmaConditions = [
+    'fa.filter_context->\'dmaIds\' IS NULL',
+    'fa.filter_context->\'dmaIds\' = \'[]\'::jsonb'
+  ];
+
+  if (filters?.dmaId) {
+    if (Array.isArray(filters.dmaId)) {
+      for (const dmaId of filters.dmaId) {
+        dmaConditions.push(`fa.filter_context->'dmaIds' @> $${++adjustmentParamCount}::jsonb`);
+        adjustmentValues.push(JSON.stringify([dmaId]));
+      }
+    } else {
+      dmaConditions.push(`fa.filter_context->'dmaIds' @> $${++adjustmentParamCount}::jsonb`);
+      adjustmentValues.push(JSON.stringify([filters.dmaId]));
+    }
+  }
+  adjustmentConditions.push(`(${dmaConditions.join(' OR ')})`);
+
+  // Match DCs
+  const dcConditions = [
+    'fa.filter_context->\'dcIds\' IS NULL',
+    'fa.filter_context->\'dcIds\' = \'[]\'::jsonb'
+  ];
+
+  if (filters?.dcId) {
+    if (Array.isArray(filters.dcId)) {
+      for (const dcId of filters.dcId) {
+        dcConditions.push(`fa.filter_context->'dcIds' @> $${++adjustmentParamCount}::jsonb`);
+        adjustmentValues.push(JSON.stringify([dcId]));
+      }
+    } else {
+      dcConditions.push(`fa.filter_context->'dcIds' @> $${++adjustmentParamCount}::jsonb`);
+      adjustmentValues.push(JSON.stringify([filters.dcId]));
+    }
+  }
+  adjustmentConditions.push(`(${dcConditions.join(' OR ')})`);
+
+  // Time window filtering (no parameters needed for this condition)
+  adjustmentConditions.push(`(
+    fa.adjustment_start_date IS NULL
+    OR (
+      fa.adjustment_start_date <= fd.business_date
+      AND fa.adjustment_end_date >= fd.business_date
+    )
+  )`);
+
   const adjustmentSubquery = `
     SELECT
       fa.adjustment_value,
@@ -180,54 +256,12 @@ async function getForecastData(filters: ForecastFilters | undefined) {
       fa.adjustment_start_date,
       fa.adjustment_end_date
     FROM forecast_adjustments fa
-    WHERE fa.is_active = true
-      AND (
-        -- Match inventory item if specified
-        (fa.filter_context->>'inventoryItemId' IS NULL OR fa.filter_context->>'inventoryItemId' = '${filters?.inventoryItemId || ''}')
-        -- Match states
-        AND (
-          fa.filter_context->'states' IS NULL
-          OR fa.filter_context->'states' = '[]'::jsonb
-          ${filters?.state ? `OR (
-            ${Array.isArray(filters.state)
-              ? filters.state.map(s => `fa.filter_context->'states' @> '["${s}"]'::jsonb`).join(' OR ')
-              : `fa.filter_context->'states' @> '["${filters.state}"]'::jsonb`
-            }
-          )` : ''}
-        )
-        -- Match DMAs
-        AND (
-          fa.filter_context->'dmaIds' IS NULL
-          OR fa.filter_context->'dmaIds' = '[]'::jsonb
-          ${filters?.dmaId ? `OR (
-            ${Array.isArray(filters.dmaId)
-              ? filters.dmaId.map(d => `fa.filter_context->'dmaIds' @> '["${d}"]'::jsonb`).join(' OR ')
-              : `fa.filter_context->'dmaIds' @> '["${filters.dmaId}"]'::jsonb`
-            }
-          )` : ''}
-        )
-        -- Match DCs
-        AND (
-          fa.filter_context->'dcIds' IS NULL
-          OR fa.filter_context->'dcIds' = '[]'::jsonb
-          ${filters?.dcId ? `OR (
-            ${Array.isArray(filters.dcId)
-              ? filters.dcId.map(d => `fa.filter_context->'dcIds' @> '["${d}"]'::jsonb`).join(' OR ')
-              : `fa.filter_context->'dcIds' @> '["${filters.dcId}"]'::jsonb`
-            }
-          )` : ''}
-        )
-        -- Time window filtering: adjustment applies to the current business_date
-        AND (
-          fa.adjustment_start_date IS NULL
-          OR (
-            fa.adjustment_start_date <= fd.business_date
-            AND fa.adjustment_end_date >= fd.business_date
-          )
-        )
-      )
+    WHERE ${adjustmentConditions.join(' AND ')}
     ORDER BY fa.created_at DESC
   `;
+
+  // Merge adjustment parameters with main query parameters
+  const allValues = [...values, ...adjustmentValues];
 
   const query = aggregateByDate ? `
     WITH adjustments AS (${adjustmentSubquery})
@@ -286,7 +320,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     LIMIT ${limit}
   `;
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(query, allValues);
 
   // Debug logging for aggregated queries
   if (aggregateByDate) {
