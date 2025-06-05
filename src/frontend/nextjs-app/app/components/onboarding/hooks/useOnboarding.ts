@@ -149,12 +149,20 @@ export function useOnboarding(): UseOnboardingReturn {
   }, [updatePreferences, preferences]);
 
   const markTourCompleted = useCallback(async () => {
+    // Mark the demand planning tour as complete in tour_progress
+    const currentProgress = preferences?.tour_progress || {};
+    const updatedProgress = {
+      ...currentProgress,
+      'demand-complete': true
+    };
+
     await updatePreferences({
       has_completed_tour: true,
+      tour_progress: updatedProgress,
       onboarding_completed_at: new Date().toISOString()
     });
     toast.success('Welcome tour completed! 🎉');
-  }, [updatePreferences]);
+  }, [updatePreferences, preferences]);
 
   const updateTourProgress = useCallback(async (stepId: string, completed: boolean) => {
     const currentProgress = preferences?.tour_progress || {};

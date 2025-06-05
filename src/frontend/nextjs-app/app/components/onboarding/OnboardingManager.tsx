@@ -56,25 +56,27 @@ const demandPlanningTourSteps: TourStep[] = [
 
 export default function OnboardingManager({ children }: OnboardingManagerProps) {
   const pathname = usePathname();
-  const { shouldShowWelcome, shouldShowTour, preferences } = useOnboarding();
+  const { shouldShowWelcome, shouldShowTour, preferences, isLoading } = useOnboarding();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showProductTour, setShowProductTour] = useState(false);
   const [currentTourSteps, setCurrentTourSteps] = useState<TourStep[]>([]);
 
   // Show welcome modal for first-time users
   useEffect(() => {
-    if (shouldShowWelcome && !showProductTour) {
-      // Small delay to ensure page is fully loaded
-      const timer = setTimeout(() => {
-        setShowWelcomeModal(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldShowWelcome, showProductTour]);
+    // Don't show welcome modal while preferences are still loading
+    if (isLoading || !shouldShowWelcome || showProductTour) return;
+
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(() => {
+      setShowWelcomeModal(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [shouldShowWelcome, showProductTour, isLoading]);
 
   // Determine which tour to show based on current page
   useEffect(() => {
-    if (!shouldShowTour || showWelcomeModal) return;
+    // Don't show tour while preferences are still loading
+    if (isLoading || !shouldShowTour || showWelcomeModal) return;
 
     // Check if user has completed the tour for the current page
     const hasCompletedDemandTour = preferences?.tour_progress?.['demand-complete'] === true;
@@ -83,7 +85,7 @@ export default function OnboardingManager({ children }: OnboardingManagerProps) 
       setCurrentTourSteps(demandPlanningTourSteps);
       setShowProductTour(true);
     }
-  }, [pathname, shouldShowTour, showWelcomeModal, preferences]);
+  }, [pathname, shouldShowTour, showWelcomeModal, preferences, isLoading]);
 
   const handleStartTour = () => {
     setShowWelcomeModal(false);
