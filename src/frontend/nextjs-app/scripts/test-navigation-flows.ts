@@ -2,7 +2,7 @@
 
 /**
  * Test script to verify navigation flows after routing updates
- * 
+ *
  * Expected behaviors:
  * 1. Root path (/) redirects to /login if not authenticated
  * 2. Root path (/) redirects to /demand-planning if authenticated
