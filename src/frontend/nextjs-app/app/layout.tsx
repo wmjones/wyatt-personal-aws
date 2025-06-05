@@ -21,10 +21,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "LTO Demand Planning",
-    template: "%s | LTO Demand Planning"
+    default: "RedClay - Demand Planning",
+    template: "%s | RedClay"
   },
-  description: "Limited Time Offer Demand Planning by RedClay",
+  description: "Demand Planning and Forecasting Platform by RedClay",
 };
 
 export default function RootLayout({

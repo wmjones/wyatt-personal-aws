@@ -39,8 +39,6 @@ export default function Footer() {
             >
               Report an Issue
             </Link>
-
-            <span className="text-muted-foreground">LTO Demand Planning System</span>
           </div>
         </div>
       </div>

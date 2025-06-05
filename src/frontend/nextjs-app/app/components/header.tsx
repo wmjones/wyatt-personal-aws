@@ -16,7 +16,7 @@ export default function Header() {
       <header className="border-b border-border">
         <div className="container mx-auto px-4">
           <nav className="flex items-center justify-between h-16">
-            <div className="text-xl font-bold">LTO Demand Planning</div>
+            <div className="text-xl font-bold">RedClay</div>
           </nav>
         </div>
       </header>
@@ -51,7 +51,7 @@ export default function Header() {
               onClick={handleLogoClick}
               className="text-xl font-bold hover:text-primary transition-colors cursor-pointer"
             >
-              LTO Demand Planning
+              RedClay
             </a>
 
             <ul className="main-navigation hidden md:flex items-center space-x-6">
