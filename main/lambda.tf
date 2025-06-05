@@ -178,7 +178,7 @@ module "get_visualization_data" {
   }
 
   tags = {
-    Component = "D3 Dashboard"
+    Component = "LTO Demand Planning"
     Function  = "Data Retrieval"
   }
 }
@@ -215,7 +215,7 @@ module "put_visualization_data" {
   }
 
   tags = {
-    Component = "D3 Dashboard"
+    Component = "LTO Demand Planning"
     Function  = "Data Storage"
   }
 }

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, memo, useCallback } from 'react';
-import Header from './Header';
-import Footer from './Footer';
+import DemandPlanningHeader from './DemandPlanningHeader';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
 import IntegratedControlPanel from './IntegratedControlPanel';
 import { ForecastSeries } from '@/app/types/demand-planning';
@@ -61,7 +60,7 @@ const DashboardLayout = memo(function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-dp-background-primary">
-      <Header
+      <DemandPlanningHeader
         refreshData={refreshData}
         activeTab={activeTab}
         onTabChange={onTabChange}
@@ -103,7 +102,7 @@ const DashboardLayout = memo(function DashboardLayout({
 
         {/* Sidebar */}
         <div
-          className={`fixed md:relative z-20 md:z-auto w-[var(--dp-sidebar-width)] h-[calc(100vh-var(--dp-header-height)-var(--dp-footer-height))] transition-transform duration-300 ease-in-out ${
+          className={`fixed md:relative z-20 md:z-auto w-[var(--dp-sidebar-width)] h-[calc(100vh-var(--dp-header-height))] transition-transform duration-300 ease-in-out ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
@@ -158,7 +157,6 @@ const DashboardLayout = memo(function DashboardLayout({
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 });

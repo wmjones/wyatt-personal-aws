@@ -13,36 +13,6 @@ interface OnboardingManagerProps {
 }
 
 // Define tour steps for different pages
-const dashboardTourSteps: TourStep[] = [
-  {
-    id: 'dashboard-welcome',
-    title: 'Welcome to Your Dashboard',
-    content: 'This is your central hub for viewing and managing demand forecasts. Let me show you around!',
-    placement: 'center',
-    showPrev: false
-  },
-  {
-    id: 'dashboard-stats',
-    title: 'Key Metrics',
-    content: 'These cards show your most important metrics at a glance. Click any card to dive deeper.',
-    target: '.dashboard-stats',
-    placement: 'bottom'
-  },
-  {
-    id: 'dashboard-nav',
-    title: 'Navigation',
-    content: 'Use the navigation menu to access different features like Demand Planning and Reports.',
-    target: '.main-navigation',
-    placement: 'right'
-  },
-  {
-    id: 'dashboard-complete',
-    title: 'Ready to Explore!',
-    content: 'You\'re all set! Head to the Demand Planning page to start working with forecasts.',
-    placement: 'center',
-    showSkip: false
-  }
-];
 
 const demandPlanningTourSteps: TourStep[] = [
   {
@@ -86,38 +56,36 @@ const demandPlanningTourSteps: TourStep[] = [
 
 export default function OnboardingManager({ children }: OnboardingManagerProps) {
   const pathname = usePathname();
-  const { shouldShowWelcome, shouldShowTour, preferences } = useOnboarding();
+  const { shouldShowWelcome, shouldShowTour, preferences, isLoading } = useOnboarding();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showProductTour, setShowProductTour] = useState(false);
   const [currentTourSteps, setCurrentTourSteps] = useState<TourStep[]>([]);
 
   // Show welcome modal for first-time users
   useEffect(() => {
-    if (shouldShowWelcome && !showProductTour) {
-      // Small delay to ensure page is fully loaded
-      const timer = setTimeout(() => {
-        setShowWelcomeModal(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldShowWelcome, showProductTour]);
+    // Don't show welcome modal while preferences are still loading
+    if (isLoading || !shouldShowWelcome || showProductTour) return;
+
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(() => {
+      setShowWelcomeModal(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [shouldShowWelcome, showProductTour, isLoading]);
 
   // Determine which tour to show based on current page
   useEffect(() => {
-    if (!shouldShowTour || showWelcomeModal) return;
+    // Don't show tour while preferences are still loading
+    if (isLoading || !shouldShowTour || showWelcomeModal) return;
 
     // Check if user has completed the tour for the current page
-    const hasCompletedDashboardTour = preferences?.tour_progress?.['dashboard-complete'] === true;
     const hasCompletedDemandTour = preferences?.tour_progress?.['demand-complete'] === true;
 
-    if (pathname === '/dashboard' && !hasCompletedDashboardTour) {
-      setCurrentTourSteps(dashboardTourSteps);
-      setShowProductTour(true);
-    } else if (pathname === '/demand-planning' && !hasCompletedDemandTour) {
+    if (pathname === '/demand-planning' && !hasCompletedDemandTour) {
       setCurrentTourSteps(demandPlanningTourSteps);
       setShowProductTour(true);
     }
-  }, [pathname, shouldShowTour, showWelcomeModal, preferences]);
+  }, [pathname, shouldShowTour, showWelcomeModal, preferences, isLoading]);
 
   const handleStartTour = () => {
     setShowWelcomeModal(false);
@@ -134,7 +102,6 @@ export default function OnboardingManager({ children }: OnboardingManagerProps) 
 
   // Get the tour steps for the current page
   const getCurrentPageTourSteps = () => {
-    if (pathname === '/dashboard') return dashboardTourSteps;
     if (pathname === '/demand-planning') return demandPlanningTourSteps;
     return [];
   };

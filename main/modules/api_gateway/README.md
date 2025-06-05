@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module creates and configures an HTTP API Gateway that serves as the backend API endpoint for the D3 Visualization Dashboard. It handles routing HTTP requests to appropriate Lambda functions and enforces authentication via Cognito.
+This module creates and configures an HTTP API Gateway that serves as the backend API endpoint for the LTO Demand Planning. It handles routing HTTP requests to appropriate Lambda functions and enforces authentication via Cognito.
 
 ## Components
 
@@ -37,7 +37,7 @@ This module creates and configures an HTTP API Gateway that serves as the backen
 
 ## Integration with Project
 
-The API Gateway module is a critical component in the D3 Dashboard architecture:
+The API Gateway module is a critical component in the LTO Demand Planning architecture:
 
 - **Frontend Integration**: The React SPA communicates with this API to fetch and update visualization data
 - **Authentication Flow**: Works with Cognito to validate user tokens before allowing access to protected endpoints
@@ -53,7 +53,7 @@ module "api_gateway" {
   source = "./modules/api_gateway"
 
   api_name        = "my-api"
-  api_description = "API for D3 Dashboard"
+  api_description = "API for LTO Demand Planning"
 
   allowed_origins = ["https://dashboard.example.com"]
 

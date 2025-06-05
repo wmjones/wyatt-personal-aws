@@ -30,7 +30,7 @@ dynamodb_point_in_time_recovery = false
 lambda_runtime = "python3.10"
 
 # WebSocket API Configuration
-websocket_api_name = "dashboard-websocket-dev"
+websocket_api_name = "lto-demand-planning-websocket-dev"
 
 # Step Function Configuration
 step_function_name = "todoist-workflow-dev"

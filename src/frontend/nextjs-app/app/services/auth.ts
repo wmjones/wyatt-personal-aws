@@ -35,6 +35,33 @@ interface CurrentUserResult extends AuthResult {
   accessToken?: string;
 }
 
+// Helper function to get cookie expiration based on JWT token
+function getTokenExpiration(token: string): number {
+  try {
+    // JWT tokens have 3 parts separated by dots
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return 3600; // Default to 1 hour
+    }
+
+    // Decode the payload (second part)
+    const payload = JSON.parse(atob(parts[1]));
+
+    // Get expiration time (exp is in seconds since epoch)
+    if (payload.exp) {
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const expiresIn = payload.exp - now;
+
+      // Return expiration time in seconds, but cap at 24 hours for security
+      return Math.min(expiresIn, 86400);
+    }
+  } catch (error) {
+    console.error('Error parsing JWT expiration:', error);
+  }
+
+  return 3600; // Default to 1 hour if parsing fails
+}
+
 interface RefreshTokensResult extends AuthResult {
   session?: CognitoUserSession;
 }
@@ -85,7 +112,17 @@ export const authService: AuthService = {
 
       return new Promise<TSignInResult>((resolve) => {
         cognitoUser.authenticateUser(authenticationDetails, {
-          onSuccess: () => {
+          onSuccess: (session) => {
+            // Store token in cookie for SSR
+            if (typeof window !== 'undefined' && session) {
+              const idToken = session.getIdToken().getJwtToken();
+              const expiration = getTokenExpiration(idToken);
+              const isProduction = process.env.NODE_ENV === 'production';
+
+              // Set cookie with proper expiration and security settings
+              document.cookie = `auth-token=${idToken}; path=/; max-age=${expiration}; SameSite=Lax${isProduction ? '; Secure' : ''}`;
+            }
+
             resolve({
               success: true,
               user: mapCognitoUser(cognitoUser),
@@ -225,6 +262,11 @@ export const authService: AuthService = {
         cognitoUser.signOut();
       }
 
+      // Clear the auth cookie
+      if (typeof window !== 'undefined') {
+        document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
+
       return {
         success: true,
         message: 'Successfully signed out',
@@ -265,6 +307,15 @@ export const authService: AuthService = {
               user: null,
             });
           } else {
+            // Update cookie with current token
+            if (typeof window !== 'undefined') {
+              const idToken = session.getIdToken().getJwtToken();
+              const expiration = getTokenExpiration(idToken);
+              const isProduction = process.env.NODE_ENV === 'production';
+
+              document.cookie = `auth-token=${idToken}; path=/; max-age=${expiration}; SameSite=Lax${isProduction ? '; Secure' : ''}`;
+            }
+
             resolve({
               success: true,
               user: cognitoUser,
@@ -458,6 +509,19 @@ export const authService: AuthService = {
   // Get ID token for API requests
   async getIdToken(): Promise<string | null> {
     try {
+      // First try to get from cookie (for SSR)
+      if (typeof window !== 'undefined') {
+        const cookieToken = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('auth-token='))
+          ?.split('=')[1];
+
+        if (cookieToken) {
+          return cookieToken;
+        }
+      }
+
+      // Fall back to Cognito session
       if (!userPool) {
         return null;
       }
@@ -473,7 +537,18 @@ export const authService: AuthService = {
           if (err || !session || !session.isValid()) {
             resolve(null);
           } else {
-            resolve(session.getIdToken().getJwtToken());
+            const token = session.getIdToken().getJwtToken();
+
+            // Store in cookie for SSR
+            if (typeof window !== 'undefined' && token) {
+              const expiration = getTokenExpiration(token);
+              const isProduction = process.env.NODE_ENV === 'production';
+
+              // Set cookie with proper expiration and security settings
+              document.cookie = `auth-token=${token}; path=/; max-age=${expiration}; SameSite=Lax${isProduction ? '; Secure' : ''}`;
+            }
+
+            resolve(token);
           }
         });
       });
@@ -524,6 +599,15 @@ export const authService: AuthService = {
                   error: err.message || 'Failed to refresh tokens',
                 });
               } else {
+                // Update cookie with new token
+                if (typeof window !== 'undefined' && newSession) {
+                  const idToken = newSession.getIdToken().getJwtToken();
+                  const expiration = getTokenExpiration(idToken);
+                  const isProduction = process.env.NODE_ENV === 'production';
+
+                  document.cookie = `auth-token=${idToken}; path=/; max-age=${expiration}; SameSite=Lax${isProduction ? '; Secure' : ''}`;
+                }
+
                 resolve({
                   success: true,
                   session: newSession!,

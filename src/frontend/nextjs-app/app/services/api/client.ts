@@ -79,8 +79,15 @@ export class ApiClient {
           // Try to refresh the token
           const refreshResult = await authService.refreshTokens();
           if (!refreshResult.success) {
-            // Redirect to login if refresh fails
-            window.location.href = '/login';
+            // Only redirect to login if we're not already on an auth page
+            // This prevents redirect loops and allows onboarding to handle errors gracefully
+            const currentPath = window.location.pathname;
+            const authPaths = ['/login', '/signup', '/forgot-password', '/confirm-signup'];
+            const isOnAuthPage = authPaths.some(path => currentPath.startsWith(path));
+
+            if (!isOnAuthPage) {
+              window.location.href = '/login';
+            }
           }
         }
         throw error;

@@ -40,7 +40,7 @@ module "get_visualization_lambda" {
   }
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Function    = "Get Visualization Data"
     Environment = var.environment
   }
@@ -87,7 +87,7 @@ module "update_visualization_lambda" {
   }
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Function    = "Update Visualization Data"
     Environment = var.environment
   }
@@ -124,7 +124,7 @@ module "ws_connect_lambda" {
   }
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Function    = "WebSocket Connect"
     Environment = var.environment
   }
@@ -161,7 +161,7 @@ module "ws_disconnect_lambda" {
   }
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Function    = "WebSocket Disconnect"
     Environment = var.environment
   }

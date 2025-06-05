@@ -1,6 +1,6 @@
 # Project Documentation
 
-This directory contains comprehensive documentation for the D3 Dashboard project.
+This directory contains comprehensive documentation for the LTO Demand Planning project.
 
 ## Table of Contents
 
@@ -10,7 +10,7 @@ This directory contains comprehensive documentation for the D3 Dashboard project
    - Development environment
    - Deployment process
 
-2. [D3 Dashboard](./2_d3_dashboard.md)
+2. [LTO Demand Planning](./2_lto_demand_planning.md)
    - Features and capabilities
    - Architecture components
    - Implementation status
