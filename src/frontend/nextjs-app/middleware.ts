@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Add routes that require authentication
-const protectedRoutes = ['/dashboard', '/visualizations', '/settings'];
+const protectedRoutes = ['/demand-planning', '/settings'];
 
-// Add routes that should redirect to dashboard if already authenticated
-const authRoutes = ['/login', '/signup', '/forgot-password'];
+// Add routes that should redirect to demand planning if already authenticated
+const authRoutes = ['/login', '/signup', '/forgot-password', '/confirm-signup'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,8 +20,17 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // Get the token from cookies (this will be set by Amplify)
-  const token = request.cookies.get('CognitoIdentityServiceProvider.UserPoolClientId.idToken');
+  // Get the token from cookies (set by our auth service)
+  const token = request.cookies.get('auth-token');
+
+  // Handle root path - redirect based on auth status
+  if (pathname === '/') {
+    if (token) {
+      return NextResponse.redirect(new URL('/demand-planning', request.url));
+    } else {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
 
   // Redirect to login if accessing protected route without token
   if (isProtectedRoute && !token) {
@@ -30,9 +39,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect to dashboard if accessing auth route with token
+  // Redirect to demand planning if accessing auth route with token
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/demand-planning', request.url));
   }
 
   return NextResponse.next();

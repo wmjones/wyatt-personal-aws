@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module creates and configures AWS Cognito User Pools and Identity Pools for user authentication and authorization in the D3 Visualization Dashboard. It provides a complete authentication solution with customizable settings for sign-up, sign-in, and user management.
+This module creates and configures AWS Cognito User Pools and Identity Pools for user authentication and authorization in the LTO Demand Planning application. It provides a complete authentication solution with customizable settings for sign-up, sign-in, and user management.
 
 ## Components
 
@@ -40,7 +40,7 @@ This module creates and configures AWS Cognito User Pools and Identity Pools for
 
 ## Integration with Project
 
-The Cognito module is a fundamental security component in the D3 Dashboard architecture:
+The Cognito module is a fundamental security component in the LTO Demand Planning architecture:
 
 - **User Authentication**: Provides secure sign-up and sign-in capabilities for dashboard users
 - **API Authorization**: Issues JWT tokens that are validated by API Gateway before allowing access to protected endpoints

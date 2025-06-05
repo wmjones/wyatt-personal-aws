@@ -51,7 +51,7 @@ module "parameter_table" {
   enable_point_in_time_recovery = var.dynamodb_point_in_time_recovery
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Name        = "Parameter Table"
     Environment = var.environment
   }
@@ -119,7 +119,7 @@ module "history_table" {
   enable_point_in_time_recovery = var.dynamodb_point_in_time_recovery
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Name        = "Parameter History Table"
     Environment = var.environment
   }
@@ -172,7 +172,7 @@ module "connection_table" {
   ttl_attribute                 = "expiry"
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Name        = "WebSocket Connections Table"
     Environment = var.environment
   }

@@ -7,6 +7,7 @@ import Header from "./components/header";
 import Footer from "./components/footer";
 import { Toaster } from "react-hot-toast";
 import OnboardingManager from "./components/onboarding/OnboardingManager";
+import FeedbackButton from "./components/FeedbackButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,10 +21,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "D3 Dashboard",
-    template: "%s | D3 Dashboard"
+    default: "RedClay - Demand Planning",
+    template: "%s | RedClay"
   },
-  description: "Interactive data visualizations and productivity workflows",
+  description: "Demand Planning and Forecasting Platform by RedClay",
 };
 
 export default function RootLayout({
@@ -44,6 +45,7 @@ export default function RootLayout({
                 {children}
               </main>
               <Footer />
+              <FeedbackButton />
               <Toaster
                 position="top-right"
                 toastOptions={{

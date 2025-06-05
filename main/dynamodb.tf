@@ -82,7 +82,7 @@ module "visualization_table" {
   autoscaling_write_max_capacity = 100
 
   tags = {
-    Component   = "D3 Dashboard"
+    Component   = "LTO Demand Planning"
     Name        = "Visualization Table"
     Environment = var.environment
   }
