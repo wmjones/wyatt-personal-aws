@@ -48,7 +48,9 @@ jobs:
               run: |
                 cd src/lambda/athena
                 npm ci --only=production
-                zip -r9 athena-lambda.zip . -x "*.git*" -x "*.zip" -x "node_modules/.cache/*" -x "package-lock.json"
+                # Use consistent timestamps for reproducible builds
+                find . -type f -exec touch -t 200001010000.00 {} \;
+                zip -Xr9D athena-lambda.zip . -x "*.git*" -x "*.zip" -x "node_modules/.cache/*" -x "package-lock.json"
                 # Copy to main directory for Terraform
                 cp athena-lambda.zip ../../../main/
 
@@ -63,15 +65,27 @@ jobs:
                 # Install forecast sync dependencies
                 pip install -r src/lambda/forecast_sync/requirements.txt -t deploy/forecast_sync/
 
-                # Create ZIP package
+                # Create ZIP package with consistent timestamps
                 cd deploy/forecast_sync
-                zip -r9 forecast-sync-lambda.zip . -x "*.git*" -x "*.pyc" -x "__pycache__/*"
+                # Remove compiled Python files
+                find . -type f -name "*.pyc" -delete
+                find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+                # Set consistent timestamps
+                find . -type f -exec touch -t 200001010000.00 {} \;
+                zip -Xr9D forecast-sync-lambda.zip . -x "*.git*" -x "*.pyc" -x "__pycache__/*"
 
                 # Copy to main directory for Terraform
                 cp forecast-sync-lambda.zip ../../main/
 
             - name: Zip Python dependencies
-              run: zip -r9 ./deployment_package.zip ./
+              run: |
+                # Remove compiled Python files
+                find . -type f -name "*.pyc" -delete
+                find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+                # Set consistent timestamps for reproducible builds
+                find . -type f -exec touch -t 200001010000.00 {} \;
+                # Create zip with consistent settings
+                zip -Xr9D ./deployment_package.zip ./
               working-directory: ./deploy
 
             - name: Upload Python deployment package
@@ -91,3 +105,30 @@ jobs:
               with:
                   name: forecast-sync-lambda-package
                   path: ./main/forecast-sync-lambda.zip
+
+            - name: Generate Package Hashes
+              run: |
+                # Generate SHA256 hashes for all packages
+                echo "## Lambda Package Hashes" > package-hashes.txt
+                echo "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> package-hashes.txt
+                echo "" >> package-hashes.txt
+
+                cd main
+                for package in *.zip; do
+                  if [[ -f "$package" ]]; then
+                    hash=$(sha256sum "$package" | cut -d' ' -f1)
+                    echo "${package}: ${hash}" >> ../package-hashes.txt
+                  fi
+                done
+
+                cd ../deploy
+                if [[ -f "deployment_package.zip" ]]; then
+                  hash=$(sha256sum "deployment_package.zip" | cut -d' ' -f1)
+                  echo "deployment_package.zip: ${hash}" >> ../package-hashes.txt
+                fi
+
+            - name: Upload Package Hashes
+              uses: actions/upload-artifact@v4
+              with:
+                  name: package-hashes
+                  path: ./package-hashes.txt

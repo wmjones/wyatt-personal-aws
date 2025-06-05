@@ -137,15 +137,30 @@ jobs:
           CHANGE="${{ steps.plan-output.outputs.change }}"
           DESTROY="${{ steps.plan-output.outputs.destroy }}"
 
+          # Initially check for any changes
           if [[ "$ADD" == "0" && "$CHANGE" == "0" && "$DESTROY" == "0" ]]; then
             echo "✅ No drift detected in ${{ matrix.environment }}"
             echo "drift_detected=false" >> $GITHUB_OUTPUT
+            echo "real_drift_detected=false" >> $GITHUB_OUTPUT
           else
-            echo "⚠️ Drift detected in ${{ matrix.environment }}!"
-            echo "drift_detected=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Potential drift detected in ${{ matrix.environment }}!"
+
+            # Get detailed plan for analysis
+            PLAN_ID="${{ fromJSON(steps.plan-run.outputs.payload).data.relationships.plan.data.id }}"
+
+            # Check if changes are only Lambda source_code_hash
+            # This is a simplified check - in Terraform Cloud we can't easily get the JSON plan
+            # So we'll flag this for manual review but provide context
 
             SUMMARY="Resources to add: $ADD, change: $CHANGE, destroy: $DESTROY"
             echo "changes_summary=$SUMMARY" >> $GITHUB_OUTPUT
+
+            # For now, still report drift but add a note about Lambda functions
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+            echo "real_drift_detected=true" >> $GITHUB_OUTPUT
+
+            # Add note about Lambda package normalization
+            echo "lambda_note=Note: Lambda function changes may be due to package rebuilds. Check the plan details to confirm if source_code_hash is the only change." >> $GITHUB_OUTPUT
 
             # Set environment-specific output for reporting
             echo "drift_${{ matrix.environment }}=true" >> $GITHUB_ENV
@@ -218,6 +233,12 @@ jobs:
               body += `- **Resources to Destroy**: ${report.changes.destroy}\n`;
               body += `- **[View Terraform Plan](${report.plan_url})**\n\n`;
             }
+
+            // Add note about Lambda package normalization
+            body += '### 📦 Lambda Package Normalization\n\n';
+            body += 'This project uses normalized Lambda deployment packages to prevent false drift detection.\n';
+            body += 'If you see Lambda functions in the drift report, please check the Terraform plan to confirm\n';
+            body += 'whether the changes are only to `source_code_hash` (package rebuild) or include actual code changes.\n\n';
 
             body += '## 📋 Action Required\n\n';
             body += '1. Review the drift details in the Terraform Cloud plans linked above\n';
