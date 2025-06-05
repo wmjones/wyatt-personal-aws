@@ -89,6 +89,10 @@ export function useOnboarding(): UseOnboardingReturn {
 
     try {
       const token = await auth.getIdToken();
+      if (!token) {
+        throw new Error('Failed to get authentication token');
+      }
+
       const response = await fetch('/api/user/preferences', {
         method: 'PUT',
         headers: {
@@ -99,6 +103,11 @@ export function useOnboarding(): UseOnboardingReturn {
       });
 
       if (!response.ok) {
+        // Don't throw on 401 errors to prevent redirect loops
+        if (response.status === 401) {
+          console.error('Authentication error updating preferences');
+          return;
+        }
         throw new Error('Failed to update preferences');
       }
 
@@ -116,8 +125,28 @@ export function useOnboarding(): UseOnboardingReturn {
 
   // Convenience methods
   const markWelcomeSeen = useCallback(async () => {
-    await updatePreferences({ has_seen_welcome: true });
-  }, [updatePreferences]);
+    try {
+      await updatePreferences({ has_seen_welcome: true });
+    } catch (error) {
+      // If the update fails, still close the modal and continue
+      // This prevents redirect to login on skip
+      console.error('Failed to mark welcome as seen:', error);
+
+      // Update local state to prevent showing again in this session
+      if (preferences) {
+        setPreferences({
+          ...preferences,
+          has_seen_welcome: true
+        });
+
+        // Also update localStorage as a fallback
+        localStorage.setItem('userPreferences', JSON.stringify({
+          ...preferences,
+          has_seen_welcome: true
+        }));
+      }
+    }
+  }, [updatePreferences, preferences]);
 
   const markTourCompleted = useCallback(async () => {
     await updatePreferences({

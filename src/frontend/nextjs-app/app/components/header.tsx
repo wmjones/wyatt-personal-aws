@@ -1,13 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '../context/AuthContext'
 import { Button } from './ui/button'
 
 export default function Header() {
   const pathname = usePathname()
-  const { user, isAuthenticated, signOut } = useAuth()
+  const router = useRouter()
+  const { user, isAuthenticated, signOut, loading } = useAuth()
+
+  // Don't render navigation until auth state is loaded
+  if (loading) {
+    return (
+      <header className="border-b border-border">
+        <div className="container mx-auto px-4">
+          <nav className="flex items-center justify-between h-16">
+            <div className="text-xl font-bold">LTO Demand Planning</div>
+          </nav>
+        </div>
+      </header>
+    )
+  }
 
   const navItems = isAuthenticated ? [
     { href: '/demand-planning', label: 'Demand Planning' }
@@ -15,7 +29,16 @@ export default function Header() {
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.href = '/login'
+    router.push('/login')
+  }
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (isAuthenticated) {
+      router.push('/demand-planning')
+    } else {
+      router.push('/')
+    }
   }
 
   return (
@@ -23,9 +46,13 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href={isAuthenticated ? "/demand-planning" : "/login"} className="text-xl font-bold">
+            <a
+              href={isAuthenticated ? "/demand-planning" : "/"}
+              onClick={handleLogoClick}
+              className="text-xl font-bold hover:text-primary transition-colors cursor-pointer"
+            >
               LTO Demand Planning
-            </Link>
+            </a>
 
             <ul className="main-navigation hidden md:flex items-center space-x-6">
               {navItems.map((item) => (
