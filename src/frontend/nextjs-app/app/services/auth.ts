@@ -85,7 +85,13 @@ export const authService: AuthService = {
 
       return new Promise<TSignInResult>((resolve) => {
         cognitoUser.authenticateUser(authenticationDetails, {
-          onSuccess: () => {
+          onSuccess: (session) => {
+            // Store token in cookie for SSR
+            if (typeof window !== 'undefined' && session) {
+              const idToken = session.getIdToken().getJwtToken();
+              document.cookie = `auth-token=${idToken}; path=/; max-age=3600; SameSite=Lax`;
+            }
+
             resolve({
               success: true,
               user: mapCognitoUser(cognitoUser),
@@ -223,6 +229,11 @@ export const authService: AuthService = {
 
       if (cognitoUser) {
         cognitoUser.signOut();
+      }
+
+      // Clear the auth cookie
+      if (typeof window !== 'undefined') {
+        document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       }
 
       return {
@@ -458,6 +469,19 @@ export const authService: AuthService = {
   // Get ID token for API requests
   async getIdToken(): Promise<string | null> {
     try {
+      // First try to get from cookie (for SSR)
+      if (typeof window !== 'undefined') {
+        const cookieToken = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('auth-token='))
+          ?.split('=')[1];
+
+        if (cookieToken) {
+          return cookieToken;
+        }
+      }
+
+      // Fall back to Cognito session
       if (!userPool) {
         return null;
       }
@@ -473,7 +497,14 @@ export const authService: AuthService = {
           if (err || !session || !session.isValid()) {
             resolve(null);
           } else {
-            resolve(session.getIdToken().getJwtToken());
+            const token = session.getIdToken().getJwtToken();
+
+            // Store in cookie for SSR
+            if (typeof window !== 'undefined' && token) {
+              document.cookie = `auth-token=${token}; path=/; max-age=3600; SameSite=Lax`;
+            }
+
+            resolve(token);
           }
         });
       });

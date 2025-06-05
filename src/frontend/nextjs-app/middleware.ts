@@ -20,8 +20,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // Get the token from cookies (this will be set by Amplify)
-  const token = request.cookies.get('CognitoIdentityServiceProvider.UserPoolClientId.idToken');
+  // Get the token from cookies (set by our auth service)
+  const token = request.cookies.get('auth-token');
 
   // Handle root path - redirect based on auth status
   if (pathname === '/') {
