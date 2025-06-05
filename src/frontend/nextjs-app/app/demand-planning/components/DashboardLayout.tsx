@@ -4,6 +4,9 @@ import { useState, memo, useCallback } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
+import IntegratedControlPanel from './IntegratedControlPanel';
+import { ForecastSeries } from '@/app/types/demand-planning';
+
 // Dashboard view type
 type DashboardView = 'forecast' | 'history' | 'settings';
 
@@ -13,6 +16,12 @@ interface DashboardLayoutProps {
   onFilterSelectionChange?: (selections: FilterSelections) => void;
   activeTab: DashboardView;
   onTabChange: (tab: DashboardView) => void;
+  // New props for integrated control panel
+  forecastData?: ForecastSeries | null;
+  currentAdjustmentValue?: number;
+  onAdjustmentChange?: (adjustmentValue: number) => void;
+  onSaveAdjustment?: (adjustmentValue: number, filterContext: FilterSelections) => Promise<void>;
+  useIntegratedPanel?: boolean; // Flag to enable new integrated panel
 }
 
 const DashboardLayout = memo(function DashboardLayout({
@@ -20,7 +29,12 @@ const DashboardLayout = memo(function DashboardLayout({
   filterSelections,
   onFilterSelectionChange,
   activeTab,
-  onTabChange
+  onTabChange,
+  forecastData,
+  currentAdjustmentValue = 0,
+  onAdjustmentChange,
+  onSaveAdjustment,
+  useIntegratedPanel = true // Default to true to use the new integrated panel
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -92,10 +106,21 @@ const DashboardLayout = memo(function DashboardLayout({
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
-          <FilterSidebar
-            selections={filterSelections}
-            onSelectionChange={handleFilterSelectionChange}
-          />
+          {useIntegratedPanel && onAdjustmentChange && onSaveAdjustment ? (
+            <IntegratedControlPanel
+              filterSelections={filterSelections}
+              onFilterSelectionChange={handleFilterSelectionChange}
+              forecastData={forecastData}
+              currentAdjustmentValue={currentAdjustmentValue}
+              onAdjustmentChange={onAdjustmentChange}
+              onSaveAdjustment={onSaveAdjustment}
+            />
+          ) : (
+            <FilterSidebar
+              selections={filterSelections}
+              onSelectionChange={handleFilterSelectionChange}
+            />
+          )}
         </div>
 
         {/* Backdrop for mobile */}

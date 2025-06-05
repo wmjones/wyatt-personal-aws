@@ -28,6 +28,13 @@ function transformToForecastSeries(
     y_05: number;
     y_50: number;
     y_95: number;
+    // New adjustment fields
+    original_y_05?: number;
+    original_y_50?: number;
+    original_y_95?: number;
+    adjusted_y_50?: number;
+    total_adjustment_percent?: number;
+    adjustment_count?: number;
   }> }
 ): ForecastSeries {
   // Extract unique dates and create time periods
@@ -47,9 +54,17 @@ function transformToForecastSeries(
       });
     }
 
+    // Check if this data point has adjustments
+    const hasAdjustment = row.adjustment_count !== undefined && row.adjustment_count > 0;
+
+    // Use adjusted value if available, otherwise use original
+    const displayValue = hasAdjustment && row.adjusted_y_50 !== undefined
+      ? row.adjusted_y_50
+      : row.y_50 || 0;
+
     forecastData.push({
       periodId: `day-${date}`,
-      value: row.y_50 || 0,
+      value: displayValue,
       inventoryItemId: row.inventory_item_id,
       state: row.state,
       dmaId: row.dma_id,
@@ -57,6 +72,14 @@ function transformToForecastSeries(
       y_05: row.y_05 || 0,
       y_50: row.y_50 || 0,
       y_95: row.y_95 || 0,
+      // Include adjustment data
+      original_y_05: row.original_y_05,
+      original_y_50: row.original_y_50,
+      original_y_95: row.original_y_95,
+      adjusted_y_50: row.adjusted_y_50,
+      total_adjustment_percent: row.total_adjustment_percent,
+      adjustment_count: row.adjustment_count,
+      hasAdjustment
     });
   });
 

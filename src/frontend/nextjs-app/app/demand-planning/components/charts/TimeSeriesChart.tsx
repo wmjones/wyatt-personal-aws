@@ -50,10 +50,15 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       : [];
   }, [adjustedData, timePeriods]);
 
+  // Check if we have saved adjustments in the data
+  const hasSavedAdjustments = useMemo(() => {
+    return baselineData.some(point => point.hasAdjustment);
+  }, [baselineData]);
+
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {
-    // Use adjusted data for y_50 if available, otherwise use baseline
-    const dataSource = adjustedDataset.length > 0 ? adjustedDataset : baselineDataset;
+    // For real-time adjustments, use adjusted data if available
+    const dataSource = adjustedDataset.length > 0 && !hasSavedAdjustments ? adjustedDataset : baselineDataset;
 
     const y_05Data = baselineDataset.map(d => ({
       ...d,
@@ -70,8 +75,14 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       value: d.y_95 !== undefined ? d.y_95 : d.value * 1.15
     }));
 
-    return { y_05Data, y_50Data, y_95Data };
-  }, [baselineDataset, adjustedDataset]);
+    // For saved adjustments, create separate original data
+    const originalY50Data = hasSavedAdjustments ? baselineDataset.map(d => ({
+      ...d,
+      value: d.original_y_50 !== undefined ? d.original_y_50 : d.y_50 || d.value
+    })) : [];
+
+    return { y_05Data, y_50Data, y_95Data, originalY50Data };
+  }, [baselineDataset, adjustedDataset, hasSavedAdjustments]);
 
   // Get the period type from the first time period (assuming all periods have the same type)
   const periodType = timePeriods.length > 0 ? timePeriods[0].type : 'quarter';
@@ -222,12 +233,26 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
     // 3. y_50 (Median forecast) - if enabled
     if (showY50) {
+      // If we have saved adjustments, show original line first (dashed and grayed)
+      if (hasSavedAdjustments && forecastData.originalY50Data.length > 0) {
+        g.append('path')
+          .datum(forecastData.originalY50Data)
+          .attr('class', 'original-y50-line')
+          .attr('d', line)
+          .attr('fill', 'none')
+          .attr('stroke', 'var(--dp-text-tertiary, #9CA3AF)') // Gray color
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '4,4') // Dashed line
+          .attr('opacity', 0.6);
+      }
+
+      // Current/adjusted y_50 line
       g.append('path')
         .datum(forecastData.y_50Data)
         .attr('class', 'y50-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke', hasSavedAdjustments ? 'var(--dp-chart-edited, #FCD34D)' : 'var(--dp-chart-forecasted)')
         .attr('stroke-width', 2.5);
 
       // Add data points for y_50
@@ -239,9 +264,28 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('cx', d => xScale(d.date))
         .attr('cy', d => yScale(d.value))
         .attr('r', 4)
-        .attr('fill', 'var(--dp-chart-forecasted)')
+        .attr('fill', hasSavedAdjustments ? 'var(--dp-chart-edited, #FCD34D)' : 'var(--dp-chart-forecasted)')
         .attr('stroke', '#FFFFFF')
         .attr('stroke-width', 1.5);
+
+      // Add adjustment indicators for points with saved adjustments
+      if (hasSavedAdjustments) {
+        g.selectAll('.adjustment-indicator')
+          .data(forecastData.y_50Data.filter((d) => (d as ForecastDataPoint).hasAdjustment))
+          .enter()
+          .append('text')
+          .attr('class', 'adjustment-indicator')
+          .attr('x', (d) => xScale(d.date))
+          .attr('y', d => yScale(d.value) - 10)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', '10px')
+          .attr('fill', 'var(--dp-chart-edited, #FCD34D)')
+          .text((d) => {
+            const point = d as ForecastDataPoint;
+            const adjustment = point.total_adjustment_percent;
+            return adjustment ? `${adjustment > 0 ? '+' : ''}${adjustment.toFixed(1)}%` : '';
+          });
+      }
     }
 
     // 4. Actual data (blue line) - if enabled
@@ -336,11 +380,28 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       hoverLine.attr('x1', xPos).attr('x2', xPos);
       hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
 
-      // Update tooltip content - clean and simple
-      const tooltipHtml = `<div class="p-2">
-        <div class="text-xs text-gray-600">${formatDate(d.date as Date, periodType)}</div>
-        <div class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</div>
-      </div>`;
+      // Update tooltip content - show both original and adjusted if applicable
+      let tooltipHtml = `<div class="p-2">
+        <div class="text-xs text-gray-600">${formatDate(d.date as Date, periodType)}</div>`;
+
+      // Check if this point has a saved adjustment
+      const point = d as ForecastDataPoint;
+      const hasAdjustment = point.hasAdjustment;
+      const originalValue = point.original_y_50;
+      const adjustmentPercent = point.total_adjustment_percent;
+
+      if (hasAdjustment && originalValue !== undefined) {
+        tooltipHtml += `
+          <div class="text-sm text-gray-500" style="text-decoration: line-through;">$${formatNumber(originalValue)}k</div>
+          <div class="text-sm font-semibold" style="color: var(--dp-chart-edited, #FCD34D);">
+            $${formatNumber(d.value)}k
+            <span class="text-xs">(${adjustmentPercent && adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent?.toFixed(1)}%)</span>
+          </div>`;
+      } else {
+        tooltipHtml += `<div class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</div>`;
+      }
+
+      tooltipHtml += `</div>`;
 
       setTooltipContent(tooltipHtml);
       setTooltipPosition({
@@ -371,7 +432,8 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     showY50,
     showY95,
     showEdited,
-    showActual
+    showActual,
+    hasSavedAdjustments
   ]);
 
   return (

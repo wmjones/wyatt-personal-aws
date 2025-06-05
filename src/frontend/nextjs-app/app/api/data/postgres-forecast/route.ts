@@ -107,22 +107,22 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 
   // Build WHERE conditions
   if (filters?.restaurantId) {
-    conditions.push(`restaurant_id = $${++paramCount}`);
+    conditions.push(`fd.restaurant_id = $${++paramCount}`);
     values.push(filters.restaurantId);
   }
 
   if (filters?.inventoryItemId) {
-    conditions.push(`inventory_item_id = $${++paramCount}`);
+    conditions.push(`fd.inventory_item_id = $${++paramCount}`);
     values.push(filters.inventoryItemId);
   }
 
   if (filters?.state) {
     if (Array.isArray(filters.state)) {
       const placeholders = filters.state.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`state IN (${placeholders})`);
+      conditions.push(`fd.state IN (${placeholders})`);
       values.push(...filters.state);
     } else {
-      conditions.push(`state = $${++paramCount}`);
+      conditions.push(`fd.state = $${++paramCount}`);
       values.push(filters.state);
     }
   }
@@ -130,10 +130,10 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   if (filters?.dmaId) {
     if (Array.isArray(filters.dmaId)) {
       const placeholders = filters.dmaId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dma_id IN (${placeholders})`);
+      conditions.push(`fd.dma_id IN (${placeholders})`);
       values.push(...filters.dmaId);
     } else {
-      conditions.push(`dma_id = $${++paramCount}`);
+      conditions.push(`fd.dma_id = $${++paramCount}`);
       values.push(filters.dmaId);
     }
   }
@@ -141,10 +141,10 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   if (filters?.dcId) {
     if (Array.isArray(filters.dcId)) {
       const placeholders = filters.dcId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dc_id IN (${placeholders})`);
+      conditions.push(`fd.dc_id IN (${placeholders})`);
       values.push(...filters.dcId);
     } else {
-      conditions.push(`dc_id = $${++paramCount}`);
+      conditions.push(`fd.dc_id = $${++paramCount}`);
       values.push(filters.dcId);
     }
   }
@@ -152,7 +152,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   if (filters?.startDate) {
     const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
-      conditions.push(`business_date >= $${++paramCount}`);
+      conditions.push(`fd.business_date >= $${++paramCount}`);
       values.push(startDate);
     }
   }
@@ -160,7 +160,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   if (filters?.endDate) {
     const endDate = toPostgresDate(filters.endDate);
     if (endDate) {
-      conditions.push(`business_date <= $${++paramCount}`);
+      conditions.push(`fd.business_date <= $${++paramCount}`);
       values.push(endDate);
     }
   }
@@ -169,41 +169,120 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   const limit = filters?.limit || 10000;
 
   // When filtering by specific inventory item, aggregate by date
-  // This provides pre-aggregated data equivalent to:
-  // SELECT inventory_item_id, business_date, SUM(y_50), SUM(y_05), SUM(y_95)
-  // FROM forecast_data WHERE inventory_item_id = X GROUP BY inventory_item_id, business_date
   const aggregateByDate = filters?.inventoryItemId != null;
 
-  const query = aggregateByDate ? `
+  // Get active adjustments that apply to this filter context
+  const adjustmentSubquery = `
     SELECT
-      inventory_item_id,
-      business_date::text as business_date,
-      ${filters?.dmaId ? 'STRING_AGG(DISTINCT dma_id::text, \',\' ORDER BY dma_id::text)' : '\'AGGREGATED\''} as dma_id,
-      ${filters?.dcId ? 'STRING_AGG(DISTINCT dc_id::text, \',\' ORDER BY dc_id::text)' : '\'-1\''} as dc_id,
-      ${filters?.state ? 'STRING_AGG(DISTINCT state, \',\' ORDER BY state)' : '\'ALL\''} as state,
+      fa.adjustment_value,
+      fa.filter_context,
+      fa.inventory_item_name,
+      fa.adjustment_start_date,
+      fa.adjustment_end_date
+    FROM forecast_adjustments fa
+    WHERE fa.is_active = true
+      AND (
+        -- Match inventory item if specified
+        (fa.filter_context->>'inventoryItemId' IS NULL OR fa.filter_context->>'inventoryItemId' = '${filters?.inventoryItemId || ''}')
+        -- Match states
+        AND (
+          fa.filter_context->'states' IS NULL
+          OR fa.filter_context->'states' = '[]'::jsonb
+          ${filters?.state ? `OR (
+            ${Array.isArray(filters.state)
+              ? filters.state.map(s => `fa.filter_context->'states' @> '["${s}"]'::jsonb`).join(' OR ')
+              : `fa.filter_context->'states' @> '["${filters.state}"]'::jsonb`
+            }
+          )` : ''}
+        )
+        -- Match DMAs
+        AND (
+          fa.filter_context->'dmaIds' IS NULL
+          OR fa.filter_context->'dmaIds' = '[]'::jsonb
+          ${filters?.dmaId ? `OR (
+            ${Array.isArray(filters.dmaId)
+              ? filters.dmaId.map(d => `fa.filter_context->'dmaIds' @> '["${d}"]'::jsonb`).join(' OR ')
+              : `fa.filter_context->'dmaIds' @> '["${filters.dmaId}"]'::jsonb`
+            }
+          )` : ''}
+        )
+        -- Match DCs
+        AND (
+          fa.filter_context->'dcIds' IS NULL
+          OR fa.filter_context->'dcIds' = '[]'::jsonb
+          ${filters?.dcId ? `OR (
+            ${Array.isArray(filters.dcId)
+              ? filters.dcId.map(d => `fa.filter_context->'dcIds' @> '["${d}"]'::jsonb`).join(' OR ')
+              : `fa.filter_context->'dcIds' @> '["${filters.dcId}"]'::jsonb`
+            }
+          )` : ''}
+        )
+        -- Time window filtering: adjustment applies to the current business_date
+        AND (
+          fa.adjustment_start_date IS NULL
+          OR (
+            fa.adjustment_start_date <= fd.business_date
+            AND fa.adjustment_end_date >= fd.business_date
+          )
+        )
+      )
+    ORDER BY fa.created_at DESC
+  `;
+
+  const query = aggregateByDate ? `
+    WITH adjustments AS (${adjustmentSubquery})
+    SELECT
+      fd.inventory_item_id,
+      fd.business_date::text as business_date,
+      ${filters?.dmaId ? 'STRING_AGG(DISTINCT fd.dma_id::text, \',\' ORDER BY fd.dma_id::text)' : '\'AGGREGATED\''} as dma_id,
+      ${filters?.dcId ? 'STRING_AGG(DISTINCT fd.dc_id::text, \',\' ORDER BY fd.dc_id::text)' : '\'-1\''} as dc_id,
+      ${filters?.state ? 'STRING_AGG(DISTINCT fd.state, \',\' ORDER BY fd.state)' : '\'ALL\''} as state,
       1 as restaurant_id,
-      SUM(y_05) as y_05,
-      SUM(y_50) as y_50,
-      SUM(y_95) as y_95
-    FROM forecast_data
+      SUM(fd.y_05) as y_05,
+      SUM(fd.y_50) as y_50,
+      SUM(fd.y_95) as y_95,
+      -- Original values
+      SUM(fd.y_05) as original_y_05,
+      SUM(fd.y_50) as original_y_50,
+      SUM(fd.y_95) as original_y_95,
+      -- Apply adjustments
+      COALESCE(
+        SUM(fd.y_50) * (1 + COALESCE((SELECT SUM(adjustment_value) / 100 FROM adjustments), 0)),
+        SUM(fd.y_50)
+      ) as adjusted_y_50,
+      COALESCE((SELECT SUM(adjustment_value) FROM adjustments), 0) as total_adjustment_percent,
+      COALESCE((SELECT COUNT(*) FROM adjustments), 0) as adjustment_count
+    FROM forecast_data fd
     ${whereClause}
-    GROUP BY inventory_item_id, business_date
-    ORDER BY business_date DESC
+    GROUP BY fd.inventory_item_id, fd.business_date
+    ORDER BY fd.business_date DESC
     LIMIT ${limit}
   ` : `
+    WITH adjustments AS (${adjustmentSubquery})
     SELECT
-      restaurant_id,
-      inventory_item_id,
-      business_date::text as business_date,
-      dma_id,
-      dc_id,
-      state,
-      y_05,
-      y_50,
-      y_95
-    FROM forecast_data
+      fd.restaurant_id,
+      fd.inventory_item_id,
+      fd.business_date::text as business_date,
+      fd.dma_id,
+      fd.dc_id,
+      fd.state,
+      fd.y_05,
+      fd.y_50,
+      fd.y_95,
+      -- Original values
+      fd.y_05 as original_y_05,
+      fd.y_50 as original_y_50,
+      fd.y_95 as original_y_95,
+      -- Apply adjustments
+      COALESCE(
+        fd.y_50 * (1 + COALESCE((SELECT SUM(adjustment_value) / 100 FROM adjustments), 0)),
+        fd.y_50
+      ) as adjusted_y_50,
+      COALESCE((SELECT SUM(adjustment_value) FROM adjustments), 0) as total_adjustment_percent,
+      COALESCE((SELECT COUNT(*) FROM adjustments), 0) as adjustment_count
+    FROM forecast_data fd
     ${whereClause}
-    ORDER BY business_date DESC, state, restaurant_id
+    ORDER BY fd.business_date DESC, fd.state, fd.restaurant_id
     LIMIT ${limit}
   `;
 
@@ -211,7 +290,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 
   // Debug logging for aggregated queries
   if (aggregateByDate) {
-    console.log('Aggregated forecast query:', {
+    console.log('Aggregated forecast query with adjustments:', {
       inventoryItemId: filters?.inventoryItemId,
       appliedFilters: {
         state: filters?.state,
@@ -222,6 +301,9 @@ async function getForecastData(filters: ForecastFilters | undefined) {
       sampleRows: result.rows.slice(0, 3).map(row => ({
         date: row.business_date,
         y_50: row.y_50,
+        original_y_50: row.original_y_50,
+        adjusted_y_50: row.adjusted_y_50,
+        adjustment_percent: row.total_adjustment_percent,
         state: row.state,
         dma_id: row.dma_id,
         dc_id: row.dc_id

@@ -28,7 +28,9 @@ async function ensureForecastAdjustmentsTable() {
           user_email VARCHAR(255),
           user_name VARCHAR(255),
           is_active BOOLEAN DEFAULT true,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          adjustment_start_date DATE,
+          adjustment_end_date DATE
         )
       `);
 
@@ -55,6 +57,12 @@ async function ensureForecastAdjustmentsTable() {
 
       await query(`
         CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_user_email ON forecast_adjustments(user_email)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_forecast_adjustments_date_range
+        ON forecast_adjustments(adjustment_start_date, adjustment_end_date)
+        WHERE adjustment_start_date IS NOT NULL
       `);
 
       // Create update trigger
@@ -129,6 +137,10 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       );
     }
 
+    // Extract adjustment time window if present
+    const adjustmentStartDate = filterContext.adjustmentDateRange?.startDate || null;
+    const adjustmentEndDate = filterContext.adjustmentDateRange?.endDate || null;
+
     // Insert adjustment into database with multi-user support
     const result = await query<{
       id: number;
@@ -140,6 +152,8 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       user_name: string;
       is_active: boolean;
       created_at: string;
+      adjustment_start_date: string | null;
+      adjustment_end_date: string | null;
     }>(`
       INSERT INTO forecast_adjustments (
         adjustment_value,
@@ -148,16 +162,20 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
         user_id,
         user_email,
         user_name,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      RETURNING id, adjustment_value, filter_context, inventory_item_name, user_id, user_email, user_name, is_active, created_at
+        created_at,
+        adjustment_start_date,
+        adjustment_end_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)
+      RETURNING id, adjustment_value, filter_context, inventory_item_name, user_id, user_email, user_name, is_active, created_at, adjustment_start_date, adjustment_end_date
     `, [
       adjustmentValue,
       JSON.stringify(filterContext),
       inventoryItemName || null,
       request.user?.sub,
       request.user?.email,
-      request.user?.username || request.user?.email?.split('@')[0] || 'Unknown'
+      request.user?.username || request.user?.email?.split('@')[0] || 'Unknown',
+      adjustmentStartDate,
+      adjustmentEndDate
     ]);
 
     const savedAdjustment = result.rows[0];
@@ -173,7 +191,9 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
         userEmail: savedAdjustment.user_email,
         userName: savedAdjustment.user_name,
         isActive: savedAdjustment.is_active,
-        timestamp: savedAdjustment.created_at
+        timestamp: savedAdjustment.created_at,
+        adjustmentStartDate: savedAdjustment.adjustment_start_date,
+        adjustmentEndDate: savedAdjustment.adjustment_end_date
       }
     });
 
@@ -200,7 +220,8 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
     // Build query based on parameters
     let queryStr = `
       SELECT id, adjustment_value, filter_context, inventory_item_name,
-             user_id, user_email, user_name, is_active, created_at, updated_at
+             user_id, user_email, user_name, is_active, created_at, updated_at,
+             adjustment_start_date, adjustment_end_date
       FROM forecast_adjustments
       WHERE is_active = true
     `;
@@ -235,6 +256,8 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       is_active: boolean;
       created_at: string;
       updated_at: string;
+      adjustment_start_date: string | null;
+      adjustment_end_date: string | null;
     }>(queryStr, params);
 
     const adjustments = result.rows.map((row) => ({
@@ -248,6 +271,8 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       isActive: row.is_active,
       timestamp: row.created_at,
       updatedAt: row.updated_at,
+      adjustmentStartDate: row.adjustment_start_date,
+      adjustmentEndDate: row.adjustment_end_date,
       isOwn: row.user_id === request.user?.sub
     }));
 

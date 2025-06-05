@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
 import DateRangeFilter from './DateRangeFilter';
@@ -10,6 +10,7 @@ import {
   useDCOptions,
   useInventoryItemOptions
 } from '@/app/hooks/useDropdownOptions';
+import { useFilteredOptions } from '../hooks/useHierarchicalMapping';
 
 export interface FilterSelections {
   states: string[];
@@ -41,8 +42,26 @@ export default function FilterSidebar({
   const { data: dcOptions = [], isLoading: isLoadingDCs, error: dcsError } = useDCOptions();
   const { data: inventoryOptions = [], isLoading: isLoadingInventory, error: inventoryError } = useInventoryItemOptions();
 
+  // Get filtered options based on selected states
+  const { isDMAAvailable, isDCAvailable, isLoading: isLoadingHierarchy } = useFilteredOptions(localSelections.states);
+
+  // Mark unavailable options as disabled
+  const filteredDMAOptions = useMemo(() => {
+    return dmaOptions.map(option => ({
+      ...option,
+      disabled: !isDMAAvailable(option.value)
+    }));
+  }, [dmaOptions, isDMAAvailable]);
+
+  const filteredDCOptions = useMemo(() => {
+    return dcOptions.map(option => ({
+      ...option,
+      disabled: !isDCAvailable(option.value)
+    }));
+  }, [dcOptions, isDCAvailable]);
+
   // Aggregate loading and error states
-  const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory;
+  const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory || isLoadingHierarchy;
   const error = statesError || dmasError || dcsError || inventoryError;
 
   // Initialize with first inventory item and default date range if not selected
@@ -178,7 +197,7 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">DMAs</h3>
           <MultiSelectFilter
             title=""
-            options={dmaOptions}
+            options={filteredDMAOptions}
             selectedValues={localSelections.dmaIds}
             onChange={handleDmaChange}
             placeholder={isLoadingDMAs ? "Loading..." : "Select DMAs"}
@@ -190,7 +209,7 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">Distribution Centers</h3>
           <MultiSelectFilter
             title=""
-            options={dcOptions}
+            options={filteredDCOptions}
             selectedValues={localSelections.dcIds}
             onChange={handleDcChange}
             placeholder={isLoadingDCs ? "Loading..." : "Select DCs"}

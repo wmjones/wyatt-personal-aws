@@ -23,12 +23,19 @@ const ForecastCharts = memo(function ForecastCharts({
   // Use the data as-is since filtering is now done by the parent component
   const filteredBaselineData = forecastData.baseline;
 
+  // Check if we have saved adjustments in the baseline data
+  const hasSavedAdjustments = useMemo(() => {
+    return forecastData.baseline.some(point => point.hasAdjustment);
+  }, [forecastData.baseline]);
+
   // Apply real-time adjustment to create adjusted data - memoized for performance
   const filteredAdjustedData = useMemo(() => {
-    if (adjustmentValue === 0) {
+    // If we have saved adjustments, don't apply real-time adjustments on top
+    if (hasSavedAdjustments || adjustmentValue === 0) {
       return forecastData.adjusted;
     }
 
+    // Only apply real-time adjustments if there are no saved adjustments
     return forecastData.baseline.map(point => ({
       ...point,
       value: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
@@ -36,7 +43,7 @@ const ForecastCharts = memo(function ForecastCharts({
       y_50: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
       y_95: point.y_95
     }));
-  }, [adjustmentValue, forecastData.baseline, forecastData.adjusted]);
+  }, [adjustmentValue, forecastData.baseline, forecastData.adjusted, hasSavedAdjustments]);
 
 
   return (

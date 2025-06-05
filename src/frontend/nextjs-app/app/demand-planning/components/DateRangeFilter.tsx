@@ -16,9 +16,17 @@ interface DateRangeFilterProps {
   value: DateRangeSelection;
   onChange: (value: DateRangeSelection) => void;
   className?: string;
+  minDate?: Date | string | null;
+  maxDate?: Date | string | null;
 }
 
-export default function DateRangeFilter({ value, onChange, className = '' }: DateRangeFilterProps) {
+export default function DateRangeFilter({
+  value,
+  onChange,
+  className = '',
+  minDate,
+  maxDate
+}: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +90,8 @@ export default function DateRangeFilter({ value, onChange, className = '' }: Dat
             direction="horizontal"
             moveRangeOnFirstSelection={false}
             className="rounded-lg"
+            minDate={minDate ? (typeof minDate === 'string' ? new Date(minDate) : minDate) : undefined}
+            maxDate={maxDate ? (typeof maxDate === 'string' ? new Date(maxDate) : maxDate) : undefined}
           />
           <div className="p-3 border-t border-dp-frame-border flex justify-end gap-2">
             <button
