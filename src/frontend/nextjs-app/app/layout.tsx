@@ -7,6 +7,7 @@ import Header from "./components/header";
 import Footer from "./components/footer";
 import { Toaster } from "react-hot-toast";
 import OnboardingManager from "./components/onboarding/OnboardingManager";
+import FeedbackButton from "./components/FeedbackButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
                 {children}
               </main>
               <Footer />
+              <FeedbackButton />
               <Toaster
                 position="top-right"
                 toastOptions={{
