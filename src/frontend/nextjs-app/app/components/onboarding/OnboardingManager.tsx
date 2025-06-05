@@ -13,36 +13,6 @@ interface OnboardingManagerProps {
 }
 
 // Define tour steps for different pages
-const dashboardTourSteps: TourStep[] = [
-  {
-    id: 'dashboard-welcome',
-    title: 'Welcome to Your Dashboard',
-    content: 'This is your central hub for viewing and managing demand forecasts. Let me show you around!',
-    placement: 'center',
-    showPrev: false
-  },
-  {
-    id: 'dashboard-stats',
-    title: 'Key Metrics',
-    content: 'These cards show your most important metrics at a glance. Click any card to dive deeper.',
-    target: '.dashboard-stats',
-    placement: 'bottom'
-  },
-  {
-    id: 'dashboard-nav',
-    title: 'Navigation',
-    content: 'Use the navigation menu to access different features like Demand Planning and Reports.',
-    target: '.main-navigation',
-    placement: 'right'
-  },
-  {
-    id: 'dashboard-complete',
-    title: 'Ready to Explore!',
-    content: 'You\'re all set! Head to the Demand Planning page to start working with forecasts.',
-    placement: 'center',
-    showSkip: false
-  }
-];
 
 const demandPlanningTourSteps: TourStep[] = [
   {
@@ -107,13 +77,9 @@ export default function OnboardingManager({ children }: OnboardingManagerProps) 
     if (!shouldShowTour || showWelcomeModal) return;
 
     // Check if user has completed the tour for the current page
-    const hasCompletedDashboardTour = preferences?.tour_progress?.['dashboard-complete'] === true;
     const hasCompletedDemandTour = preferences?.tour_progress?.['demand-complete'] === true;
 
-    if (pathname === '/dashboard' && !hasCompletedDashboardTour) {
-      setCurrentTourSteps(dashboardTourSteps);
-      setShowProductTour(true);
-    } else if (pathname === '/demand-planning' && !hasCompletedDemandTour) {
+    if (pathname === '/demand-planning' && !hasCompletedDemandTour) {
       setCurrentTourSteps(demandPlanningTourSteps);
       setShowProductTour(true);
     }
@@ -134,7 +100,6 @@ export default function OnboardingManager({ children }: OnboardingManagerProps) 
 
   // Get the tour steps for the current page
   const getCurrentPageTourSteps = () => {
-    if (pathname === '/dashboard') return dashboardTourSteps;
     if (pathname === '/demand-planning') return demandPlanningTourSteps;
     return [];
   };

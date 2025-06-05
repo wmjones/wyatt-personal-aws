@@ -9,15 +9,9 @@ export default function Header() {
   const pathname = usePathname()
   const { user, isAuthenticated, signOut } = useAuth()
 
-  const navItems = [
-    { href: '/', label: 'Home' },
-    { href: '/about', label: 'About' },
-    ...(isAuthenticated ? [
-      { href: '/dashboard', label: 'Dashboard' },
-      { href: '/demand-planning', label: 'Demand Planning' },
-      { href: '/visualizations', label: 'Reports' }
-    ] : []),
-  ]
+  const navItems = isAuthenticated ? [
+    { href: '/demand-planning', label: 'Demand Planning' }
+  ] : []
 
   const handleSignOut = async () => {
     await signOut()
@@ -29,7 +23,7 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="text-xl font-bold">
+            <Link href={isAuthenticated ? "/demand-planning" : "/login"} className="text-xl font-bold">
               LTO Demand Planning
             </Link>
 

@@ -41,7 +41,7 @@ export default function Header({ refreshData, activeTab = 'forecast', onTabChang
     <header className="bg-white border-b border-gray-200 h-[var(--dp-header-height)] flex flex-col justify-center">
       <div className="flex items-center justify-between px-4">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-medium text-dp-text-primary">Forecasting</h1>
+          <h1 className="text-2xl font-medium text-dp-text-primary">LTO Demand Planning - Forecasting</h1>
         </div>
 
         <div className="flex items-center">

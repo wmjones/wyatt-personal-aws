@@ -8,15 +8,7 @@ export default function Footer() {
           </div>
 
           <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <a href="/privacy" className="hover:text-primary transition-colors">
-              Privacy Policy
-            </a>
-            <a href="/terms" className="hover:text-primary transition-colors">
-              Terms of Service
-            </a>
-            <a href="https://github.com" className="hover:text-primary transition-colors">
-              GitHub
-            </a>
+            <span>LTO Demand Planning System</span>
           </div>
         </div>
       </div>

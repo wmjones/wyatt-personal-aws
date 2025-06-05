@@ -49,7 +49,7 @@ export default function SignUpPage() {
           <div className="text-center">
             <h1 className="text-3xl font-bold">Create Account</h1>
             <p className="text-muted-foreground mt-2">
-              Sign up to get started with your dashboard
+              Sign up to access LTO Demand Planning
             </p>
           </div>
 

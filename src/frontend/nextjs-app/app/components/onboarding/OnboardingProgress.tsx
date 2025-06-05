@@ -57,8 +57,6 @@ export default function OnboardingProgress() {
             // Navigate to the next uncompleted step
             if (!preferences.has_seen_welcome) {
               window.location.reload(); // Trigger welcome modal
-            } else if (!preferences.tour_progress?.['dashboard-complete']) {
-              window.location.href = '/dashboard';
             } else if (!preferences.tour_progress?.['demand-complete']) {
               window.location.href = '/demand-planning';
             }
