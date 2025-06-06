@@ -1,0 +1,204 @@
+name: Database Migrations (Drizzle)
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/frontend/nextjs-app/drizzle/**'
+      - 'src/frontend/nextjs-app/app/db/schema/**'
+      - '.github/workflows/drizzle-migrations.yml'
+  pull_request:
+    paths:
+      - 'src/frontend/nextjs-app/drizzle/**'
+      - 'src/frontend/nextjs-app/app/db/schema/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run migrations'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      action:
+        description: 'Migration action'
+        required: true
+        default: 'migrate'
+        type: choice
+        options:
+          - migrate
+          - push
+          - check
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  check-migrations:
+    name: Check Migration Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/frontend/nextjs-app/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd src/frontend/nextjs-app
+          npm ci
+
+      - name: Generate migrations
+        run: |
+          cd src/frontend/nextjs-app
+          npm run drizzle:generate
+
+      - name: Check for uncommitted migrations
+        run: |
+          if [ -n "$(git status --porcelain src/frontend/nextjs-app/drizzle/)" ]; then
+            echo "❌ Uncommitted migration files detected!"
+            echo "Please run 'npm run drizzle:generate' and commit the changes."
+            git status --porcelain src/frontend/nextjs-app/drizzle/
+            exit 1
+          else
+            echo "✅ All migrations are committed"
+          fi
+
+  run-migrations:
+    name: Run Migrations - ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) ||
+      github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]') || fromJSON('["dev"]')) }}
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/frontend/nextjs-app/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd src/frontend/nextjs-app
+          npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Get database credentials from SSM
+        id: get-credentials
+        run: |
+          echo "Fetching database credentials for ${{ matrix.environment }}"
+
+          # Get Neon database URL from SSM
+          DATABASE_URL=$(aws ssm get-parameter \
+            --name "/nextjs/${{ matrix.environment }}/neon/database-url" \
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text)
+
+          # Mask the URL in logs
+          echo "::add-mask::$DATABASE_URL"
+
+          # Set as output
+          echo "database_url=$DATABASE_URL" >> $GITHUB_OUTPUT
+
+      - name: Check migration status
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          node -e "
+          const { checkMigrationStatus } = require('./app/db/migrate');
+          checkMigrationStatus().then(status => {
+            console.log('Migration Status:', status);
+          });
+          "
+
+      - name: Run migrations (migrate)
+        if: github.event_name != 'workflow_dispatch' || inputs.action == 'migrate'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "Running Drizzle migrations..."
+          npm run drizzle:migrate:run
+
+      - name: Push schema changes (push)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'push'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "Pushing schema changes directly..."
+          npm run drizzle:push
+
+      - name: Verify migration success
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          node -e "
+          const { checkMigrationStatus } = require('./app/db/migrate');
+          checkMigrationStatus().then(status => {
+            if (!status.hasDrizzleMigrations) {
+              console.error('❌ Migrations were not applied successfully');
+              process.exit(1);
+            }
+            console.log('✅ Migrations verified successfully');
+          });
+          "
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const environment = '${{ matrix.environment }}';
+            const action = '${{ inputs.action || 'migrate' }}';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ Database migration failed in **${environment}** environment (action: ${action}). Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`
+            });
+
+  rollback-migrations:
+    name: Rollback Migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Manual approval required
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ github.repository_owner }}
+          minimum-approvals: 1
+          issue-title: "Approve database rollback in ${{ inputs.environment }}"
+          issue-body: "Please approve the database rollback in **${{ inputs.environment }}** environment."
+
+      # Add rollback steps here when implemented

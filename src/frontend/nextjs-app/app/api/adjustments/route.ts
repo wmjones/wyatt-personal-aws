@@ -1,3 +1,11 @@
+/**
+ * Adjustments API Route
+ *
+ * NOTE: A Drizzle ORM version of this route is available at route.drizzle.ts
+ * Once the Drizzle migration is complete and tested, this file can be replaced
+ * with the Drizzle version for better type safety and performance.
+ */
+
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/postgres';
 import { withAuth, AuthenticatedRequest } from '@/app/lib/auth-middleware';
