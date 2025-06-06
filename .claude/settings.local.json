@@ -81,7 +81,8 @@
       "Bash(git rm:*)",
       "Bash(npm install)",
       "mcp__taskmaster-ai__add_task",
-      "mcp__taskmaster-ai__set_task_status"
+      "mcp__taskmaster-ai__set_task_status",
+      "mcp__taskmaster-ai__update_subtask"
     ]
   },
   "enableAllProjectMcpServers": true,
