@@ -149,26 +149,26 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 
   // Match inventory item if specified
   if (filters?.inventoryItemId) {
-    adjustmentConditions.push(
-      or(
-        sql`${forecastAdjustments.filterContext}->>'inventoryItemId' IS NULL`,
-        sql`${forecastAdjustments.filterContext}->>'inventoryItemId' = ${filters.inventoryItemId}`
-      )
+    const inventoryCondition = or(
+      sql`${forecastAdjustments.filterContext}->>'inventoryItemId' IS NULL`,
+      sql`${forecastAdjustments.filterContext}->>'inventoryItemId' = ${filters.inventoryItemId}`
     );
+    if (inventoryCondition) {
+      adjustmentConditions.push(inventoryCondition);
+    }
   }
 
   // Complex adjustment query logic would need to be implemented here
   // For now, returning a simplified version
-  const baseQuery = db
+  let query = db
     .select()
     .from(forecastData);
     
-  let finalQuery = baseQuery;
   if (conditions.length > 0) {
-    finalQuery = baseQuery.where(and(...conditions));
+    query = query.where(and(...conditions));
   }
   
-  const result = await finalQuery
+  const result = await query
     .orderBy(desc(forecastData.businessDate))
     .limit(limit);
     

@@ -3,13 +3,16 @@ import { drizzle as drizzleServerless } from 'drizzle-orm/neon-serverless';
 import { Pool } from '@neondatabase/serverless';
 import { neon } from '@neondatabase/serverless';
 import * as schema from './schema';
+import { resolveDatabaseConfig, getDatabaseDescription } from './branch-connection';
 
-// Get database URL from environment
-const DATABASE_URL = process.env.DATABASE_URL;
-const DATABASE_URL_UNPOOLED = process.env.DATABASE_URL_UNPOOLED;
+// Get database configuration based on deployment environment
+const dbConfig = resolveDatabaseConfig();
+const DATABASE_URL = dbConfig.databaseUrl;
+const DATABASE_URL_UNPOOLED = dbConfig.databaseUrlUnpooled || dbConfig.databaseUrl;
 
-if (!DATABASE_URL) {
-  throw new Error('DATABASE_URL is not defined');
+// Log database connection info (only in development or with debug flag)
+if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
+  console.log(`[Drizzle] Connecting to ${getDatabaseDescription()}`);
 }
 
 // HTTP client for one-off queries (good for serverless)

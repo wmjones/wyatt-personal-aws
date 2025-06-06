@@ -58,9 +58,9 @@ on:
         default: 'migrate'
         type: choice
         options:
-          - migrate
-          - push
-          - check
+          - migrate  # Apply pending migrations using migration files
+          - push     # Push schema changes directly without creating migration files
+          - check    # Check migration status without making any changes
 
 env:
   NODE_VERSION: '22'
@@ -81,10 +81,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'src/frontend/nextjs-app/package-lock.json'
 
-      - name: Install dependencies
+      - name: Install dependencies (dev only)
         run: |
           cd src/frontend/nextjs-app
-          npm ci
+          # For check-migrations, we only need dev dependencies for drizzle-kit
+          npm ci --include=dev --omit=optional
 
       - name: Generate migrations
         run: |
@@ -132,6 +133,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd src/frontend/nextjs-app
+          # Full installation needed for running migrations
           npm ci
 
       - name: Get branch name
@@ -141,12 +143,25 @@ jobs:
       - name: Sanitize branch name
         id: sanitize_branch
         run: |
+          ORIGINAL_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+
           # Sanitize branch name for Neon (replace invalid chars with hyphens, lowercase)
-          SANITIZED_BRANCH=$(echo "${{ steps.branch_name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
-          # Remove leading/trailing hyphens and limit length to 63 chars
-          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          SANITIZED_BRANCH=$(echo "$ORIGINAL_BRANCH" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g')
+
+          # If branch name is too long, truncate and add hash for uniqueness
+          if [ ${#SANITIZED_BRANCH} -gt 63 ]; then
+            # Generate a short hash from the original branch name
+            HASH=$(echo "$ORIGINAL_BRANCH" | sha256sum | cut -c1-6)
+            # Keep first 56 chars and append hash (56 + 1 dash + 6 hash = 63)
+            SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | cut -c1-56)"-$HASH"
+            echo "⚠️  Branch name truncated due to length limit (>63 chars)"
+            echo "   Added hash suffix for uniqueness: -$HASH"
+          fi
+
           echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
-          echo "Original: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Original: $ORIGINAL_BRANCH"
           echo "Sanitized: $SANITIZED_BRANCH"
 
       - name: Create or get Neon branch
@@ -168,6 +183,40 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-2
 
+      - name: Validate SSM parameters exist
+        if: matrix.environment != 'preview'
+        run: |
+          echo "Validating SSM parameters for ${{ matrix.environment }} environment..."
+
+          # Define required SSM parameters
+          REQUIRED_PARAMS=(
+            "/nextjs/${{ matrix.environment }}/neon/database-url"
+          )
+
+          # Check if all required parameters exist
+          MISSING_PARAMS=()
+          for param in "${REQUIRED_PARAMS[@]}"; do
+            if ! aws ssm describe-parameters --parameter-filters "Key=Name,Values=$param" --query 'Parameters[0].Name' --output text | grep -q "$param"; then
+              MISSING_PARAMS+=("$param")
+            else
+              echo "✅ Found parameter: $param"
+            fi
+          done
+
+          # Report missing parameters
+          if [ ${#MISSING_PARAMS[@]} -gt 0 ]; then
+            echo "❌ Missing required SSM parameters:"
+            printf '%s\n' "${MISSING_PARAMS[@]}"
+            echo ""
+            echo "Please create these parameters in AWS Systems Manager Parameter Store:"
+            echo "- Go to AWS Console > Systems Manager > Parameter Store"
+            echo "- Create each parameter with the exact name shown above"
+            echo "- For database URLs, use SecureString type"
+            exit 1
+          fi
+
+          echo "✅ All required SSM parameters are present"
+
       - name: Get database credentials
         id: get-credentials
         run: |
@@ -183,7 +232,22 @@ jobs:
               --name "/nextjs/${{ matrix.environment }}/neon/database-url" \
               --with-decryption \
               --query 'Parameter.Value' \
-              --output text)
+              --output text 2>&1) || {
+              echo "❌ Failed to retrieve SSM parameter /nextjs/${{ matrix.environment }}/neon/database-url"
+              echo "Error: $DATABASE_URL"
+              echo ""
+              echo "Troubleshooting steps:"
+              echo "1. Check if the parameter exists in the correct region (us-east-2)"
+              echo "2. Verify IAM permissions for the GitHub Actions role"
+              echo "3. Ensure the parameter name is correct"
+              exit 1
+            }
+          fi
+
+          # Validate DATABASE_URL is not empty
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ DATABASE_URL is empty for ${{ matrix.environment }} environment"
+            exit 1
           fi
 
           # Mask the URL in logs
@@ -198,12 +262,15 @@ jobs:
         run: |
           cd src/frontend/nextjs-app
 
-          # Add retry logic for branch database readiness
-          MAX_RETRIES=3
-          RETRY_DELAY=10
+          # Add retry logic with exponential backoff for branch database readiness
+          MAX_RETRIES=5
+          BASE_DELAY=5
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES: Checking migration status..."
+
+            # Capture the error output for better diagnostics
+            ERROR_OUTPUT=$(mktemp)
 
             if node -e "
               const { checkMigrationStatus } = require('./app/db/migrate');
@@ -211,20 +278,42 @@ jobs:
                 console.log('Migration Status:', status);
                 process.exit(0);
               }).catch(err => {
-                console.error('Failed to check migration status:', err.message);
+                console.error('Error type:', err.code || 'Unknown');
+                console.error('Error message:', err.message);
+
+                // Different error messages for different issues
+                if (err.message.includes('does not exist') || err.message.includes('not found')) {
+                  console.error('Database/branch may not be ready yet');
+                } else if (err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT')) {
+                  console.error('Connection issue - database may still be initializing');
+                } else {
+                  console.error('Unexpected error - check credentials and configuration');
+                }
+
                 process.exit(1);
               });
-            "; then
+            " 2>"$ERROR_OUTPUT"; then
               echo "✅ Successfully connected to database"
+              rm -f "$ERROR_OUTPUT"
               break
             else
+              cat "$ERROR_OUTPUT"
+
               if [ "$i" -eq "$MAX_RETRIES" ]; then
                 echo "❌ Failed to connect after $MAX_RETRIES attempts"
+                echo "Final error output:"
+                cat "$ERROR_OUTPUT"
+                rm -f "$ERROR_OUTPUT"
                 exit 1
               fi
-              echo "⏳ Waiting $RETRY_DELAY seconds before retry..."
-              sleep $RETRY_DELAY
+
+              # Exponential backoff: 5, 10, 20, 40 seconds
+              DELAY=$((BASE_DELAY * (2 ** (i - 1))))
+              echo "⏳ Waiting $DELAY seconds before retry (exponential backoff)..."
+              sleep $DELAY
             fi
+
+            rm -f "$ERROR_OUTPUT"
           done
 
       - name: Run migrations (migrate)
@@ -244,6 +333,73 @@ jobs:
           cd src/frontend/nextjs-app
           echo "Pushing schema changes directly..."
           npm run drizzle:push
+
+      - name: Check migration status only (check)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'check'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "## 📊 Migration Status Check"
+          echo ""
+
+          # Check current migration status
+          node -e "
+          const { checkMigrationStatus } = require('./app/db/migrate');
+
+          checkMigrationStatus().then(status => {
+            console.log('### Database Information');
+            console.log('- Environment: ${{ matrix.environment }}');
+            console.log('- Branch: ${{ steps.branch_name.outputs.current_branch }}');
+            if ('${{ matrix.environment }}' === 'preview') {
+              console.log('- Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}');
+            }
+            console.log('');
+
+            console.log('### Migration Status');
+            console.log('- Has Drizzle migrations table: ' + (status.hasDrizzleMigrations ? '✅ Yes' : '❌ No'));
+            console.log('- Has legacy migrations table: ' + (status.hasLegacyMigrations ? '⚠️  Yes (consider cleanup)' : '✅ No'));
+            console.log('- Total migrations applied: ' + (status.migrationsCount || 0));
+            console.log('');
+
+            if (status.latestMigration) {
+              console.log('### Latest Migration');
+              console.log('- Name: ' + status.latestMigration.name);
+              console.log('- Applied at: ' + new Date(status.latestMigration.created_at).toISOString());
+            }
+
+            // Check for pending migrations
+            const fs = require('fs');
+            const path = require('path');
+            const migrationsDir = path.join(__dirname, 'drizzle');
+
+            if (fs.existsSync(migrationsDir)) {
+              const files = fs.readdirSync(migrationsDir)
+                .filter(f => f.endsWith('.sql'))
+                .sort();
+
+              console.log('');
+              console.log('### Migration Files');
+              console.log('- Total SQL files: ' + files.length);
+
+              if (status.appliedMigrations) {
+                const unapplied = files.filter(f => !status.appliedMigrations.includes(f));
+                if (unapplied.length > 0) {
+                  console.log('- ⚠️  Unapplied migrations: ' + unapplied.length);
+                  unapplied.forEach(f => console.log('  - ' + f));
+                } else {
+                  console.log('- ✅ All migrations are applied');
+                }
+              }
+            }
+          }).catch(err => {
+            console.error('❌ Failed to check migration status:', err.message);
+            process.exit(1);
+          });
+          "
+
+          echo ""
+          echo "Use 'action: migrate' to apply any pending migrations."
 
       - name: Verify migration success
         env:
