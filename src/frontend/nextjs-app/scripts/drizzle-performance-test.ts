@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Performance comparison between raw SQL and Drizzle ORM
+ * Performance test for Drizzle ORM operations
  */
 
 import { config } from 'dotenv';
@@ -10,16 +10,14 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { db } from '../app/db/drizzle';
-import { query } from '../app/lib/postgres';
 import { forecastAdjustments, userPreferences } from '../app/db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 
 interface PerformanceResult {
   testName: string;
-  sqlTime: number;
   drizzleTime: number;
-  difference: number;
-  percentDiff: number;
+  avgTime: number;
+  operations: number;
 }
 
 const results: PerformanceResult[] = [];
@@ -27,22 +25,12 @@ const results: PerformanceResult[] = [];
 async function measurePerformance(
   testName: string,
   iterations: number,
-  sqlQuery: () => Promise<unknown>,
   drizzleQuery: () => Promise<unknown>
 ): Promise<void> {
   console.log(`\n⏱️  Testing: ${testName} (${iterations} iterations)`);
 
   // Warm up
-  await sqlQuery();
   await drizzleQuery();
-
-  // Measure SQL performance
-  const sqlStart = performance.now();
-  for (let i = 0; i < iterations; i++) {
-    await sqlQuery();
-  }
-  const sqlTime = performance.now() - sqlStart;
-  const avgSqlTime = sqlTime / iterations;
 
   // Measure Drizzle performance
   const drizzleStart = performance.now();
@@ -50,144 +38,172 @@ async function measurePerformance(
     await drizzleQuery();
   }
   const drizzleTime = performance.now() - drizzleStart;
-  const avgDrizzleTime = drizzleTime / iterations;
+  const avgTime = drizzleTime / iterations;
 
-  // Calculate difference
-  const difference = avgDrizzleTime - avgSqlTime;
-  const percentDiff = ((difference / avgSqlTime) * 100);
+  console.log(`  Total time: ${drizzleTime.toFixed(2)}ms`);
+  console.log(`  Average time: ${avgTime.toFixed(2)}ms`);
 
   results.push({
     testName,
-    sqlTime: avgSqlTime,
-    drizzleTime: avgDrizzleTime,
-    difference,
-    percentDiff
+    drizzleTime,
+    avgTime,
+    operations: iterations
   });
-
-  console.log(`  SQL avg: ${avgSqlTime.toFixed(2)}ms`);
-  console.log(`  Drizzle avg: ${avgDrizzleTime.toFixed(2)}ms`);
-  console.log(`  Difference: ${difference > 0 ? '+' : ''}${difference.toFixed(2)}ms (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(1)}%)`);
 }
 
-async function main() {
-  console.log('🏃 Drizzle ORM Performance Test\n');
-  console.log('Comparing performance between raw SQL queries and Drizzle ORM...\n');
+async function runPerformanceTests() {
+  console.log('🚀 Drizzle ORM Performance Test Suite');
+  console.log('=====================================\n');
 
   const iterations = 100;
+  const testUserId = 'perf-test-user';
 
-  // Test 1: Simple SELECT
-  await measurePerformance(
-    'Simple SELECT (all columns)',
-    iterations,
-    async () => {
-      await query('SELECT * FROM forecast_adjustments LIMIT 10');
-    },
-    async () => {
-      await db.select().from(forecastAdjustments).limit(10);
-    }
-  );
-
-  // Test 2: SELECT with WHERE
-  await measurePerformance(
-    'SELECT with WHERE clause',
-    iterations,
-    async () => {
-      await query('SELECT * FROM forecast_adjustments WHERE is_active = true LIMIT 10');
-    },
-    async () => {
-      await db
-        .select()
-        .from(forecastAdjustments)
-        .where(eq(forecastAdjustments.isActive, true))
-        .limit(10);
-    }
-  );
-
-  // Test 3: Aggregation
-  await measurePerformance(
-    'COUNT aggregation',
-    iterations,
-    async () => {
-      await query('SELECT COUNT(*) FROM forecast_adjustments');
-    },
-    async () => {
-      await db.select({ count: sql<number>`count(*)` }).from(forecastAdjustments);
-    }
-  );
-
-  // Test 4: Complex query
-  await measurePerformance(
-    'Complex query with ORDER BY',
-    iterations,
-    async () => {
-      await query(`
-        SELECT id, adjustment_value, created_at
-        FROM forecast_adjustments
-        WHERE is_active = true
-        ORDER BY created_at DESC
-        LIMIT 20
-      `);
-    },
-    async () => {
-      await db
-        .select({
-          id: forecastAdjustments.id,
-          adjustmentValue: forecastAdjustments.adjustmentValue,
-          createdAt: forecastAdjustments.createdAt
-        })
-        .from(forecastAdjustments)
-        .where(eq(forecastAdjustments.isActive, true))
-        .orderBy(desc(forecastAdjustments.createdAt))
-        .limit(20);
-    }
-  );
-
-  // Test 5: Single row fetch
-  await measurePerformance(
-    'Single row fetch by ID',
-    iterations,
-    async () => {
-      await query('SELECT * FROM user_preferences WHERE user_id = $1', ['test-user']);
-    },
-    async () => {
-      await db
-        .select()
-        .from(userPreferences)
-        .where(eq(userPreferences.userId, 'test-user'))
-        .limit(1);
-    }
-  );
-
-  // Summary
-  console.log('\n📊 Performance Test Summary\n');
-  console.log('| Test | SQL (ms) | Drizzle (ms) | Diff (ms) | Diff (%) |');
-  console.log('|------|----------|--------------|-----------|----------|');
-
-  results.forEach(result => {
-    const diffColor = result.percentDiff > 10 ? '🔴' : result.percentDiff > 5 ? '🟡' : '🟢';
-    console.log(
-      `| ${result.testName.padEnd(40)} | ${result.sqlTime.toFixed(2).padStart(8)} | ${
-        result.drizzleTime.toFixed(2).padStart(12)
-      } | ${(result.difference > 0 ? '+' : '') + result.difference.toFixed(2).padStart(9)} | ${
-        diffColor
-      } ${(result.percentDiff > 0 ? '+' : '') + result.percentDiff.toFixed(1).padStart(7)}% |`
+  try {
+    // Test 1: Simple SELECT query
+    await measurePerformance(
+      'Simple SELECT (adjustments)',
+      iterations,
+      async () => {
+        await db
+          .select()
+          .from(forecastAdjustments)
+          .limit(10);
+      }
     );
-  });
 
-  const avgDiff = results.reduce((sum, r) => sum + r.percentDiff, 0) / results.length;
-  console.log(`\nAverage performance difference: ${avgDiff > 0 ? '+' : ''}${avgDiff.toFixed(1)}%`);
+    // Test 2: SELECT with WHERE clause
+    await measurePerformance(
+      'SELECT with WHERE',
+      iterations,
+      async () => {
+        await db
+          .select()
+          .from(forecastAdjustments)
+          .where(eq(forecastAdjustments.userId, testUserId))
+          .limit(10);
+      }
+    );
 
-  if (avgDiff > 20) {
-    console.log('\n⚠️  Drizzle is significantly slower than raw SQL. Consider optimization.');
-  } else if (avgDiff > 10) {
-    console.log('\n🟡 Drizzle has moderate overhead compared to raw SQL.');
-  } else {
-    console.log('\n✅ Drizzle performance is acceptable compared to raw SQL.');
+    // Test 3: Complex query with ordering
+    await measurePerformance(
+      'Complex query with ORDER BY',
+      iterations,
+      async () => {
+        await db
+          .select()
+          .from(forecastAdjustments)
+          .where(eq(forecastAdjustments.userId, testUserId))
+          .orderBy(desc(forecastAdjustments.createdAt))
+          .limit(20);
+      }
+    );
+
+    // Test 4: Raw SQL query
+    await measurePerformance(
+      'Raw SQL query via Drizzle',
+      iterations,
+      async () => {
+        await db.execute(sql`
+          SELECT * FROM forecast_adjustments
+          WHERE user_id = ${testUserId}
+          ORDER BY created_at DESC
+          LIMIT 20
+        `);
+      }
+    );
+
+    // Test 5: INSERT operation
+    await measurePerformance(
+      'INSERT operation',
+      10, // Fewer iterations for write operations
+      async () => {
+        await db
+          .insert(forecastAdjustments)
+          .values({
+            userId: testUserId,
+            adjustmentValue: String(Math.random() * 100),
+            inventoryItemName: `Test Item ${Date.now()}`,
+            filterContext: { test: true },
+            adjustmentStartDate: '2024-01-01',
+            adjustmentEndDate: '2024-12-31',
+          })
+          .onConflictDoNothing();
+      }
+    );
+
+    // Test 6: UPDATE operation
+    await measurePerformance(
+      'UPDATE operation',
+      10,
+      async () => {
+        await db
+          .update(userPreferences)
+          .set({
+            tooltipsEnabled: false,
+            preferredHelpFormat: 'video',
+            updatedAt: new Date()
+          })
+          .where(eq(userPreferences.userId, testUserId));
+      }
+    );
+
+    // Test 7: Transaction
+    await measurePerformance(
+      'Transaction (read + write)',
+      10,
+      async () => {
+        await db.transaction(async (tx) => {
+          const user = await tx
+            .select()
+            .from(userPreferences)
+            .where(eq(userPreferences.userId, testUserId))
+            .limit(1);
+
+          if (user.length > 0) {
+            await tx
+              .update(userPreferences)
+              .set({ updatedAt: new Date() })
+              .where(eq(userPreferences.userId, testUserId));
+          }
+        });
+      }
+    );
+
+    // Print summary
+    console.log('\n\n📊 Performance Summary');
+    console.log('=====================\n');
+
+    const table = results.map(r => ({
+      'Test Name': r.testName,
+      'Total Time (ms)': r.drizzleTime.toFixed(2),
+      'Avg Time (ms)': r.avgTime.toFixed(2),
+      'Operations': r.operations
+    }));
+
+    console.table(table);
+
+    // Calculate overall stats
+    const totalTime = results.reduce((sum, r) => sum + r.drizzleTime, 0);
+    const totalOps = results.reduce((sum, r) => sum + r.operations, 0);
+
+    console.log(`\n📈 Overall Statistics:`);
+    console.log(`  Total operations: ${totalOps}`);
+    console.log(`  Total time: ${totalTime.toFixed(2)}ms`);
+    console.log(`  Average operation time: ${(totalTime / totalOps).toFixed(2)}ms`);
+
+    // Cleanup test data
+    console.log('\n🧹 Cleaning up test data...');
+    await db
+      .delete(forecastAdjustments)
+      .where(eq(forecastAdjustments.userId, testUserId));
+
+  } catch (error) {
+    console.error('❌ Error during performance test:', error);
+  } finally {
+    console.log('\n✅ Performance test complete');
+    process.exit(0);
   }
 }
 
-// Run the performance test
-main().catch((error) => {
-  console.error('💥 Performance test crashed:', error);
-  process.exit(1);
-});
+// Run the tests
+runPerformanceTests();

@@ -160,18 +160,18 @@ async function getForecastData(filters: ForecastFilters | undefined) {
 
   // Complex adjustment query logic would need to be implemented here
   // For now, returning a simplified version
-  let query = db
+  const baseQuery = db
     .select()
     .from(forecastData);
-    
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
-  
-  const result = await query
+
+  const filteredQuery = conditions.length > 0
+    ? baseQuery.where(and(...conditions))
+    : baseQuery;
+
+  const result = await filteredQuery
     .orderBy(desc(forecastData.businessDate))
     .limit(limit);
-    
+
   return result;
 }
 

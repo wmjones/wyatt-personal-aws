@@ -88,6 +88,8 @@ jobs:
           npm ci --include=dev --omit=optional
 
       - name: Generate migrations
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
         run: |
           cd src/frontend/nextjs-app
           npm run drizzle:generate

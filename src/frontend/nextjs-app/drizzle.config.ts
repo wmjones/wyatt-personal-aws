@@ -4,27 +4,22 @@ import { defineConfig } from 'drizzle-kit';
 // Load environment variables
 config({ path: '.env.local' });
 
-// Check if running generate command (which doesn't need a database connection)
-const isGenerateCommand = process.argv.includes('generate');
-
-// Validate DATABASE_URL - only required for commands that connect to the database
+// Validate DATABASE_URL
 const databaseUrl = process.env.DATABASE_URL;
-if (!isGenerateCommand && !databaseUrl) {
+if (!databaseUrl) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 if (databaseUrl && !databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
   throw new Error('DATABASE_URL must start with postgresql:// or postgres://');
 }
 
-// Use a dummy URL for generate command if DATABASE_URL is not set
-const connectionUrl = databaseUrl || 'postgresql://dummy:dummy@localhost:5432/dummy';
 
 export default defineConfig({
   schema: './app/db/schema/*.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: connectionUrl,
+    url: databaseUrl,
   },
   // Enable verbose logging in development
   verbose: process.env.NODE_ENV === 'development',
