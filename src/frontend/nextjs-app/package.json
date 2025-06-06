@@ -17,8 +17,10 @@
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
     "drizzle:migrate:run": "npx tsx scripts/drizzle-migrate.ts",
+    "drizzle:migrate:ci": "npx tsx scripts/drizzle-migrate-ci.ts",
     "drizzle:push": "drizzle-kit push",
-    "drizzle:studio": "drizzle-kit studio"
+    "drizzle:studio": "drizzle-kit studio",
+    "vercel:build": "./scripts/drizzle-vercel-build.sh && next build"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
