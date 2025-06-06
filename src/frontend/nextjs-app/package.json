@@ -20,7 +20,10 @@
     "drizzle:migrate:ci": "npx tsx scripts/drizzle-migrate-ci.ts",
     "drizzle:push": "drizzle-kit push",
     "drizzle:studio": "drizzle-kit studio",
-    "vercel:build": "./scripts/drizzle-vercel-build.sh && next build"
+    "vercel:build": "./scripts/drizzle-vercel-build.sh && next build",
+    "test:drizzle-migration": "npx tsx scripts/test-drizzle-migration.ts",
+    "test:drizzle-compat": "npx tsx scripts/verify-migration-compatibility.ts",
+    "test:drizzle-perf": "npx tsx scripts/drizzle-performance-test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
@@ -60,6 +63,7 @@
     "@types/react": "^19",
     "@types/react-date-range": "^1.4.10",
     "@types/react-dom": "^19",
+    "chalk": "^5.4.1",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.1",
     "eslint": "^9",
