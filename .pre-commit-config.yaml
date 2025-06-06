@@ -95,7 +95,7 @@ repos:
 
       - id: jest
         name: "Jest unit tests"
-        entry: bash -c 'cd src/frontend/nextjs-app && files="$@"; if [ -n "$files" ]; then relative_files=$(echo "$files" | sed "s|src/frontend/nextjs-app/||g"); npm test -- --bail --findRelatedTests $relative_files; else echo "No test files to run"; fi'
+        entry: bash -c 'cd src/frontend/nextjs-app && files="$@"; if [ -n "$files" ]; then relative_files=$(echo "$files" | sed "s|src/frontend/nextjs-app/||g"); npm test -- --bail --passWithNoTests --findRelatedTests $relative_files; else echo "No test files to run"; fi'
         language: system
         pass_filenames: true
         files: "src/frontend/nextjs-app/.*\\.(ts|tsx|js|jsx)$"
