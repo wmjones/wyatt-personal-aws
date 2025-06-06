@@ -1,10 +1,27 @@
 name: Database Migrations (Drizzle)
 
+# This workflow handles database migrations for all branches:
+# - main/dev: Uses SSM parameters for production databases
+# - feature/bugfix/hotfix: Creates/uses Neon branch databases
+# - Ensures migrations run on the same database as app deployments
+#
+# Expected deployment order:
+# 1. Code push triggers both deployment and migration workflows
+# 2. Neon branch is created by whichever workflow runs first
+# 3. Second workflow reuses the existing branch
+# 4. Retry logic handles race conditions if database isn't ready
+#
+# Note: The neondatabase/create-branch-action@v5 is idempotent -
+# it returns existing branch info if branch already exists
+
 on:
   push:
     branches:
       - main
       - dev
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
       - 'src/frontend/nextjs-app/app/db/schema/**'
@@ -34,7 +51,7 @@ on:
           - check
 
 env:
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '22'
 
 jobs:
   check-migrations:
@@ -77,11 +94,17 @@ jobs:
     name: Run Migrations - ${{ matrix.environment }}
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) ||
+      (github.event_name == 'push' && (
+        github.ref == 'refs/heads/main' ||
+        github.ref == 'refs/heads/dev' ||
+        startsWith(github.ref, 'refs/heads/feature/') ||
+        startsWith(github.ref, 'refs/heads/bugfix/') ||
+        startsWith(github.ref, 'refs/heads/hotfix/')
+      )) ||
       github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]') || fromJSON('["dev"]')) }}
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) || (startsWith(github.ref, 'refs/heads/feature/') && fromJSON('["preview"]')) || (startsWith(github.ref, 'refs/heads/bugfix/') && fromJSON('["preview"]')) || (startsWith(github.ref, 'refs/heads/hotfix/') && fromJSON('["preview"]')) }}
     environment: ${{ matrix.environment }}
     steps:
       - name: Checkout code
@@ -99,22 +122,57 @@ jobs:
           cd src/frontend/nextjs-app
           npm ci
 
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+      - name: Sanitize branch name
+        id: sanitize_branch
+        run: |
+          # Sanitize branch name for Neon (replace invalid chars with hyphens, lowercase)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens and limit length to 63 chars
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "Original: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Sanitized: $SANITIZED_BRANCH"
+
+      - name: Create or get Neon branch
+        id: create_neon_branch
+        if: matrix.environment == 'preview'
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          username: neondb_owner
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+
       - name: Configure AWS credentials
+        if: matrix.environment != 'preview'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-2
-      - name: Get database credentials from SSM
+
+      - name: Get database credentials
         id: get-credentials
         run: |
           echo "Fetching database credentials for ${{ matrix.environment }}"
 
-          # Get Neon database URL from SSM
-          DATABASE_URL=$(aws ssm get-parameter \
-            --name "/nextjs/${{ matrix.environment }}/neon/database-url" \
-            --with-decryption \
-            --query 'Parameter.Value' \
-            --output text)
+          if [ "${{ matrix.environment }}" == "preview" ]; then
+            # Use Neon branch URL for preview environments
+            DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}"
+            echo "Using Neon branch database: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          else
+            # Get Neon database URL from SSM for production environments
+            DATABASE_URL=$(aws ssm get-parameter \
+              --name "/nextjs/${{ matrix.environment }}/neon/database-url" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text)
+          fi
 
           # Mask the URL in logs
           echo "::add-mask::$DATABASE_URL"
@@ -127,12 +185,35 @@ jobs:
           DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
         run: |
           cd src/frontend/nextjs-app
-          node -e "
-          const { checkMigrationStatus } = require('./app/db/migrate');
-          checkMigrationStatus().then(status => {
-            console.log('Migration Status:', status);
-          });
-          "
+
+          # Add retry logic for branch database readiness
+          MAX_RETRIES=3
+          RETRY_DELAY=10
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES: Checking migration status..."
+
+            if node -e "
+              const { checkMigrationStatus } = require('./app/db/migrate');
+              checkMigrationStatus().then(status => {
+                console.log('Migration Status:', status);
+                process.exit(0);
+              }).catch(err => {
+                console.error('Failed to check migration status:', err.message);
+                process.exit(1);
+              });
+            "; then
+              echo "✅ Successfully connected to database"
+              break
+            else
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "❌ Failed to connect after $MAX_RETRIES attempts"
+                exit 1
+              fi
+              echo "⏳ Waiting $RETRY_DELAY seconds before retry..."
+              sleep $RETRY_DELAY
+            fi
+          done
 
       - name: Run migrations (migrate)
         if: github.event_name != 'workflow_dispatch' || inputs.action == 'migrate'
@@ -167,6 +248,49 @@ jobs:
             console.log('✅ Migrations verified successfully');
           });
           "
+
+      - name: Log migration info
+        run: |
+          echo "## ✅ Database Migrations Complete!"
+          echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Environment: ${{ matrix.environment }}"
+          echo "Sanitized Branch: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          if [ "${{ matrix.environment }}" = "preview" ]; then
+            echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+            echo "Branch ID: ${{ steps.create_neon_branch.outputs.branch_id }}"
+          fi
+          echo "Migration Status: Success"
+
+      - name: Tag branch for cleanup (if temporary)
+        if: |
+          matrix.environment == 'preview' &&
+          (startsWith(steps.branch_name.outputs.current_branch, 'bugfix/') ||
+           startsWith(steps.branch_name.outputs.current_branch, 'hotfix/'))
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          # Add metadata to track temporary branches
+          BRANCH_ID="${{ steps.create_neon_branch.outputs.branch_id }}"
+          PROJECT_ID="${{ secrets.NEON_PROJECT_ID }}"
+
+          echo "Tagging branch as temporary for future cleanup..."
+
+          curl -X PATCH \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d '{
+              "branch": {
+                "metadata": {
+                  "temporary": true,
+                  "created_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+                  "git_branch": "${{ steps.branch_name.outputs.current_branch }}"
+                }
+              }
+            }' \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID" || {
+              echo "Warning: Failed to tag branch metadata, but migrations succeeded"
+            }
 
       - name: Notify on failure
         if: failure()
