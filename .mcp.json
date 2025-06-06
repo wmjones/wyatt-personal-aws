@@ -19,8 +19,8 @@
       "args": ["-y", "@upstash/context7-mcp@latest"]
     },
     "Neon": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.neon.tech/sse"]
+      "command": "bash",
+      "args": ["-c", "npx -y @neondatabase/mcp-server-neon start $NEON_API_KEY"]
     }
   }
 }
