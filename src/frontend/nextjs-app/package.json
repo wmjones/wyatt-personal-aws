@@ -23,7 +23,8 @@
     "vercel:build": "./scripts/drizzle-vercel-build.sh && next build",
     "test:drizzle-migration": "npx tsx scripts/test-drizzle-migration.ts",
     "test:drizzle-compat": "npx tsx scripts/verify-migration-compatibility.ts",
-    "test:drizzle-perf": "npx tsx scripts/drizzle-performance-test.ts"
+    "test:drizzle-perf": "npx tsx scripts/drizzle-performance-test.ts",
+    "drizzle:cleanup-test": "npx tsx scripts/cleanup-test-migration.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
