@@ -25,11 +25,23 @@ on:
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
       - 'src/frontend/nextjs-app/app/db/schema/**'
+      - 'src/frontend/nextjs-app/drizzle.config.ts'
+      - 'src/frontend/nextjs-app/scripts/drizzle-*.ts'
+      - 'src/frontend/nextjs-app/scripts/*-migration*.ts'
+      - 'src/frontend/nextjs-app/app/db/migrate.ts'
+      - 'src/frontend/nextjs-app/package.json'
+      - 'src/frontend/nextjs-app/package-lock.json'
       - '.github/workflows/drizzle-migrations.yml'
   pull_request:
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
       - 'src/frontend/nextjs-app/app/db/schema/**'
+      - 'src/frontend/nextjs-app/drizzle.config.ts'
+      - 'src/frontend/nextjs-app/scripts/drizzle-*.ts'
+      - 'src/frontend/nextjs-app/scripts/*-migration*.ts'
+      - 'src/frontend/nextjs-app/app/db/migrate.ts'
+      - 'src/frontend/nextjs-app/package.json'
+      - 'src/frontend/nextjs-app/package-lock.json'
   workflow_dispatch:
     inputs:
       environment:
@@ -299,13 +311,35 @@ jobs:
           script: |
             const environment = '${{ matrix.environment }}';
             const action = '${{ inputs.action || 'migrate' }}';
+            const workflowUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `❌ Database migration failed in **${environment}** environment (action: ${action}). Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`
-            });
+            // For pull requests, comment on the PR
+            if (context.eventName === 'pull_request' && context.issue?.number) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `❌ Database migration failed in **${environment}** environment (action: ${action}). Check the [workflow logs](${workflowUrl}) for details.`
+              });
+            } else {
+              // For push events, create a workflow summary
+              const summary = `## ❌ Database Migration Failed
+
+              - **Environment:** ${environment}
+              - **Action:** ${action}
+              - **Branch:** ${{ github.ref_name }}
+              - **Commit:** ${{ github.sha }}
+              - **Workflow:** [View logs](${workflowUrl})
+
+              Please check the logs for details and fix the migration issues.`;
+
+              await core.summary
+                .addRaw(summary)
+                .write();
+
+              // Also log to console for visibility
+              console.error(`Migration failed in ${environment} environment`);
+            }
 
   rollback-migrations:
     name: Rollback Migrations

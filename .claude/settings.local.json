@@ -79,7 +79,8 @@
       "Bash(/home/vscode/.npm-global/lib/node_modules/@neondatabase/mcp-server-neon/dist/index.js 2 >& 1)",
       "Bash(NEON_API_KEY=napi_epgcx719uctp8rf2im5zkkablz31y1w7ovpl6oh7qfqmyh6ldmq3ch666yqn8j91 /usr/local/bin/npx -y @neondatabase/mcp-server-neon start napi_epgcx719uctp8rf2im5zkkablz31y1w7ovpl6oh7qfqmyh6ldmq3ch666yqn8j91 2 >& 1)",
       "Bash(git rm:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "mcp__taskmaster-ai__add_task"
     ]
   },
   "enableAllProjectMcpServers": true,
