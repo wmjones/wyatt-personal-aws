@@ -6,15 +6,15 @@
 export const validateDateRange = (startDate: string, endDate: string) => {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  
+
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
     throw new Error('Invalid date format. Please use YYYY-MM-DD format.');
   }
-  
+
   if (start >= end) {
     throw new Error('Start date must be before end date');
   }
-  
+
   return { start, end };
 };
 
@@ -26,11 +26,11 @@ export const validateAdjustmentDateRange = (
 ) => {
   const { start: adjStart, end: adjEnd } = validateDateRange(adjustmentStart, adjustmentEnd);
   const { start: mainStartDate, end: mainEndDate } = validateDateRange(mainStart, mainEnd);
-  
+
   if (adjStart < mainStartDate || adjEnd > mainEndDate) {
     throw new Error('Adjustment date range must be within the main filter date range');
   }
-  
+
   return { adjStart, adjEnd };
 };
 

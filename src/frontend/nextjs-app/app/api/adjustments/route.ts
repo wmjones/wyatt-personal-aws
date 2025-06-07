@@ -54,7 +54,7 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
     // Validate main date range
     const mainStartDate = new Date(processedFilterContext.dateRange.startDate);
     const mainEndDate = new Date(processedFilterContext.dateRange.endDate);
-    
+
     if (isNaN(mainStartDate.getTime()) || isNaN(mainEndDate.getTime())) {
       return NextResponse.json(
         { error: 'Invalid date range format. Please use YYYY-MM-DD format.' },

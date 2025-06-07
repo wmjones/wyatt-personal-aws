@@ -9,32 +9,32 @@ import IntegratedControlPanel from '../IntegratedControlPanel';
 
 // Mock the dropdown options hooks
 jest.mock('@/app/hooks/useDropdownOptions', () => ({
-  useStateOptions: () => ({ 
+  useStateOptions: () => ({
     data: [
       { value: 'CA', label: 'California' },
       { value: 'TX', label: 'Texas' },
       { value: 'NY', label: 'New York' }
-    ] 
+    ]
   }),
-  useDMAOptions: () => ({ 
+  useDMAOptions: () => ({
     data: [
       { value: 'DMA_501', label: 'New York' },
       { value: 'DMA_803', label: 'Los Angeles' },
       { value: 'DMA_623', label: 'Dallas' }
-    ] 
+    ]
   }),
-  useDCOptions: () => ({ 
+  useDCOptions: () => ({
     data: [
       { value: '1', label: 'DC East' },
       { value: '2', label: 'DC West' },
       { value: '3', label: 'DC Central' }
-    ] 
+    ]
   }),
-  useInventoryItemOptions: () => ({ 
+  useInventoryItemOptions: () => ({
     data: [
       { value: '101', label: 'Product A' },
       { value: '102', label: 'Product B' }
-    ] 
+    ]
   })
 }));
 
@@ -76,7 +76,7 @@ describe('Independent Filtering', () => {
   it('should allow selecting states without clearing DMA selections', () => {
     const TestWrapper = createTestWrapper();
     const onFilterSelectionChange = jest.fn();
-    
+
     render(
       <TestWrapper>
         <IntegratedControlPanel
@@ -103,7 +103,7 @@ describe('Independent Filtering', () => {
   it('should allow selecting DMAs without clearing DC selections', () => {
     const TestWrapper = createTestWrapper();
     const onFilterSelectionChange = jest.fn();
-    
+
     render(
       <TestWrapper>
         <IntegratedControlPanel
@@ -127,7 +127,7 @@ describe('Independent Filtering', () => {
 
   it('should not disable any filter options', () => {
     const TestWrapper = createTestWrapper();
-    
+
     render(
       <TestWrapper>
         <IntegratedControlPanel

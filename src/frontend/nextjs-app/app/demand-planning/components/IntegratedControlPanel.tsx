@@ -314,7 +314,7 @@ export default function IntegratedControlPanel({
                   </div>
                 </div>
               )}
-              
+
               {/* Inventory Item Selection */}
               <SingleSelectFilter
                 title="Product"
