@@ -16,6 +16,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Debug endpoint disabled in production' }, { status: 403 });
   }
 
+  // Log workflow trigger
+  console.log('Database connection debug endpoint called');
+
   try {
     // Get database configuration
     const dbConfig = resolveDatabaseConfig();
