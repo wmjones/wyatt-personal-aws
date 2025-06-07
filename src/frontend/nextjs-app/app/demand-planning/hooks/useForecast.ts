@@ -42,7 +42,24 @@ function transformToForecastSeries(
   const inventoryItemsMap = new Map<string, InventoryItem>();
   const forecastData: ForecastDataPoint[] = [];
 
+  // Validate data structure
+  if (!data || !data.timeSeries || !Array.isArray(data.timeSeries)) {
+    console.warn('Invalid data structure passed to transformToForecastSeries:', data);
+    return {
+      id: `forecast-${Date.now()}`,
+      timePeriods: [],
+      baseline: [],
+      inventoryItems: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
   data.timeSeries.forEach((row) => {
+    // Ensure business_date exists before processing
+    if (!row.business_date) {
+      console.warn('Row missing business_date:', row);
+      return;
+    }
     const date = row.business_date.split('T')[0];
     datesSet.add(date);
 

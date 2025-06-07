@@ -48,6 +48,12 @@ export function formatDate(date: Date, periodType: TimePeriod['type']): string {
  * Gets a date from a time period ID (assuming format like "day-2025-01-01", "Q1-2025" or "2025-01")
  */
 export function getDateFromPeriodId(periodId: string): Date {
+  // Validate periodId
+  if (!periodId) {
+    console.warn('getDateFromPeriodId called with undefined/null periodId');
+    return new Date(); // Return current date as fallback
+  }
+
   // Handle day format (e.g., "day-2025-01-01")
   if (periodId.startsWith('day-')) {
     const dateStr = periodId.replace('day-', '');
@@ -56,14 +62,24 @@ export function getDateFromPeriodId(periodId: string): Date {
 
   // Handle quarter format (e.g., "Q1-2025")
   if (periodId.startsWith('Q')) {
-    const [quarter, year] = periodId.replace('Q', '').split('-');
+    const parts = periodId.replace('Q', '').split('-');
+    if (parts.length !== 2) {
+      console.warn('Invalid quarter format:', periodId);
+      return new Date();
+    }
+    const [quarter, year] = parts;
     const month = (parseInt(quarter) - 1) * 3;
     return new Date(parseInt(year), month, 1);
   }
 
   // Handle year-month format (e.g., "2025-01")
   if (periodId.match(/^\d{4}-\d{2}$/)) {
-    const [year, month] = periodId.split('-');
+    const parts = periodId.split('-');
+    if (parts.length !== 2) {
+      console.warn('Invalid year-month format:', periodId);
+      return new Date();
+    }
+    const [year, month] = parts;
     return new Date(parseInt(year), parseInt(month) - 1, 1);
   }
 

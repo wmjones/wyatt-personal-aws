@@ -27,8 +27,8 @@ export default function SimpleDateRangeFilter({
       }}
       onChange={(range) => {
         onChange({
-          startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
-          endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+          startDate: range?.startDate instanceof Date ? range.startDate.toISOString().split('T')[0] : null,
+          endDate: range?.endDate instanceof Date ? range.endDate.toISOString().split('T')[0] : null
         });
       }}
       className={className}
