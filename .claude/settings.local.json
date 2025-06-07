@@ -50,7 +50,6 @@
       "mcp__Neon__complete_query_tuning",
       "mcp__Neon__list_slow_queries",
       "mcp__Neon__list_branch_computes",
-      "Bash(git:*)",
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",

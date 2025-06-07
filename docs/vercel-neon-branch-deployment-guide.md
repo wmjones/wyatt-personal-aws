@@ -1,4 +1,4 @@
-# Vercel + Neon Branch Deployment Guide
+# Vercel + Neon Branch Deployment Guide for Git-Connected Projects (2025 Edition)
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -7,14 +7,17 @@
 4. [How It Works](#how-it-works)
 5. [Configuration](#configuration)
 6. [Workflows](#workflows)
-7. [Troubleshooting](#troubleshooting)
-8. [Monitoring](#monitoring)
-9. [Security](#security)
-10. [Best Practices](#best-practices)
+7. [Custom Environments and Staging](#custom-environments-and-staging)
+8. [Troubleshooting](#troubleshooting)
+9. [Monitoring](#monitoring)
+10. [Security](#security)
+11. [Best Practices](#best-practices)
 
 ## Overview
 
-This system automatically provisions isolated database environments for each Git branch, ensuring that preview deployments on Vercel have their own dedicated Neon database branch. This prevents data conflicts between different feature branches and provides a production-like environment for testing.
+This guide covers the setup and management of branch-specific database environments for **Git-connected Vercel projects**. The system automatically provisions isolated database environments for each Git branch, ensuring that preview deployments on Vercel have their own dedicated Neon database branch. This prevents data conflicts between different feature branches and provides a production-like environment for testing.
+
+**Prerequisites**: This guide assumes your Vercel project is connected to a Git repository (GitHub, GitLab, or Bitbucket). For projects deployed via CLI without Git integration, see Vercel's documentation on deployment-time environment variables.
 
 ### Key Features
 - 🔄 Automatic database branch creation for each Git branch
@@ -61,7 +64,11 @@ graph TD
 
 ### Prerequisites
 
-1. **GitHub Secrets**:
+1. **Vercel Project**: Must be connected to a Git repository (GitHub, GitLab, or Bitbucket)
+   - Verify with: `vercel project ls` (should show Git integration)
+   - If not connected, link via Vercel dashboard or `vercel link`
+
+2. **GitHub Secrets**:
    ```
    VERCEL_TOKEN         # Vercel API token
    VERCEL_ORG_ID        # Vercel organization ID
@@ -70,9 +77,9 @@ graph TD
    NEON_PROJECT_ID      # Neon project ID
    ```
 
-2. **Vercel CLI**: Version 28.9.0 or later (for `--git-branch` support)
+3. **Vercel CLI**: Version 28.9.0 or later (for `--git-branch` support in `vercel pull` and `vercel env pull` commands)
 
-3. **Project Structure**:
+4. **Project Structure**:
    - Next.js application in `src/frontend/nextjs-app/`
    - Drizzle ORM for database management
    - Database migrations in `drizzle/` directory
@@ -114,25 +121,48 @@ graph TD
 6. **Deployment**: Vercel builds and deploys the application
 7. **Migrations**: Database migrations run against the new branch
 
-### Environment Variable Management
+### Environment Variable Management (2025)
 
-**Note**: If the Vercel project is not connected to a Git repository, environment variables are passed during deployment:
-```bash
-vercel deploy --prebuilt \
-  -e DATABASE_URL="$DATABASE_URL" \
-  -e DATABASE_URL_UNPOOLED="$DATABASE_URL_UNPOOLED" \
-  -e DEPLOYMENT_BRANCH="$BRANCH_NAME"
-```
+#### Key Features
+- **Encryption**: All environment variable values are now encrypted at rest
+- **Branch-Specific Overrides**: You don't need to replicate all Preview Environment Variables for each branch – only add values you wish to override
+- **No Type Specification**: No need to specify variable type (Plaintext, Secret, System) as all values are encrypted
+- **Automatic Sync**: Git-connected projects automatically receive branch-specific variables during deployment
 
-For Git-connected projects, branch-specific variables can be set using:
-```bash
-vercel env add DATABASE_URL preview --git-branch="branch-name" <<< "$DATABASE_URL"
-```
+#### CLI Syntax for Branch-Specific Variables
 
-These variables:
-- Are deployment-specific when passed with `-e` flag
-- Available at runtime for the deployment
-- Do not persist across redeployments (must be passed each time)
+1. **Adding Variables to Specific Branches**:
+   ```bash
+   # Syntax: vercel env add <name> <environment> <gitbranch>
+   vercel env add DATABASE_URL preview feature-auth
+
+   # Using input redirection for value
+   vercel env add DATABASE_URL preview feature-auth <<< "$DATABASE_URL"
+
+   # From file content
+   vercel env add DATABASE_URL preview feature-auth < db-url.txt
+   ```
+
+2. **Pulling Branch-Specific Variables**:
+   ```bash
+   # Pull preview environment variables for specific branch
+   vercel pull --environment=preview --git-branch=feature-auth
+
+   # Pull environment variables only
+   vercel env pull --environment=preview --git-branch=feature-auth
+   ```
+
+3. **Listing Branch Variables**:
+   ```bash
+   # List all preview environment variables
+   vercel env ls preview
+
+   # List variables for specific environment and branch
+   vercel env ls preview feature-auth
+   ```
+
+#### Variable Persistence
+Variables set with `vercel env add` persist across deployments and are automatically applied when the corresponding Git branch is deployed. Vercel's Git integration ensures the correct branch-specific variables are used for each preview deployment.
 
 ## Configuration
 
@@ -185,6 +215,69 @@ await migrate(db, {
 - **Error Handling**: Continues cleanup even if some steps fail
 - **Comprehensive Logging**: Details what was cleaned up
 
+## Custom Environments and Staging
+
+### Overview
+Custom environments in Vercel allow you to create dedicated deployment environments beyond the standard production and preview. This is particularly useful for staging workflows and complex deployment pipelines.
+
+### Setting Up a Staging Environment
+
+1. **Create Custom Environment** (Pro/Enterprise plans):
+   ```bash
+   # Deploy to custom staging environment
+   vercel deploy --target=staging
+
+   # Pull staging environment variables
+   vercel pull --environment=staging
+   ```
+
+2. **Branch-Based Staging** (All plans):
+   For Hobby users or simpler setups, use branch-specific configurations:
+   ```bash
+   # Create a dedicated staging branch
+   git checkout -b staging
+
+   # Add staging-specific environment variables
+   vercel env add API_URL preview staging <<< "https://staging.api.example.com"
+   vercel env add DB_POOL_SIZE preview staging <<< "10"
+   ```
+
+3. **Domain Configuration**:
+   ```bash
+   # Add staging domain to branch
+   vercel domains add staging.example.com --scope=preview --git-branch=staging
+   ```
+
+### Environment Variable Inheritance
+
+Environment variables follow an inheritance pattern:
+1. **Base Preview Variables**: Applied to all preview deployments
+2. **Branch-Specific Overrides**: Override base values for specific branches
+3. **Custom Environment Variables**: Complete control for custom environments
+
+Example workflow:
+```bash
+# Set base preview variable
+vercel env add API_TIMEOUT preview <<< "30000"
+
+# Override for staging branch
+vercel env add API_TIMEOUT preview staging <<< "60000"
+
+# Override for feature branch
+vercel env add API_TIMEOUT preview feature-long-running <<< "120000"
+```
+
+### Staged Production Deployments
+
+Create production builds without immediately assigning them to production domains:
+```bash
+# Create staged production deployment
+vercel deploy --prod --skip-domain
+
+# Promote staged deployment after verification
+vercel promote [deployment-url] --scope=production
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -203,6 +296,19 @@ await migrate(db, {
    - **Cause**: Resources already deleted or API issues
    - **Fix**: Check logs, manual cleanup if needed
    - **Monitor**: GitHub Actions tab shows cleanup status
+
+4. **CLI Deployments Not Using Branch Variables**
+   - **Cause**: Git metadata missing when deploying via CLI
+   - **Fix**: Use `--meta` flag to specify Git information
+   - **Example**:
+     ```bash
+     vercel deploy --meta githubDeployment="1" \
+                   --meta githubCommitRef="feature/branch-name"
+     ```
+   - **Required**: Always include one of:
+     - `githubDeployment="1"` for GitHub
+     - `gitlabDeployment="1"` for GitLab
+     - `bitbucketDeployment="1"` for Bitbucket
 
 ### Debug Commands
 
@@ -226,9 +332,8 @@ curl -H "Authorization: Bearer $NEON_API_KEY" \
 If automatic cleanup fails:
 
 ```bash
-# Remove Vercel env vars (only needed for Git-connected projects)
-# vercel env rm DATABASE_URL preview --git-branch="branch-name" --yes
-# Note: For non-Git-connected projects, env vars are deployment-specific and auto-removed
+# Remove Vercel env vars for specific branch
+vercel env rm DATABASE_URL preview --git-branch="branch-name" --yes
 
 # Delete Neon branch via API
 curl -X DELETE -H "Authorization: Bearer $NEON_API_KEY" \
@@ -300,22 +405,39 @@ Set up notifications for:
 
 ## Best Practices
 
+### Git-Connected Project Requirements
+
+1. **Maintain Git Connection**:
+   - Ensure Vercel project remains connected to Git repository
+   - Verify connection with `vercel project ls`
+   - Use Vercel dashboard to reconnect if needed
+
+2. **Branch Naming Conventions**:
+   - Use alphanumeric characters and hyphens
+   - Avoid special characters that require sanitization
+   - Keep branch names under 63 characters
+   - Examples: `feature/user-auth`, `fix/api-timeout`, `staging`
+
 ### Development Workflow
 
 1. **Feature Branches**:
    - Use descriptive branch names
    - Keep branches short-lived
    - Delete after merging
+   - Use branch protection rules for critical branches
 
 2. **Database Changes**:
    - Always use migrations
    - Test migrations locally first
    - Review schema changes in PRs
+   - Run migrations in temporary branches before production
 
-3. **Environment Variables**:
-   - Document all required variables
-   - Use consistent naming
-   - Keep production values separate
+3. **Environment Variables** (2025 Best Practices):
+   - Document all required variables in README
+   - Use branch-specific overrides sparingly
+   - Leverage variable inheritance for common values
+   - Audit variables regularly with `vercel env ls`
+   - Use encrypted values for all sensitive data
 
 ### Performance Tips
 
@@ -369,3 +491,17 @@ Set up notifications for:
 - [Neon API Documentation](https://neon.tech/docs/api)
 - [Drizzle ORM Documentation](https://orm.drizzle.team/)
 - [GitHub Actions Documentation](https://docs.github.com/actions)
+- [Vercel Environment Variables Guide](https://vercel.com/docs/environment-variables)
+- [Vercel Custom Environments](https://vercel.com/docs/deployments/environments)
+
+### 2025 Updates Summary
+
+This guide has been updated to reflect the latest Vercel features as of 2025:
+
+- **Enhanced CLI Support**: Full `--git-branch` support in `vercel pull` and `vercel env pull` (v28.9.0+)
+- **Encrypted Variables**: All environment variables are now encrypted at rest
+- **Branch-Specific Overrides**: Simplified inheritance model for preview deployments
+- **Custom Environments**: Expanded support for staging and custom deployment targets
+- **Improved Git Integration**: Better handling of branch-specific configurations
+
+**Note**: This guide specifically covers Git-connected Vercel projects. For CLI-only deployments without Git integration, refer to Vercel's documentation on deployment-time environment variables.
