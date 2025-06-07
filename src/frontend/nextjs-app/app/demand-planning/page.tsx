@@ -20,7 +20,7 @@ export default function DemandPlanningPage() {
     dmaIds: [],
     dcIds: [],
     inventoryItemId: null,
-    dateRange: { startDate: null, endDate: null }
+    dateRange: { startDate: '2025-01-01', endDate: '2025-03-31' }
   });
 
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
@@ -51,11 +51,7 @@ export default function DemandPlanningPage() {
             console.log(`Auto-selecting first inventory item: ${firstItem}`);
             setFilterSelections(prev => ({
               ...prev,
-              inventoryItemId: firstItem,
-              // Also set default date range if not set
-              dateRange: prev.dateRange.startDate && prev.dateRange.endDate
-                ? prev.dateRange
-                : { startDate: '2025-01-01', endDate: '2025-03-31' }
+              inventoryItemId: firstItem
             }));
           }
         } catch (error) {
