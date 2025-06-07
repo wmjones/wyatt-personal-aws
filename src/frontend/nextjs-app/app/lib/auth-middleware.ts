@@ -2,12 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { config } from './config';
 
-// Create the JWT verifier for Cognito
-const verifier = CognitoJwtVerifier.create({
-  userPoolId: config.auth.aws.userPoolId,
-  tokenUse: 'id',
-  clientId: config.auth.aws.clientId,
-});
+// Lazy initialize the verifier to avoid build-time errors
+let verifier: ReturnType<typeof CognitoJwtVerifier.create> | null = null;
+
+function getVerifier() {
+  if (!verifier) {
+    const userPoolId = config.auth.aws.userPoolId;
+    const clientId = config.auth.aws.clientId;
+
+    if (!userPoolId || !clientId) {
+      throw new Error('Cognito configuration is missing. Please set NEXT_PUBLIC_USER_POOL_ID and NEXT_PUBLIC_USER_POOL_CLIENT_ID environment variables.');
+    }
+
+    verifier = CognitoJwtVerifier.create({
+      userPoolId,
+      tokenUse: 'id',
+      clientId,
+    });
+  }
+  return verifier;
+}
 
 export interface AuthenticatedRequest extends NextRequest {
   user?: {
@@ -37,7 +51,7 @@ export function withAuth(
       const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
       // Verify the token
-      const payload = await verifier.verify(token);
+      const payload = await getVerifier().verify(token);
 
       // Add user information to the request
       const authenticatedReq = req as AuthenticatedRequest;
@@ -71,7 +85,7 @@ export async function getOptionalUser(req: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const payload = await verifier.verify(token);
+    const payload = await getVerifier().verify(token);
 
     return {
       sub: payload.sub as string,

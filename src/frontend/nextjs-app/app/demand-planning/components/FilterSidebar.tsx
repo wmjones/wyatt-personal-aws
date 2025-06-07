@@ -64,38 +64,10 @@ export default function FilterSidebar({
   const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory || isLoadingHierarchy;
   const error = statesError || dmasError || dcsError || inventoryError;
 
-  // Initialize with first inventory item and default date range if not selected
+  // Sync local selections with parent when they change
   useEffect(() => {
-    if (inventoryOptions.length > 0 && !isLoadingInventory) {
-      setLocalSelections((prevSelections) => {
-        let hasChanges = false;
-        const updatedSelections = { ...prevSelections };
-
-        // Auto-select first inventory item if none selected
-        if (!updatedSelections.inventoryItemId) {
-          updatedSelections.inventoryItemId = inventoryOptions[0].value;
-          hasChanges = true;
-        }
-
-        // Set default date range if not selected (full data range)
-        if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
-          updatedSelections.dateRange = {
-            startDate: '2025-01-01',
-            endDate: '2025-03-31'
-          };
-          hasChanges = true;
-        }
-
-        if (hasChanges) {
-          // Call onSelectionChange in a separate effect to avoid issues
-          setTimeout(() => onSelectionChange(updatedSelections), 0);
-          return updatedSelections;
-        }
-
-        return prevSelections;
-      });
-    }
-  }, [inventoryOptions, isLoadingInventory, onSelectionChange]);
+    setLocalSelections(selections);
+  }, [selections]);
 
   // Handle state selection changes
   const handleStateChange = (states: string[]) => {

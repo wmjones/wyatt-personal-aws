@@ -8,6 +8,7 @@ import CacheStatus from './components/CacheStatus';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
+import { postgresForecastService } from '@/app/services/postgresForecastService';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
@@ -39,10 +40,32 @@ export default function DemandPlanningPage() {
     deleteAdjustment
   } = useAdjustmentHistory();
 
-  // Initialize without hardcoded selections
+  // Auto-select first inventory item if none selected
   useEffect(() => {
-    // Page component mount - users will select their own hierarchies and filters
-  }, []);
+    const autoSelectFirstInventoryItem = async () => {
+      if (!filterSelections.inventoryItemId) {
+        try {
+          const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
+          if (inventoryItems.length > 0) {
+            const firstItem = inventoryItems[0];
+            console.log(`Auto-selecting first inventory item: ${firstItem}`);
+            setFilterSelections(prev => ({
+              ...prev,
+              inventoryItemId: firstItem,
+              // Also set default date range if not set
+              dateRange: prev.dateRange.startDate && prev.dateRange.endDate
+                ? prev.dateRange
+                : { startDate: '2025-01-01', endDate: '2025-03-31' }
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to fetch first inventory item:', error);
+        }
+      }
+    };
+
+    autoSelectFirstInventoryItem();
+  }, [filterSelections.inventoryItemId]);
 
   // Fetch forecast data using TanStack Query
   const {

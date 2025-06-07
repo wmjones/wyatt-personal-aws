@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useForecastData } from './useForecastQuery';
 import {
   ForecastSeries,
@@ -9,7 +8,6 @@ import {
   InventoryItem
 } from '@/app/types/demand-planning';
 import { FilterSelections } from '../components/FilterSidebar';
-import { postgresForecastService } from '@/app/services/postgresForecastService';
 
 interface UseForecastProps {
   filterSelections?: FilterSelections;
@@ -126,39 +124,9 @@ function transformToForecastSeries(
 }
 
 export default function useForecast({ filterSelections }: UseForecastProps) {
-  const [firstInventoryItemId, setFirstInventoryItemId] = useState<string | null>(null);
-  const [isLoadingFirstItem, setIsLoadingFirstItem] = useState(true);
-
-  // Fetch first available inventory item on mount if no item is selected
-  useEffect(() => {
-    const fetchFirstInventoryItem = async () => {
-      if (filterSelections?.inventoryItemId) {
-        setIsLoadingFirstItem(false);
-        return;
-      }
-
-      try {
-        const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
-        if (inventoryItems.length > 0) {
-          const firstItem = inventoryItems[0];
-          console.log(`Auto-selecting first inventory item: ${firstItem} (from ${inventoryItems.length} available items)`);
-          setFirstInventoryItemId(firstItem);
-        }
-      } catch (error) {
-        console.error('Failed to fetch first inventory item:', error);
-      } finally {
-        setIsLoadingFirstItem(false);
-      }
-    };
-
-    fetchFirstInventoryItem();
-  }, [filterSelections?.inventoryItemId]);
-
-  // Extract query parameters - use first available item if no item is selected
+  // Extract query parameters - only use selected item from filterSelections
   const itemIds = filterSelections?.inventoryItemId
     ? [filterSelections.inventoryItemId]
-    : firstInventoryItemId
-    ? [firstInventoryItemId]
     : [];
 
   // Determine date range from filter selections
@@ -190,7 +158,7 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
     : null;
 
   return {
-    isLoading: isLoading || isLoadingFirstItem,
+    isLoading,
     forecastData,
     error: error?.message || null,
     refetch
