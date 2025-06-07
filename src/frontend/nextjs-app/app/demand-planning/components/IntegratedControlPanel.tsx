@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
 import SimpleDateRangeFilter from './SimpleDateRangeFilter';
@@ -13,7 +13,6 @@ import {
   useDCOptions,
   useInventoryItemOptions
 } from '@/app/hooks/useDropdownOptions';
-import { useFilteredOptions } from '../hooks/useHierarchicalMapping';
 
 interface IntegratedControlPanelProps {
   // Filter props
@@ -59,23 +58,6 @@ export default function IntegratedControlPanel({
   const { data: dcOptions = [] } = useDCOptions();
   const { data: inventoryOptions = [] } = useInventoryItemOptions();
 
-  // Get filtered options based on selected states
-  const { isDMAAvailable, isDCAvailable } = useFilteredOptions(localSelections.states);
-
-  // Mark unavailable options as disabled
-  const filteredDMAOptions = useMemo(() => {
-    return dmaOptions.map(option => ({
-      ...option,
-      disabled: !isDMAAvailable(option.value)
-    }));
-  }, [dmaOptions, isDMAAvailable]);
-
-  const filteredDCOptions = useMemo(() => {
-    return dcOptions.map(option => ({
-      ...option,
-      disabled: !isDCAvailable(option.value)
-    }));
-  }, [dcOptions, isDCAvailable]);
 
   // Remove unused variable
   // const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory || isLoadingHierarchy;
@@ -138,9 +120,7 @@ export default function IntegratedControlPanel({
 
     const updatedSelections = {
       ...localSelections,
-      states,
-      dmaIds: [],
-      dcIds: []
+      states
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
@@ -158,8 +138,7 @@ export default function IntegratedControlPanel({
 
     const updatedSelections = {
       ...localSelections,
-      dmaIds,
-      dcIds: []
+      dmaIds
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
@@ -322,6 +301,20 @@ export default function IntegratedControlPanel({
 
           {expandedSections.filters && (
             <div className="mt-4 space-y-4">
+              {/* Warning for pending adjustments */}
+              {pendingAdjustment && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833-.27 2.5 1.732 2.5z" />
+                    </svg>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      You have unsaved adjustment changes. Changing filters will reset them.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {/* Inventory Item Selection */}
               <SingleSelectFilter
                 title="Product"
@@ -345,7 +338,7 @@ export default function IntegratedControlPanel({
                 title="DMAs"
                 selectedValues={localSelections.dmaIds}
                 onChange={handleDmaChange}
-                options={filteredDMAOptions}
+                options={dmaOptions}
                 placeholder="Select DMAs..."
               />
 
@@ -354,7 +347,7 @@ export default function IntegratedControlPanel({
                 title="Distribution Centers"
                 selectedValues={localSelections.dcIds}
                 onChange={handleDcChange}
-                options={filteredDCOptions}
+                options={dcOptions}
                 placeholder="Select DCs..."
               />
 

@@ -51,6 +51,60 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       }
     };
 
+    // Validate main date range
+    const mainStartDate = new Date(processedFilterContext.dateRange.startDate);
+    const mainEndDate = new Date(processedFilterContext.dateRange.endDate);
+    
+    if (isNaN(mainStartDate.getTime()) || isNaN(mainEndDate.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid date range format. Please use YYYY-MM-DD format.' },
+        { status: 400 }
+      );
+    }
+
+    if (mainStartDate >= mainEndDate) {
+      return NextResponse.json(
+        { error: 'Start date must be before end date' },
+        { status: 400 }
+      );
+    }
+
+    // Validate adjustment date range if provided
+    if (filterContext.adjustmentDateRange) {
+      const adjStartDate = new Date(filterContext.adjustmentDateRange.startDate);
+      const adjEndDate = new Date(filterContext.adjustmentDateRange.endDate);
+
+      if (isNaN(adjStartDate.getTime()) || isNaN(adjEndDate.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid adjustment date range format. Please use YYYY-MM-DD format.' },
+          { status: 400 }
+        );
+      }
+
+      if (adjStartDate >= adjEndDate) {
+        return NextResponse.json(
+          { error: 'Adjustment start date must be before end date' },
+          { status: 400 }
+        );
+      }
+
+      // Ensure adjustment date range is within main filter bounds
+      if (adjStartDate < mainStartDate || adjEndDate > mainEndDate) {
+        return NextResponse.json(
+          { error: 'Adjustment date range must be within the main filter date range' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate required filter dimensions
+    if (!processedFilterContext.inventoryItemId) {
+      return NextResponse.json(
+        { error: 'Product selection is required for adjustments' },
+        { status: 400 }
+      );
+    }
+
     // Insert adjustment into database with multi-user support
     const [savedAdjustment] = await db
       .insert(forecastAdjustments)

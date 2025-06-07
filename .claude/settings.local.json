@@ -126,6 +126,9 @@
       "Bash(git rm:*)",
       "Bash(npm install)",
       "mcp__taskmaster-ai__get_tasks"
+    ],
+    "deny": [
+      "Bash(git push:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

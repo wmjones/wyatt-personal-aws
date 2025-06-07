@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
 import DateRangeFilter from './DateRangeFilter';
@@ -10,7 +10,6 @@ import {
   useDCOptions,
   useInventoryItemOptions
 } from '@/app/hooks/useDropdownOptions';
-import { useFilteredOptions } from '../hooks/useHierarchicalMapping';
 
 export interface FilterSelections {
   states: string[];
@@ -42,26 +41,8 @@ export default function FilterSidebar({
   const { data: dcOptions = [], isLoading: isLoadingDCs, error: dcsError } = useDCOptions();
   const { data: inventoryOptions = [], isLoading: isLoadingInventory, error: inventoryError } = useInventoryItemOptions();
 
-  // Get filtered options based on selected states
-  const { isDMAAvailable, isDCAvailable, isLoading: isLoadingHierarchy } = useFilteredOptions(localSelections.states);
-
-  // Mark unavailable options as disabled
-  const filteredDMAOptions = useMemo(() => {
-    return dmaOptions.map(option => ({
-      ...option,
-      disabled: !isDMAAvailable(option.value)
-    }));
-  }, [dmaOptions, isDMAAvailable]);
-
-  const filteredDCOptions = useMemo(() => {
-    return dcOptions.map(option => ({
-      ...option,
-      disabled: !isDCAvailable(option.value)
-    }));
-  }, [dcOptions, isDCAvailable]);
-
   // Aggregate loading and error states
-  const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory || isLoadingHierarchy;
+  const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory;
   const error = statesError || dmasError || dcsError || inventoryError;
 
   // Sync local selections with parent when they change
@@ -73,10 +54,7 @@ export default function FilterSidebar({
   const handleStateChange = (states: string[]) => {
     const updatedSelections = {
       ...localSelections,
-      states,
-      // Clear dependent selections when states change
-      dmaIds: [],
-      dcIds: []
+      states
     };
     setLocalSelections(updatedSelections);
     onSelectionChange(updatedSelections);
@@ -86,9 +64,7 @@ export default function FilterSidebar({
   const handleDmaChange = (dmaIds: string[]) => {
     const updatedSelections = {
       ...localSelections,
-      dmaIds,
-      // Clear dependent selections when DMAs change
-      dcIds: []
+      dmaIds
     };
     setLocalSelections(updatedSelections);
     onSelectionChange(updatedSelections);
@@ -169,7 +145,7 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">DMAs</h3>
           <MultiSelectFilter
             title=""
-            options={filteredDMAOptions}
+            options={dmaOptions}
             selectedValues={localSelections.dmaIds}
             onChange={handleDmaChange}
             placeholder={isLoadingDMAs ? "Loading..." : "Select DMAs"}
@@ -181,7 +157,7 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">Distribution Centers</h3>
           <MultiSelectFilter
             title=""
-            options={filteredDCOptions}
+            options={dcOptions}
             selectedValues={localSelections.dcIds}
             onChange={handleDcChange}
             placeholder={isLoadingDCs ? "Loading..." : "Select DCs"}
