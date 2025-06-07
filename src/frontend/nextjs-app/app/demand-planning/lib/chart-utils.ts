@@ -233,6 +233,12 @@ export function createChartDataset(
   console.log(`createChartDataset: Created ${chartData.length} data points from ${dataPoints.length} input points`);
   if (chartData.length > 0) {
     console.log(`Date range: ${chartData[0].date.toISOString()} to ${chartData[chartData.length - 1].date.toISOString()}`);
+    console.log('First 5 dates:', chartData.slice(0, 5).map(d => d.date.toISOString()));
+    console.log('Last 5 dates:', chartData.slice(-5).map(d => d.date.toISOString()));
+
+    // Check for any date grouping issues
+    const uniqueDates = new Set(chartData.map(d => d.date.toDateString()));
+    console.log(`Unique dates in chart data: ${uniqueDates.size}`);
   }
 
   return chartData;

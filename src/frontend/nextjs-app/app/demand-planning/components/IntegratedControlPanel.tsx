@@ -356,6 +356,7 @@ export default function IntegratedControlPanel({
                 startDate={localSelections.dateRange.startDate}
                 endDate={localSelections.dateRange.endDate}
                 onChange={handleDateRangeChange}
+                minDate="2025-01-01"
               />
             </div>
           )}

@@ -50,6 +50,8 @@ export async function fetchForecastSummary(params: ForecastParams): Promise<Fore
  * Fetch forecast time series data
  */
 export async function fetchForecastTimeSeries(params: ForecastParams): Promise<ForecastTimeSeries[]> {
+  console.log('fetchForecastTimeSeries called with params:', params);
+
   // For time series, we need to fetch data and transform it
   interface ForecastFilters {
     startDate: string
@@ -87,6 +89,8 @@ export async function fetchForecastTimeSeries(params: ForecastParams): Promise<F
     action: 'get_forecast_data',
     filters
   }
+
+  console.log('fetchForecastTimeSeries - Sending request with body:', requestBody);
 
   const response = await fetch(`${API_BASE_URL}/data/postgres-forecast`, {
     method: 'POST',

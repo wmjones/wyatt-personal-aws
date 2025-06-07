@@ -155,7 +155,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
-      .ticks(d3.timeMonth.every(1)) // Monthly ticks for 3-month view
+      .ticks(baselineDataset.length > 30 ? d3.timeWeek.every(1) : d3.timeDay.every(Math.ceil(baselineDataset.length / 10))) // Dynamic ticks based on data
       .tickSize(0) // Remove tick marks
       .tickFormat(() => ''); // Empty labels since we handle them separately with custom month display
 

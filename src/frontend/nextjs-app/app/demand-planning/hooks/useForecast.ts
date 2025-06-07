@@ -154,6 +154,7 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
 
   // Debug logging
   console.log('useForecast - Query params:', queryParams);
+  console.log('useForecast - Query will be enabled:', itemIds.length > 0);
 
   const { data, isLoading, error, refetch } = useForecastData(queryParams);
 

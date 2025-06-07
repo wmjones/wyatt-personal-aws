@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, eq, inArray, and, gte, lte, or, desc } from 'drizzle-orm';
+import { sql, eq, inArray, and, gte, lte, or } from 'drizzle-orm';
 import { db } from '@/app/db/drizzle';
 import { forecastData, dashboardForecastView } from '@/app/db/schema/forecast-data';
 import { forecastAdjustments } from '@/app/db/schema/adjustments';
@@ -143,7 +143,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     }
   }
 
-  const limit = filters?.limit || 10000;
+  const limit = filters?.limit || 100000;
 
   // Build adjustment conditions
   const adjustmentConditions = [eq(forecastAdjustments.isActive, true)];
@@ -170,7 +170,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     : baseQuery;
 
   const result = await filteredQuery
-    .orderBy(desc(forecastData.businessDate))
+    .orderBy(forecastData.businessDate)
     .limit(limit);
 
   console.log(`API - Query returned ${result.length} rows with ${conditions.length} conditions`);
@@ -249,7 +249,7 @@ async function getForecastByDate(filters: ForecastFilters) {
     .from(forecastData)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .groupBy(forecastData.businessDate, forecastData.state)
-    .orderBy(desc(forecastData.businessDate));
+    .orderBy(forecastData.businessDate);
 
   return result;
 }
