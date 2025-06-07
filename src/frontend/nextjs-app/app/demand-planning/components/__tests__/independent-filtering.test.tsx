@@ -3,12 +3,12 @@
  * Ensures filters work independently without hierarchical dependencies
  */
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import IntegratedControlPanel from '../IntegratedControlPanel';
 
 // Mock the dropdown options hooks
-jest.mock('@/app/hooks/useDropdownOptions', () => ({
+jest.mock('../../../hooks/useDropdownOptions', () => ({
   useStateOptions: () => ({
     data: [
       { value: 'CA', label: 'California' },
@@ -47,11 +47,13 @@ const createTestWrapper = () => {
     },
   });
 
-  return ({ children }: { children: React.ReactNode }) => (
+  const TestWrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       {children}
     </QueryClientProvider>
   );
+  TestWrapper.displayName = 'TestWrapper';
+  return TestWrapper;
 };
 
 describe('Independent Filtering', () => {

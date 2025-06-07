@@ -65,7 +65,7 @@ export default function DemandPlanningPage() {
     };
 
     autoSelectFirstInventoryItem();
-  }, []); // Only run once on mount to avoid infinite loops
+  }, [filterSelections.inventoryItemId]); // Run when inventory item selection changes
 
   // Fetch forecast data using TanStack Query
   const {
