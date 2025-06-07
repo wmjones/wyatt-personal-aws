@@ -82,7 +82,9 @@
       "Bash(npm install)",
       "mcp__taskmaster-ai__add_task",
       "mcp__taskmaster-ai__set_task_status",
-      "mcp__taskmaster-ai__update_subtask"
+      "mcp__taskmaster-ai__update_subtask",
+      "mcp__taskmaster-ai__add_task",
+      "mcp__taskmaster-ai__expand_task"
     ]
   },
   "enableAllProjectMcpServers": true,
