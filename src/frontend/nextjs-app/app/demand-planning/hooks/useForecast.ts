@@ -157,6 +157,11 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
     ? transformToForecastSeries(data)
     : null;
 
+  // Debug logging
+  if (data && !forecastData) {
+    console.log('Data exists but forecastData is null. ItemIds:', itemIds);
+  }
+
   return {
     isLoading,
     forecastData,

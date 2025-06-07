@@ -47,7 +47,7 @@ export default function DemandPlanningPage() {
         try {
           const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
           if (inventoryItems.length > 0) {
-            const firstItem = inventoryItems[0];
+            const firstItem = inventoryItems[0].toString();
             console.log(`Auto-selecting first inventory item: ${firstItem}`);
             setFilterSelections(prev => ({
               ...prev,
@@ -65,7 +65,7 @@ export default function DemandPlanningPage() {
     };
 
     autoSelectFirstInventoryItem();
-  }, [filterSelections.inventoryItemId]);
+  }, []); // Only run once on mount to avoid infinite loops
 
   // Fetch forecast data using TanStack Query
   const {

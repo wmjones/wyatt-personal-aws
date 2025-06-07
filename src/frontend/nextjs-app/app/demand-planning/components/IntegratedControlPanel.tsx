@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
 import SimpleDateRangeFilter from './SimpleDateRangeFilter';
@@ -50,6 +50,8 @@ export default function IntegratedControlPanel({
     startDate: localSelections.dateRange.startDate,
     endDate: localSelections.dateRange.endDate
   });
+  const [filterLocked] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState(false);
 
   // Fetch dropdown options using TanStack Query
   const { data: stateOptions = [] } = useStateOptions();
@@ -78,6 +80,43 @@ export default function IntegratedControlPanel({
   // Remove unused variable
   // const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory || isLoadingHierarchy;
 
+  // Detect filter changes while configuring adjustment
+  useEffect(() => {
+    if (adjustmentValue !== 0 && !filterLocked) {
+      setPendingAdjustment(true);
+    }
+  }, [filterSelections, adjustmentValue, filterLocked]);
+
+  // Sync adjustment time window when main date range changes
+  useEffect(() => {
+    if (useTimeWindow && localSelections.dateRange.startDate && localSelections.dateRange.endDate) {
+      // Validate and adjust the adjustment time window to be within bounds
+      setAdjustmentTimeWindow(prev => {
+        const mainStart = new Date(localSelections.dateRange.startDate!);
+        const mainEnd = new Date(localSelections.dateRange.endDate!);
+        const adjStart = prev.startDate ? new Date(prev.startDate) : mainStart;
+        const adjEnd = prev.endDate ? new Date(prev.endDate) : mainEnd;
+
+        // Ensure adjustment dates are within main filter bounds
+        const validStart = adjStart < mainStart ? mainStart : adjStart;
+        const validEnd = adjEnd > mainEnd ? mainEnd : adjEnd;
+
+        // If the adjustment window becomes invalid, reset it
+        if (validStart > validEnd) {
+          return {
+            startDate: localSelections.dateRange.startDate,
+            endDate: localSelections.dateRange.endDate
+          };
+        }
+
+        return {
+          startDate: validStart.toISOString().split('T')[0],
+          endDate: validEnd.toISOString().split('T')[0]
+        };
+      });
+    }
+  }, [localSelections.dateRange, useTimeWindow]);
+
   // Toggle section expansion
   const toggleSection = (section: 'filters' | 'adjustment') => {
     setExpandedSections(prev => ({
@@ -88,6 +127,15 @@ export default function IntegratedControlPanel({
 
   // Filter handlers
   const handleStateChange = useCallback((states: string[]) => {
+    if (pendingAdjustment && !filterLocked) {
+      if (!confirm('You have unsaved adjustment changes. Changing filters will reset them. Continue?')) {
+        return;
+      }
+      setAdjustmentValue(0);
+      onAdjustmentChange(0);
+      setPendingAdjustment(false);
+    }
+
     const updatedSelections = {
       ...localSelections,
       states,
@@ -96,9 +144,18 @@ export default function IntegratedControlPanel({
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
-  }, [localSelections, onFilterSelectionChange]);
+  }, [localSelections, onFilterSelectionChange, pendingAdjustment, filterLocked, onAdjustmentChange]);
 
   const handleDmaChange = useCallback((dmaIds: string[]) => {
+    if (pendingAdjustment && !filterLocked) {
+      if (!confirm('You have unsaved adjustment changes. Changing filters will reset them. Continue?')) {
+        return;
+      }
+      setAdjustmentValue(0);
+      onAdjustmentChange(0);
+      setPendingAdjustment(false);
+    }
+
     const updatedSelections = {
       ...localSelections,
       dmaIds,
@@ -106,52 +163,82 @@ export default function IntegratedControlPanel({
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
-  }, [localSelections, onFilterSelectionChange]);
+  }, [localSelections, onFilterSelectionChange, pendingAdjustment, filterLocked, onAdjustmentChange]);
 
   const handleDcChange = useCallback((dcIds: string[]) => {
+    if (pendingAdjustment && !filterLocked) {
+      if (!confirm('You have unsaved adjustment changes. Changing filters will reset them. Continue?')) {
+        return;
+      }
+      setAdjustmentValue(0);
+      onAdjustmentChange(0);
+      setPendingAdjustment(false);
+    }
+
     const updatedSelections = {
       ...localSelections,
       dcIds
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
-  }, [localSelections, onFilterSelectionChange]);
+  }, [localSelections, onFilterSelectionChange, pendingAdjustment, filterLocked, onAdjustmentChange]);
 
   const handleInventoryItemChange = useCallback((itemId: string | null) => {
+    if (pendingAdjustment && !filterLocked) {
+      if (!confirm('You have unsaved adjustment changes. Changing filters will reset them. Continue?')) {
+        return;
+      }
+      setAdjustmentValue(0);
+      onAdjustmentChange(0);
+      setPendingAdjustment(false);
+    }
+
     const updatedSelections = {
       ...localSelections,
       inventoryItemId: itemId
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
-  }, [localSelections, onFilterSelectionChange]);
+  }, [localSelections, onFilterSelectionChange, pendingAdjustment, filterLocked, onAdjustmentChange]);
 
   const handleDateRangeChange = useCallback((dateRange: { startDate: string | null; endDate: string | null }) => {
+    if (pendingAdjustment && !filterLocked) {
+      if (!confirm('You have unsaved adjustment changes. Changing filters will reset them. Continue?')) {
+        return;
+      }
+      setAdjustmentValue(0);
+      onAdjustmentChange(0);
+      setPendingAdjustment(false);
+    }
+
     const updatedSelections = {
       ...localSelections,
       dateRange
     };
     setLocalSelections(updatedSelections);
     onFilterSelectionChange(updatedSelections);
-  }, [localSelections, onFilterSelectionChange]);
+  }, [localSelections, onFilterSelectionChange, pendingAdjustment, filterLocked, onAdjustmentChange]);
 
   // Adjustment handlers
   const handleIncrement = () => {
     const newValue = adjustmentValue + 2.5;
     setAdjustmentValue(newValue);
     onAdjustmentChange(newValue);
+    setPendingAdjustment(newValue !== 0);
   };
 
   const handleDecrement = () => {
     const newValue = adjustmentValue - 2.5;
     setAdjustmentValue(newValue);
     onAdjustmentChange(newValue);
+    setPendingAdjustment(newValue !== 0);
   };
 
   const handleAdjustmentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value) || 0;
     setAdjustmentValue(value);
     onAdjustmentChange(value);
+    setPendingAdjustment(value !== 0);
   };
 
   const handleSaveAdjustment = async () => {
@@ -173,6 +260,7 @@ export default function IntegratedControlPanel({
       await onSaveAdjustment(adjustmentValue, adjustmentContext);
       setAdjustmentValue(0);
       onAdjustmentChange(0);
+      setPendingAdjustment(false);
       setUseTimeWindow(false);
       setAdjustmentTimeWindow({
         startDate: localSelections.dateRange.startDate,

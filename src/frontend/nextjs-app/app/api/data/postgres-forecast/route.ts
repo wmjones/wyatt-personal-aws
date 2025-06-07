@@ -172,7 +172,18 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     .orderBy(desc(forecastData.businessDate))
     .limit(limit);
 
-  return result;
+  // Transform the result to snake_case format expected by frontend
+  return result.map(row => ({
+    restaurant_id: row.restaurantId,
+    inventory_item_id: row.inventoryItemId?.toString() || '',
+    business_date: row.businessDate?.toString() || '',
+    dma_id: row.dmaId || '',
+    dc_id: row.dcId?.toString() || '',
+    state: row.state || '',
+    y_05: parseFloat(row.y05?.toString() || '0'),
+    y_50: parseFloat(row.y50?.toString() || '0'),
+    y_95: parseFloat(row.y95?.toString() || '0')
+  }));
 }
 
 async function getForecastSummary(state: string | undefined) {
@@ -273,7 +284,7 @@ async function getDistinctValues(column: string) {
   }
 
   const result = await query;
-  return result.map(r => r.value);
+  return result.map(r => r.value?.toString() || '');
 }
 
 async function getDashboardForecast(filters: ForecastFilters) {
