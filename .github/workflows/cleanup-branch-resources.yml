@@ -59,44 +59,17 @@ jobs:
           echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
           echo "Sanitized branch name: $SANITIZED_BRANCH"
 
-      # Step 3: Install Vercel CLI
-      - name: Install Vercel CLI
+      # Step 3: Skip Vercel Environment Variables Cleanup
+      # This project is not Git-connected, so branch-specific env vars are not used
+      - name: Skip Vercel Environment Variables Cleanup
         if: steps.branch_name.outputs.skip_cleanup == 'false'
-        run: npm install --global vercel@latest
-
-      # Step 4: Remove Vercel environment variables
-      - name: Remove Vercel environment variables
-        if: steps.branch_name.outputs.skip_cleanup == 'false'
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          echo "🧹 Removing environment variables for branch: ${{ steps.branch_name.outputs.branch_name }}"
+          echo "ℹ️ Skipping Vercel environment variable cleanup"
+          echo "This project is not Git-connected to Vercel"
+          echo "Environment variables are passed at deployment time, not stored persistently"
+          echo "Branch: ${{ steps.branch_name.outputs.branch_name }}"
 
-          # List all environment variables for this git branch
-          echo "Checking for branch-specific environment variables..."
-
-          # Remove DATABASE_URL for this branch
-          if vercel env rm DATABASE_URL preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
-            echo "✅ Removed DATABASE_URL for branch"
-          else
-            echo "ℹ️ DATABASE_URL not found or already removed"
-          fi
-
-          # Remove DATABASE_URL_UNPOOLED for this branch
-          if vercel env rm DATABASE_URL_UNPOOLED preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
-            echo "✅ Removed DATABASE_URL_UNPOOLED for branch"
-          else
-            echo "ℹ️ DATABASE_URL_UNPOOLED not found or already removed"
-          fi
-
-          # Remove DEPLOYMENT_BRANCH for this branch
-          if vercel env rm DEPLOYMENT_BRANCH preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
-            echo "✅ Removed DEPLOYMENT_BRANCH for branch"
-          else
-            echo "ℹ️ DEPLOYMENT_BRANCH not found or already removed"
-          fi
-
-      # Step 5: Delete Neon database branch
+      # Step 4: Delete Neon database branch
       - name: Delete Neon database branch
         if: steps.branch_name.outputs.skip_cleanup == 'false'
         env:
@@ -132,7 +105,7 @@ jobs:
             echo "ℹ️ No Neon database branch found for: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
           fi
 
-      # Step 6: Log cleanup summary
+      # Step 5: Log cleanup summary
       - name: Cleanup summary
         if: steps.branch_name.outputs.skip_cleanup == 'false'
         run: |
@@ -144,19 +117,19 @@ jobs:
           fi
           echo ""
           echo "Resources cleaned:"
-          echo "- Vercel environment variables removed"
+          echo "- Vercel environment variables (N/A - non-Git-connected project)"
           echo "- Neon database branch deleted (if existed)"
           echo ""
           echo "This cleanup helps prevent resource accumulation and maintains a clean development environment."
 
-      # Step 7: Handle cleanup errors
+      # Step 6: Handle cleanup errors
       - name: Handle cleanup errors
         if: failure() && steps.branch_name.outputs.skip_cleanup == 'false'
         run: |
           echo "⚠️ Branch cleanup encountered errors"
           echo "Some resources may need manual cleanup:"
-          echo "- Check Vercel dashboard for orphaned environment variables"
           echo "- Check Neon console for orphaned database branches"
+          echo "Note: Vercel env vars are deployment-specific (non-Git-connected project)"
           echo ""
           echo "Branch: ${{ steps.branch_name.outputs.branch_name }}"
           echo "Sanitized: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"

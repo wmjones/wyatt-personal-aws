@@ -162,35 +162,14 @@ jobs:
             vercel build --token=${{ secrets.VERCEL_TOKEN }}
           fi
 
-      # Step 14: Set Environment Variables for Preview Deployments
-      - name: Set Environment Variables for Preview Deployments
+      # Step 14: Log Environment Variables for Non-Git-Connected Project
+      - name: Log Environment Variables for Non-Git-Connected Project
         if: steps.branch_name.outputs.current_branch != 'dev' && steps.branch_name.outputs.current_branch != 'main'
-        working-directory: src/frontend/nextjs-app
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
         run: |
-          echo "Setting environment variables for preview deployment..."
-          # Set branch-specific database URLs for the current git branch
-          # These will persist across deployments for this branch
-
-          # Retry logic for DATABASE_URL to handle race conditions
-          for i in {1..3}; do
-            if vercel env add DATABASE_URL preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" --token=${{ secrets.VERCEL_TOKEN }}; then
-              echo "✅ DATABASE_URL set successfully on attempt $i"
-              break
-            else
-              echo "⚠️ Attempt $i failed for DATABASE_URL, retrying in 5 seconds..."
-              sleep 5
-            fi
-          done
-
-          # Set additional environment variables (with single attempt as they're less critical)
-          vercel env add DATABASE_URL_UNPOOLED preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url }}" --token=${{ secrets.VERCEL_TOKEN }} || true
-          vercel env add DEPLOYMENT_BRANCH preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.branch_name.outputs.current_branch }}" --token=${{ secrets.VERCEL_TOKEN }} || true
-
-          echo "✅ Environment variables set for branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "ℹ️ Project is not Git-connected to Vercel"
+          echo "Environment variables will be passed during deployment"
+          echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
 
       # Step 15: Log Environment Configuration
       - name: Log Environment Configuration
@@ -200,9 +179,10 @@ jobs:
           if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
             echo "✅ Production deployment - using environment variables from Vercel dashboard"
           else
-            echo "✅ Preview deployment - branch-specific database URLs have been set"
+            echo "✅ Preview deployment - database URLs passed during deployment"
             echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
             echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+            echo "Note: This project is not Git-connected, so env vars are deployment-specific"
           fi
 
       # Step 16: Deploy to Vercel
@@ -230,8 +210,12 @@ jobs:
             echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           else
             echo "🔄 Deploying feature branch as preview deployment..."
-            # Deploy without passing env vars since they're now persistently set in Vercel
-            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+            # Pass environment variables during deployment for non-Git-connected project
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt \
+              -e DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
+              -e DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}" \
+              -e DEPLOYMENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}" \
+              --token=${{ secrets.VERCEL_TOKEN }})
             echo "Preview URL: $DEPLOYMENT_URL"
             echo "deployment_type=preview" >> $GITHUB_OUTPUT
             echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
