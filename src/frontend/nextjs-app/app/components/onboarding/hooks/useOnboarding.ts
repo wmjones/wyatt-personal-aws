@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -42,6 +42,7 @@ export function useOnboarding(): UseOnboardingReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
+  const hasInitializedRef = useRef(false);
 
   // Fetch user preferences
   const fetchPreferences = useCallback(async () => {
@@ -186,7 +187,12 @@ export function useOnboarding(): UseOnboardingReturn {
 
   // Load preferences on mount and auth change
   useEffect(() => {
+    // Prevent duplicate initialization
+    if (hasInitializedRef.current) return;
+
     if (auth.isAuthenticated && !auth.loading) {
+      hasInitializedRef.current = true;
+
       // Initialize the preferences table if needed (temporary fix)
       const initPreferences = async () => {
         try {

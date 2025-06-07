@@ -33,8 +33,7 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
     }
 
     // Validate filter context structure
-    if (!filterContext.dateRange ||
-        !Array.isArray(filterContext.states) ||
+    if (!Array.isArray(filterContext.states) ||
         !Array.isArray(filterContext.dmaIds) ||
         !Array.isArray(filterContext.dcIds)) {
       return NextResponse.json(
@@ -43,12 +42,21 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       );
     }
 
+    // Apply default date range if none provided
+    const processedFilterContext = {
+      ...filterContext,
+      dateRange: {
+        startDate: filterContext.dateRange?.startDate || '2025-01-01',
+        endDate: filterContext.dateRange?.endDate || '2025-03-31'
+      }
+    };
+
     // Insert adjustment into database with multi-user support
     const [savedAdjustment] = await db
       .insert(forecastAdjustments)
       .values({
         adjustmentValue: adjustmentValue.toString(),
-        filterContext,
+        filterContext: processedFilterContext,
         inventoryItemName: inventoryItemName || null,
         userId: request.user?.sub || '',
         userEmail: request.user?.email,
