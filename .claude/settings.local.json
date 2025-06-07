@@ -128,7 +128,8 @@
       "mcp__taskmaster-ai__get_tasks"
     ],
     "deny": [
-      "Bash(git push:*)"
+      "Bash(git push*)",
+      "Bash(*git push*)"
     ]
   },
   "enableAllProjectMcpServers": true,
