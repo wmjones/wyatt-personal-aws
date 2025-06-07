@@ -23,6 +23,10 @@ const ForecastCharts = memo(function ForecastCharts({
   // Use the data as-is since filtering is now done by the parent component
   const filteredBaselineData = forecastData.baseline;
 
+  // Debug logging
+  console.log('ForecastCharts - Received data points:', filteredBaselineData.length);
+  console.log('ForecastCharts - Time periods:', forecastData.timePeriods.length);
+
   // Check if we have saved adjustments in the baseline data
   const hasSavedAdjustments = useMemo(() => {
     return forecastData.baseline.some(point => point.hasAdjustment);

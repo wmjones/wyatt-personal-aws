@@ -74,6 +74,7 @@ export default function DemandPlanningPage() {
 
   // Handle filter changes from FilterSidebar
   const handleFilterChange = (newSelections: FilterSelections) => {
+    console.log('Page - Filter change:', newSelections);
     setFilterSelections(newSelections);
   };
 

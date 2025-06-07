@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'get_forecast_data':
+        console.log('API - get_forecast_data filters:', filters);
         result = await getForecastData(filters);
         break;
 
@@ -105,25 +106,25 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   }
 
   if (filters?.state) {
-    if (Array.isArray(filters.state)) {
+    if (Array.isArray(filters.state) && filters.state.length > 0) {
       conditions.push(inArray(forecastData.state, filters.state));
-    } else {
+    } else if (!Array.isArray(filters.state)) {
       conditions.push(eq(forecastData.state, filters.state));
     }
   }
 
   if (filters?.dmaId) {
-    if (Array.isArray(filters.dmaId)) {
+    if (Array.isArray(filters.dmaId) && filters.dmaId.length > 0) {
       conditions.push(inArray(forecastData.dmaId, filters.dmaId));
-    } else {
+    } else if (!Array.isArray(filters.dmaId)) {
       conditions.push(eq(forecastData.dmaId, filters.dmaId));
     }
   }
 
   if (filters?.dcId) {
-    if (Array.isArray(filters.dcId)) {
+    if (Array.isArray(filters.dcId) && filters.dcId.length > 0) {
       conditions.push(inArray(forecastData.dcId, filters.dcId));
-    } else {
+    } else if (!Array.isArray(filters.dcId)) {
       conditions.push(eq(forecastData.dcId, filters.dcId));
     }
   }
@@ -171,6 +172,17 @@ async function getForecastData(filters: ForecastFilters | undefined) {
   const result = await filteredQuery
     .orderBy(desc(forecastData.businessDate))
     .limit(limit);
+
+  console.log(`API - Query returned ${result.length} rows with ${conditions.length} conditions`);
+  if (conditions.length > 0) {
+    console.log('API - Applied filters:', {
+      inventoryItemId: filters?.inventoryItemId,
+      states: filters?.state,
+      dmaIds: filters?.dmaId,
+      dcIds: filters?.dcId,
+      dateRange: `${filters?.startDate} to ${filters?.endDate}`
+    });
+  }
 
   // Transform the result to snake_case format expected by frontend
   return result.map(row => ({

@@ -143,14 +143,19 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
   }
 
   // Use TanStack Query hook with proper location filters
-  const { data, isLoading, error, refetch } = useForecastData({
+  const queryParams = {
     itemIds,
     startDate,
     endDate,
     states: filterSelections?.states || [],
     dmaIds: filterSelections?.dmaIds || [],
     dcIds: filterSelections?.dcIds || []
-  });
+  };
+
+  // Debug logging
+  console.log('useForecast - Query params:', queryParams);
+
+  const { data, isLoading, error, refetch } = useForecastData(queryParams);
 
   // Transform data to expected format
   const forecastData = data && itemIds.length > 0
