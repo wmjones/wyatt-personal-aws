@@ -1,11 +1,11 @@
 name: Deploy Next.js to Vercel with Branch-based Neon Setup
 
 # This workflow creates Neon database branches for each branch deployment
-# and passes the connection strings to Vercel during deployment
+# and sets branch-specific environment variables in Vercel for Git-connected projects
 #
-# IMPORTANT: Database URLs are passed as build-time environment variables
-# to ensure each branch deployment uses its own dedicated Neon branch.
-# This prevents conflicts when multiple feature branches are deployed.
+# IMPORTANT: This workflow assumes your Vercel project is Git-connected.
+# Branch-specific environment variables are set in Vercel and automatically
+# applied to deployments based on Git branch metadata.
 
 on:
   push:
@@ -130,6 +130,37 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      # Step 11a: Set Branch-Specific Environment Variables in Vercel
+      - name: Set Branch-Specific Environment Variables
+        if: steps.branch_name.outputs.current_branch != 'dev' && steps.branch_name.outputs.current_branch != 'main'
+        working-directory: src/frontend/nextjs-app
+        run: |
+          echo "Setting branch-specific environment variables in Vercel..."
+          BRANCH_NAME="${{ steps.branch_name.outputs.current_branch }}"
+
+          # Set DATABASE_URL for the specific branch
+          echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
+            echo "DATABASE_URL may already exist, attempting to update..."
+            vercel env rm DATABASE_URL preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
+          }
+
+          # Set DATABASE_URL_UNPOOLED for the specific branch
+          echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
+            echo "DATABASE_URL_UNPOOLED may already exist, attempting to update..."
+            vercel env rm DATABASE_URL_UNPOOLED preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
+          }
+
+          # Set DEPLOYMENT_BRANCH for tracking
+          echo "$BRANCH_NAME" | vercel env add DEPLOYMENT_BRANCH preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
+            echo "DEPLOYMENT_BRANCH may already exist, attempting to update..."
+            vercel env rm DEPLOYMENT_BRANCH preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            echo "$BRANCH_NAME" | vercel env add DEPLOYMENT_BRANCH preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
+          }
+
+          echo "✅ Branch-specific environment variables set in Vercel"
+
       # Step 12: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
         working-directory: src/frontend/nextjs-app
@@ -140,8 +171,8 @@ jobs:
             echo "Pulling production environment information..."
             vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
           else
-            echo "Pulling preview environment information..."
-            vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+            echo "Pulling preview environment information for branch: $CURRENT_BRANCH"
+            vercel pull --yes --environment=preview --git-branch="$CURRENT_BRANCH" --token=${{ secrets.VERCEL_TOKEN }}
           fi
 
       # Step 13: Build Project
@@ -162,27 +193,27 @@ jobs:
             vercel build --token=${{ secrets.VERCEL_TOKEN }}
           fi
 
-      # Step 14: Log Environment Variables for Non-Git-Connected Project
-      - name: Log Environment Variables for Non-Git-Connected Project
+      # Step 14: Log Environment Configuration for Git-Connected Project
+      - name: Log Environment Configuration
         if: steps.branch_name.outputs.current_branch != 'dev' && steps.branch_name.outputs.current_branch != 'main'
         run: |
-          echo "ℹ️ Project is not Git-connected to Vercel"
-          echo "Environment variables will be passed during deployment"
+          echo "✅ Git-connected project - Branch-specific environment variables"
           echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
           echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          echo "Environment variables set in Vercel for this branch"
 
-      # Step 15: Log Environment Configuration
-      - name: Log Environment Configuration
+      # Step 15: Verify Environment Setup
+      - name: Verify Environment Setup
         run: |
           # Log the environment configuration for transparency
           CURRENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
           if [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "main" ]; then
             echo "✅ Production deployment - using environment variables from Vercel dashboard"
           else
-            echo "✅ Preview deployment - database URLs passed during deployment"
+            echo "✅ Preview deployment - using branch-specific environment variables"
             echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
             echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
-            echo "Note: This project is not Git-connected, so env vars are deployment-specific"
+            echo "Git-connected project with automatic branch association"
           fi
 
       # Step 16: Deploy to Vercel
@@ -210,11 +241,10 @@ jobs:
             echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           else
             echo "🔄 Deploying feature branch as preview deployment..."
-            # Pass environment variables during deployment for non-Git-connected project
+            # Deploy using Git metadata for branch association
             DEPLOYMENT_URL=$(vercel deploy --prebuilt \
-              -e DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
-              -e DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}" \
-              -e DEPLOYMENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}" \
+              --meta githubDeployment="1" \
+              --meta githubCommitRef="${{ steps.branch_name.outputs.current_branch }}" \
               --token=${{ secrets.VERCEL_TOKEN }})
             echo "Preview URL: $DEPLOYMENT_URL"
             echo "deployment_type=preview" >> $GITHUB_OUTPUT
