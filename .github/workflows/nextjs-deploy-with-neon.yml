@@ -138,28 +138,36 @@ jobs:
           echo "Setting branch-specific environment variables in Vercel..."
           BRANCH_NAME="${{ steps.branch_name.outputs.current_branch }}"
 
-          # Set DATABASE_URL for the specific branch
-          echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
-            echo "DATABASE_URL may already exist, attempting to update..."
-            vercel env rm DATABASE_URL preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
-            echo "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" | vercel env add DATABASE_URL preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
+          # Function to set or update environment variable
+          set_or_update_env() {
+            local VAR_NAME=$1
+            local VAR_VALUE=$2
+            local BRANCH=$3
+
+            # First, try to remove the existing variable (ignore errors)
+            vercel env rm "$VAR_NAME" preview "$BRANCH" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+
+            # Then add the new value
+            echo "$VAR_VALUE" | vercel env add "$VAR_NAME" preview "$BRANCH" --token=${{ secrets.VERCEL_TOKEN }} && {
+              echo "✓ $VAR_NAME set successfully"
+            } || {
+              echo "⚠️ Failed to set $VAR_NAME - it may already be set with the correct value"
+              # List current value for debugging
+              echo "Current values for $VAR_NAME:"
+              vercel env ls preview --token=${{ secrets.VERCEL_TOKEN }} | grep "$VAR_NAME" || true
+            }
           }
+
+          # Set DATABASE_URL for the specific branch
+          set_or_update_env "DATABASE_URL" "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" "$BRANCH_NAME"
 
           # Set DATABASE_URL_UNPOOLED for the specific branch
-          echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
-            echo "DATABASE_URL_UNPOOLED may already exist, attempting to update..."
-            vercel env rm DATABASE_URL_UNPOOLED preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
-            echo "${{ steps.create_neon_branch.outputs.db_url }}" | vercel env add DATABASE_URL_UNPOOLED preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
-          }
+          set_or_update_env "DATABASE_URL_UNPOOLED" "${{ steps.create_neon_branch.outputs.db_url }}" "$BRANCH_NAME"
 
           # Set DEPLOYMENT_BRANCH for tracking
-          echo "$BRANCH_NAME" | vercel env add DEPLOYMENT_BRANCH preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }} || {
-            echo "DEPLOYMENT_BRANCH may already exist, attempting to update..."
-            vercel env rm DEPLOYMENT_BRANCH preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
-            echo "$BRANCH_NAME" | vercel env add DEPLOYMENT_BRANCH preview "$BRANCH_NAME" --token=${{ secrets.VERCEL_TOKEN }}
-          }
+          set_or_update_env "DEPLOYMENT_BRANCH" "$BRANCH_NAME" "$BRANCH_NAME"
 
-          echo "✅ Branch-specific environment variables set in Vercel"
+          echo "✅ Branch-specific environment variables processing complete"
 
       # Step 12: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
