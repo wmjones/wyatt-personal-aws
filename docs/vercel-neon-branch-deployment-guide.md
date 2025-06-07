@@ -116,30 +116,23 @@ graph TD
 
 ### Environment Variable Management
 
-Branch-specific variables are set using:
+**Note**: If the Vercel project is not connected to a Git repository, environment variables are passed during deployment:
 ```bash
-vercel env add DATABASE_URL production --git-branch="branch-name" <<< "$DATABASE_URL"
+vercel deploy --prebuilt \
+  -e DATABASE_URL="$DATABASE_URL" \
+  -e DATABASE_URL_UNPOOLED="$DATABASE_URL_UNPOOLED" \
+  -e DEPLOYMENT_BRANCH="$BRANCH_NAME"
+```
+
+For Git-connected projects, branch-specific variables can be set using:
+```bash
+vercel env add DATABASE_URL preview --git-branch="branch-name" <<< "$DATABASE_URL"
 ```
 
 These variables:
-- Override general preview environment variables
-- Are available at both build time and runtime
-- Persist across redeployments of the same branch
-
-### Race Condition Handling
-
-The system includes retry logic to handle timing issues:
-```bash
-for i in {1..3}; do
-  if vercel env add DATABASE_URL production --git-branch="$BRANCH" <<< "$URL"; then
-    echo "✅ Success on attempt $i"
-    break
-  else
-    echo "⚠️ Retry in 5 seconds..."
-    sleep 5
-  fi
-done
-```
+- Are deployment-specific when passed with `-e` flag
+- Available at runtime for the deployment
+- Do not persist across redeployments (must be passed each time)
 
 ## Configuration
 
@@ -233,8 +226,9 @@ curl -H "Authorization: Bearer $NEON_API_KEY" \
 If automatic cleanup fails:
 
 ```bash
-# Remove Vercel env vars
-vercel env rm DATABASE_URL preview --git-branch="branch-name" --yes
+# Remove Vercel env vars (only needed for Git-connected projects)
+# vercel env rm DATABASE_URL preview --git-branch="branch-name" --yes
+# Note: For non-Git-connected projects, env vars are deployment-specific and auto-removed
 
 # Delete Neon branch via API
 curl -X DELETE -H "Authorization: Bearer $NEON_API_KEY" \

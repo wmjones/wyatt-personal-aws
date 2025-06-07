@@ -172,25 +172,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
         run: |
           echo "Setting environment variables for preview deployment..."
-          # Set branch-specific database URLs for the current git branch
-          # These will be available at runtime for this specific branch deployment
-
-          # Retry logic for DATABASE_URL to handle race conditions
-          for i in {1..3}; do
-            if vercel env add DATABASE_URL preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" --token=${{ secrets.VERCEL_TOKEN }}; then
-              echo "✅ DATABASE_URL set successfully on attempt $i"
-              break
-            else
-              echo "⚠️ Attempt $i failed for DATABASE_URL, retrying in 5 seconds..."
-              sleep 5
-            fi
-          done
-
-          # Set additional environment variables (with single attempt as they're less critical)
-          vercel env add DATABASE_URL_UNPOOLED preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url }}" --token=${{ secrets.VERCEL_TOKEN }} || true
-          vercel env add DEPLOYMENT_BRANCH preview "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.branch_name.outputs.current_branch }}" --token=${{ secrets.VERCEL_TOKEN }} || true
-
-          echo "✅ Environment variables set for branch: ${{ steps.branch_name.outputs.current_branch }}"
+          # Since the project doesn't have a connected Git repository,
+          # we'll pass the environment variables during deployment instead
+          echo "Note: Vercel project is not connected to Git repository"
+          echo "Environment variables will be passed during deployment command"
 
       # Step 15: Log Environment Configuration
       - name: Log Environment Configuration
@@ -230,8 +215,11 @@ jobs:
             echo "alias=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           else
             echo "🔄 Deploying feature branch as preview deployment..."
-            # Deploy without passing env vars since they're now set in Vercel
-            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+            # Pass environment variables during deployment since Git repository is not connected
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
+              -e DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" \
+              -e DATABASE_URL_UNPOOLED="${{ steps.create_neon_branch.outputs.db_url }}" \
+              -e DEPLOYMENT_BRANCH="${{ steps.branch_name.outputs.current_branch }}")
             echo "Preview URL: $DEPLOYMENT_URL"
             echo "deployment_type=preview" >> $GITHUB_OUTPUT
             echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
