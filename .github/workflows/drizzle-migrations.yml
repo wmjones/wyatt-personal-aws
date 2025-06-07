@@ -5,23 +5,30 @@ name: Database Migrations (Drizzle)
 # - feature/bugfix/hotfix: Creates/uses Neon branch databases
 # - Ensures migrations run on the same database as app deployments
 #
-# Expected deployment order:
-# 1. Code push triggers both deployment and migration workflows
-# 2. Neon branch is created by whichever workflow runs first
-# 3. Second workflow reuses the existing branch
-# 4. Retry logic handles race conditions if database isn't ready
+# Workflow execution order:
+# 1. Deployment workflow creates Neon branch and deploys to Vercel
+# 2. This workflow runs AFTER deployment completes (via workflow_run)
+# 3. Migrations run on the already-created database branch
+# 4. No race conditions since database is guaranteed to exist
 #
 # Note: The neondatabase/create-branch-action@v5 is idempotent -
 # it returns existing branch info if branch already exists
 
 on:
+  # For feature branches, wait for deployment to complete first
+  workflow_run:
+    workflows: ["Deploy Next.js to Vercel with Branch-based Neon Setup"]
+    types:
+      - completed
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+  # For main/dev branches, run directly on push (they use persistent databases)
   push:
     branches:
       - main
       - dev
-      - 'feature/**'
-      - 'bugfix/**'
-      - 'hotfix/**'
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
       - 'src/frontend/nextjs-app/app/db/schema/**'
@@ -66,6 +73,20 @@ env:
   NODE_VERSION: '22'
 
 jobs:
+  # Skip migrations if deployment failed
+  check-deployment-status:
+    name: Check Deployment Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Check if deployment succeeded
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "❌ Deployment workflow failed or was cancelled"
+            echo "Skipping migrations for failed deployment"
+            exit 1
+          fi
+          echo "✅ Deployment workflow succeeded"
   check-migrations:
     name: Check Migration Status
     runs-on: ubuntu-latest
@@ -109,17 +130,22 @@ jobs:
     name: Run Migrations - ${{ matrix.environment }}
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && (
-        github.ref == 'refs/heads/main' ||
-        github.ref == 'refs/heads/dev' ||
-        startsWith(github.ref, 'refs/heads/feature/') ||
-        startsWith(github.ref, 'refs/heads/bugfix/') ||
-        startsWith(github.ref, 'refs/heads/hotfix/')
-      )) ||
-      github.event_name == 'workflow_dispatch'
+      !cancelled() && (
+        (github.event_name == 'push' && (
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/dev'
+        )) ||
+        (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' && (
+          startsWith(github.event.workflow_run.head_branch, 'feature/') ||
+          startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
+          startsWith(github.event.workflow_run.head_branch, 'hotfix/')
+        )) ||
+        github.event_name == 'workflow_dispatch'
+      )
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) || (startsWith(github.ref, 'refs/heads/feature/') && fromJSON('["preview"]')) || (startsWith(github.ref, 'refs/heads/bugfix/') && fromJSON('["preview"]')) || (startsWith(github.ref, 'refs/heads/hotfix/') && fromJSON('["preview"]')) }}
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && fromJSON('["preview"]')) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) }}
     environment: ${{ matrix.environment }}
     steps:
       - name: Checkout code
@@ -140,7 +166,16 @@ jobs:
 
       - name: Get branch name
         id: branch_name
-        uses: tj-actions/branch-names@v8
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # For workflow_run event, get branch from the triggering workflow
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+          else
+            # For push events, use the ref
+            BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+          echo "current_branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Branch name: $BRANCH"
 
       - name: Sanitize branch name
         id: sanitize_branch
