@@ -130,13 +130,52 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # Step 11a: Set Branch-Specific Environment Variables in Vercel
-      - name: Set Branch-Specific Environment Variables
+      # Step 11a: Check if Environment Variables Already Set
+      - name: Check Existing Environment Variables
         if: steps.branch_name.outputs.current_branch != 'dev' && steps.branch_name.outputs.current_branch != 'main'
+        id: check_env_vars
+        working-directory: src/frontend/nextjs-app
+        run: |
+          BRANCH_NAME="${{ steps.branch_name.outputs.current_branch }}"
+          VARS_EXIST=true
+
+          echo "Checking if branch-specific variables already exist..."
+
+          # Check each required variable
+          for VAR in DATABASE_URL DATABASE_URL_UNPOOLED DEPLOYMENT_BRANCH; do
+            if ! vercel env ls preview --token=${{ secrets.VERCEL_TOKEN }} | grep -E "^$VAR.*$BRANCH_NAME" > /dev/null 2>&1; then
+              echo "  ✗ $VAR not found"
+              VARS_EXIST=false
+            else
+              echo "  ✓ $VAR exists"
+            fi
+          done
+
+          if [ "$VARS_EXIST" = "true" ]; then
+            echo "✅ All environment variables already set for branch $BRANCH_NAME"
+            echo "skip_env_setup=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ Some environment variables missing, will set them up"
+            echo "skip_env_setup=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 11b: Set Branch-Specific Environment Variables in Vercel
+      - name: Set Branch-Specific Environment Variables
+        if: steps.branch_name.outputs.current_branch != 'dev' && steps.branch_name.outputs.current_branch != 'main' && steps.check_env_vars.outputs.skip_env_setup != 'true'
         working-directory: src/frontend/nextjs-app
         run: |
           echo "Setting branch-specific environment variables in Vercel..."
           BRANCH_NAME="${{ steps.branch_name.outputs.current_branch }}"
+
+          # Function to check if variable exists with correct value
+          check_env_exists() {
+            local VAR_NAME=$1
+            local BRANCH=$2
+
+            # Check if variable exists for this branch
+            vercel env ls preview --token=${{ secrets.VERCEL_TOKEN }} | grep -E "^$VAR_NAME.*$BRANCH" > /dev/null 2>&1
+            return $?
+          }
 
           # Function to set or update environment variable
           set_or_update_env() {
@@ -144,30 +183,43 @@ jobs:
             local VAR_VALUE=$2
             local BRANCH=$3
 
-            # First, try to remove the existing variable (ignore errors)
-            vercel env rm "$VAR_NAME" preview "$BRANCH" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            # Check if variable already exists
+            if check_env_exists "$VAR_NAME" "$BRANCH"; then
+              echo "ℹ️ $VAR_NAME already exists for branch $BRANCH"
+              # Try to update by removing and re-adding
+              echo "  Updating value..."
+              vercel env rm "$VAR_NAME" preview "$BRANCH" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            fi
 
-            # Then add the new value
-            echo "$VAR_VALUE" | vercel env add "$VAR_NAME" preview "$BRANCH" --token=${{ secrets.VERCEL_TOKEN }} && {
-              echo "✓ $VAR_NAME set successfully"
-            } || {
-              echo "⚠️ Failed to set $VAR_NAME - it may already be set with the correct value"
-              # List current value for debugging
-              echo "Current values for $VAR_NAME:"
-              vercel env ls preview --token=${{ secrets.VERCEL_TOKEN }} | grep "$VAR_NAME" || true
+            # Add the value
+            echo "$VAR_VALUE" | vercel env add "$VAR_NAME" preview "$BRANCH" --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | {
+              while IFS= read -r line; do
+                if [[ "$line" == *"already exists"* ]]; then
+                  echo "  ⚠️ $VAR_NAME already exists and couldn't be updated - this is OK if the value is correct"
+                  return 0
+                else
+                  echo "  $line"
+                fi
+              done
+              echo "  ✓ $VAR_NAME set successfully"
             }
           }
 
           # Set DATABASE_URL for the specific branch
+          echo "Processing DATABASE_URL..."
           set_or_update_env "DATABASE_URL" "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" "$BRANCH_NAME"
 
           # Set DATABASE_URL_UNPOOLED for the specific branch
+          echo "Processing DATABASE_URL_UNPOOLED..."
           set_or_update_env "DATABASE_URL_UNPOOLED" "${{ steps.create_neon_branch.outputs.db_url }}" "$BRANCH_NAME"
 
           # Set DEPLOYMENT_BRANCH for tracking
+          echo "Processing DEPLOYMENT_BRANCH..."
           set_or_update_env "DEPLOYMENT_BRANCH" "$BRANCH_NAME" "$BRANCH_NAME"
 
+          echo ""
           echo "✅ Branch-specific environment variables processing complete"
+          echo "Note: Warnings about existing variables are expected and can be ignored"
 
       # Step 12: Pull Vercel Environment Information
       - name: Pull Vercel Environment Information
