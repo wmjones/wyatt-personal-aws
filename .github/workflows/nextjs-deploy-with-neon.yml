@@ -177,7 +177,7 @@ jobs:
 
           # Retry logic for DATABASE_URL to handle race conditions
           for i in {1..3}; do
-            if vercel env add DATABASE_URL production --git-branch="${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" --token=${{ secrets.VERCEL_TOKEN }}; then
+            if vercel env add DATABASE_URL production "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url_with_pooler }}" --token=${{ secrets.VERCEL_TOKEN }}; then
               echo "✅ DATABASE_URL set successfully on attempt $i"
               break
             else
@@ -187,8 +187,8 @@ jobs:
           done
 
           # Set additional environment variables (with single attempt as they're less critical)
-          vercel env add DATABASE_URL_UNPOOLED production --git-branch="${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url }}" --token=${{ secrets.VERCEL_TOKEN }} || true
-          vercel env add DEPLOYMENT_BRANCH production --git-branch="${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.branch_name.outputs.current_branch }}" --token=${{ secrets.VERCEL_TOKEN }} || true
+          vercel env add DATABASE_URL_UNPOOLED production "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.create_neon_branch.outputs.db_url }}" --token=${{ secrets.VERCEL_TOKEN }} || true
+          vercel env add DEPLOYMENT_BRANCH production "${{ steps.branch_name.outputs.current_branch }}" <<< "${{ steps.branch_name.outputs.current_branch }}" --token=${{ secrets.VERCEL_TOKEN }} || true
 
           echo "✅ Environment variables set for branch: ${{ steps.branch_name.outputs.current_branch }}"
 
