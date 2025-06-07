@@ -221,15 +221,16 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">Date Range</h3>
           <DateRangeFilter
             value={{
-              startDate: localSelections.dateRange.startDate ? new Date(localSelections.dateRange.startDate) : null,
-              endDate: localSelections.dateRange.endDate ? new Date(localSelections.dateRange.endDate) : null
+              startDate: localSelections.dateRange?.startDate ? new Date(localSelections.dateRange.startDate) : null,
+              endDate: localSelections.dateRange?.endDate ? new Date(localSelections.dateRange.endDate) : null
             }}
             onChange={(range) => {
+              // Ensure range is defined and has the expected structure
               const updatedSelections = {
                 ...localSelections,
                 dateRange: {
-                  startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
-                  endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+                  startDate: range?.startDate instanceof Date ? range.startDate.toISOString().split('T')[0] : null,
+                  endDate: range?.endDate instanceof Date ? range.endDate.toISOString().split('T')[0] : null
                 }
               };
               setLocalSelections(updatedSelections);

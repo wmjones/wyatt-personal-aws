@@ -49,11 +49,17 @@ export default function DateRangeFilter({
   }, []);
 
   const handleSelect = (ranges: RangeKeyDict) => {
-    const selection = ranges.selection;
+    const selection = ranges?.selection;
     if (selection) {
       onChange({
         startDate: selection.startDate || null,
         endDate: selection.endDate || null,
+      });
+    } else {
+      // If no selection, pass null values
+      onChange({
+        startDate: null,
+        endDate: null,
       });
     }
   };
