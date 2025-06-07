@@ -76,21 +76,21 @@ jobs:
           echo "Checking for branch-specific environment variables..."
 
           # Remove DATABASE_URL for this branch
-          if vercel env rm DATABASE_URL production --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
+          if vercel env rm DATABASE_URL preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
             echo "✅ Removed DATABASE_URL for branch"
           else
             echo "ℹ️ DATABASE_URL not found or already removed"
           fi
 
           # Remove DATABASE_URL_UNPOOLED for this branch
-          if vercel env rm DATABASE_URL_UNPOOLED production --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
+          if vercel env rm DATABASE_URL_UNPOOLED preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
             echo "✅ Removed DATABASE_URL_UNPOOLED for branch"
           else
             echo "ℹ️ DATABASE_URL_UNPOOLED not found or already removed"
           fi
 
           # Remove DEPLOYMENT_BRANCH for this branch
-          if vercel env rm DEPLOYMENT_BRANCH production --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
+          if vercel env rm DEPLOYMENT_BRANCH preview --git-branch="${{ steps.branch_name.outputs.branch_name }}" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null; then
             echo "✅ Removed DEPLOYMENT_BRANCH for branch"
           else
             echo "ℹ️ DEPLOYMENT_BRANCH not found or already removed"

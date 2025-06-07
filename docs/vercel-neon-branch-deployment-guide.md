@@ -215,10 +215,10 @@ await migrate(db, {
 
 ```bash
 # List Vercel environment variables
-vercel env ls production
+vercel env ls preview
 
 # Check specific branch variables
-vercel env ls production | grep "branch-name"
+vercel env ls preview | grep "branch-name"
 
 # Test database connection
 curl https://your-app.vercel.app/api/debug/db-connection
@@ -234,7 +234,7 @@ If automatic cleanup fails:
 
 ```bash
 # Remove Vercel env vars
-vercel env rm DATABASE_URL production --git-branch="branch-name" --yes
+vercel env rm DATABASE_URL preview --git-branch="branch-name" --yes
 
 # Delete Neon branch via API
 curl -X DELETE -H "Authorization: Bearer $NEON_API_KEY" \
