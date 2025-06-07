@@ -4,12 +4,22 @@ import { defineConfig } from 'drizzle-kit';
 // Load environment variables
 config({ path: '.env.local' });
 
+// Validate DATABASE_URL
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+if (databaseUrl && !databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
+  throw new Error('DATABASE_URL must start with postgresql:// or postgres://');
+}
+
+
 export default defineConfig({
   schema: './app/db/schema/*.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: databaseUrl,
   },
   // Enable verbose logging in development
   verbose: process.env.NODE_ENV === 'development',

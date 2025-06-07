@@ -1,0 +1,154 @@
+name: Cleanup Branch Resources
+
+# This workflow cleans up Vercel branch-specific environment variables and Neon database branches
+# when a GitHub branch is deleted or merged (for Git-connected Vercel projects)
+
+on:
+  delete:
+    # Triggered when a branch is deleted
+  pull_request:
+    types: [closed]
+    # Triggered when a PR is closed (either merged or closed without merging)
+
+env:
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  cleanup-branch-resources:
+    name: Cleanup Branch Resources
+    runs-on: ubuntu-latest
+    # Only run if it's a branch deletion or a merged PR
+    if: |
+      github.event_name == 'delete' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      # Step 1: Determine branch name to clean up
+      - name: Determine branch name
+        id: branch_name
+        run: |
+          if [[ "${{ github.event_name }}" == "delete" ]]; then
+            # For delete events, use the ref
+            BRANCH_NAME="${{ github.event.ref }}"
+          else
+            # For merged PRs, use the head branch
+            BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          fi
+
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Branch to clean up: $BRANCH_NAME"
+
+          # Skip cleanup for protected branches
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "dev" ]]; then
+            echo "⚠️ Skipping cleanup for protected branch: $BRANCH_NAME"
+            echo "skip_cleanup=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_cleanup=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 2: Sanitize branch name (same logic as in deployment workflow)
+      - name: Sanitize branch name
+        if: steps.branch_name.outputs.skip_cleanup == 'false'
+        id: sanitize_branch
+        run: |
+          # Sanitize branch name for Neon (same as deployment workflow)
+          SANITIZED_BRANCH=$(echo "${{ steps.branch_name.outputs.branch_name }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens and limit length to 63 chars
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g' | cut -c1-63)
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "Sanitized branch name: $SANITIZED_BRANCH"
+
+      # Step 3: Install Vercel CLI
+      - name: Install Vercel CLI
+        if: steps.branch_name.outputs.skip_cleanup == 'false'
+        run: npm install --global vercel@latest
+
+      # Step 4: Remove Vercel Branch-Specific Environment Variables
+      - name: Remove Vercel Branch-Specific Environment Variables
+        if: steps.branch_name.outputs.skip_cleanup == 'false'
+        run: |
+          echo "🔧 Removing branch-specific environment variables from Vercel..."
+          BRANCH_NAME="${{ steps.branch_name.outputs.branch_name }}"
+
+          # Remove DATABASE_URL for the specific branch
+          vercel env rm DATABASE_URL preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || {
+            echo "DATABASE_URL not found or already removed"
+          }
+
+          # Remove DATABASE_URL_UNPOOLED for the specific branch
+          vercel env rm DATABASE_URL_UNPOOLED preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || {
+            echo "DATABASE_URL_UNPOOLED not found or already removed"
+          }
+
+          # Remove DEPLOYMENT_BRANCH for the specific branch
+          vercel env rm DEPLOYMENT_BRANCH preview --git-branch="$BRANCH_NAME" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || {
+            echo "DEPLOYMENT_BRANCH not found or already removed"
+          }
+
+          echo "✅ Branch-specific environment variables removed from Vercel"
+
+      # Step 5: Delete Neon database branch
+      - name: Delete Neon database branch
+        if: steps.branch_name.outputs.skip_cleanup == 'false'
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          echo "🗄️ Checking for Neon database branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+
+          # Get all branches for the project
+          BRANCHES_RESPONSE=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.NEON_API_KEY }}" \
+            "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches")
+
+          # Find the branch ID for our branch
+          BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r ".branches[] | select(.name==\"branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}\") | .id")
+
+          if [ -n "$BRANCH_ID" ] && [ "$BRANCH_ID" != "null" ]; then
+            echo "Found Neon branch with ID: $BRANCH_ID"
+
+            # Delete the branch
+            DELETE_RESPONSE=$(curl -s -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.NEON_API_KEY }}" \
+              "https://console.neon.tech/api/v2/projects/${{ secrets.NEON_PROJECT_ID }}/branches/$BRANCH_ID")
+
+            # Check if deletion was successful
+            if [ $? -eq 0 ]; then
+              echo "✅ Successfully deleted Neon database branch"
+            else
+              echo "❌ Failed to delete Neon database branch"
+              echo "Response: $DELETE_RESPONSE"
+            fi
+          else
+            echo "ℹ️ No Neon database branch found for: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          fi
+
+      # Step 6: Log cleanup summary
+      - name: Cleanup summary
+        if: steps.branch_name.outputs.skip_cleanup == 'false'
+        run: |
+          echo "## 🧹 Branch Cleanup Complete"
+          echo "Branch: ${{ steps.branch_name.outputs.branch_name }}"
+          echo "Event: ${{ github.event_name }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "PR: #${{ github.event.pull_request.number }}"
+          fi
+          echo ""
+          echo "Resources cleaned:"
+          echo "- Vercel branch-specific environment variables removed"
+          echo "- Neon database branch deleted (if existed)"
+          echo ""
+          echo "This cleanup helps prevent resource accumulation and maintains a clean development environment."
+
+      # Step 7: Handle cleanup errors
+      - name: Handle cleanup errors
+        if: failure() && steps.branch_name.outputs.skip_cleanup == 'false'
+        run: |
+          echo "⚠️ Branch cleanup encountered errors"
+          echo "Some resources may need manual cleanup:"
+          echo "- Check Vercel dashboard for orphaned branch-specific environment variables"
+          echo "- Check Neon console for orphaned database branches"
+          echo ""
+          echo "Branch: ${{ steps.branch_name.outputs.branch_name }}"
+          echo "Sanitized: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"

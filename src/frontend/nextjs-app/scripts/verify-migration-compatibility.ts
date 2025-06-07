@@ -1,8 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Verify compatibility between old and new database systems
- * This script compares query results between raw SQL and Drizzle
+ * Verify Drizzle migration by testing various query patterns
  */
 
 import { config } from 'dotenv';
@@ -11,223 +10,250 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { db } from '../app/db/drizzle';
-import { query } from '../app/lib/postgres';
-import { forecastAdjustments, userPreferences } from '../app/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { forecastAdjustments, userPreferences, summaryCache } from '../app/db/schema';
+import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 
-interface ComparisonResult {
+interface VerificationResult {
   testName: string;
   passed: boolean;
   details?: {
-    sqlResult?: unknown;
-    drizzleResult?: unknown;
+    result?: unknown;
     error?: string;
   };
 }
 
-const results: ComparisonResult[] = [];
+const results: VerificationResult[] = [];
 
-async function compareResults(
+async function verifyQuery(
   testName: string,
-  sqlQuery: () => Promise<unknown>,
   drizzleQuery: () => Promise<unknown>
 ): Promise<void> {
   try {
     console.log(`\n🔍 Testing: ${testName}`);
 
-    const [sqlResult, drizzleResult] = await Promise.all([
-      sqlQuery(),
-      drizzleQuery()
-    ]);
+    const result = await drizzleQuery();
 
-    // Compare results
-    const sqlJson = JSON.stringify(sqlResult);
-    const drizzleJson = JSON.stringify(drizzleResult);
+    results.push({
+      testName,
+      passed: true,
+      details: { result }
+    });
 
-    if (sqlJson === drizzleJson) {
-      results.push({ testName, passed: true });
-      console.log('✅ Results match!');
-    } else {
-      results.push({
-        testName,
-        passed: false,
-        details: { sqlResult, drizzleResult }
-      });
-      console.log('❌ Results differ!');
-      console.log('SQL Result:', JSON.stringify(sqlResult, null, 2));
-      console.log('Drizzle Result:', JSON.stringify(drizzleResult, null, 2));
-    }
+    console.log('✅ Query executed successfully');
   } catch (error) {
     results.push({
       testName,
       passed: false,
-      details: { error: error instanceof Error ? error.message : String(error) }
+      details: {
+        error: error instanceof Error ? error.message : String(error)
+      }
     });
-    console.log('❌ Test failed:', error);
+    console.log('❌ Query failed:', error);
   }
 }
 
-async function main() {
-  console.log('🔄 Drizzle Migration Compatibility Test\n');
-  console.log('This script verifies that Drizzle queries return the same results as raw SQL queries.\n');
+async function runVerificationTests() {
+  console.log('🔄 Drizzle Migration Verification Suite');
+  console.log('======================================\n');
 
-  // Test 1: Simple SELECT
-  await compareResults(
-    'SELECT all forecast adjustments (limit 5)',
-    async () => {
-      const result = await query(`
-        SELECT * FROM forecast_adjustments
-        ORDER BY created_at DESC
-        LIMIT 5
-      `);
-      return result.rows;
-    },
-    async () => {
-      const result = await db
-        .select()
-        .from(forecastAdjustments)
-        .orderBy(desc(forecastAdjustments.createdAt))
-        .limit(5);
+  const testUserId = 'test-user-' + Date.now();
 
-      // Convert Drizzle result to match SQL format
-      return result.map(row => ({
-        ...row,
-        adjustment_value: row.adjustmentValue,
-        filter_context: row.filterContext,
-        inventory_item_name: row.inventoryItemName,
-        user_id: row.userId,
-        user_email: row.userEmail,
-        user_name: row.userName,
-        is_active: row.isActive,
-        created_at: row.createdAt,
-        updated_at: row.updatedAt
-      }));
-    }
-  );
-
-  // Test 2: SELECT with WHERE clause
-  await compareResults(
-    'SELECT active adjustments only',
-    async () => {
-      const result = await query(`
-        SELECT COUNT(*) as count
-        FROM forecast_adjustments
-        WHERE is_active = true
-      `);
-      return result.rows[0];
-    },
-    async () => {
-      const result = await db
-        .select({ count: sql<string>`count(*)` })
-        .from(forecastAdjustments)
-        .where(eq(forecastAdjustments.isActive, true));
-      return result[0];
-    }
-  );
-
-  // Test 3: User preferences
-  await compareResults(
-    'SELECT user preferences count',
-    async () => {
-      const result = await query(`
-        SELECT COUNT(*) as count
-        FROM user_preferences
-      `);
-      return result.rows[0];
-    },
-    async () => {
-      const result = await db
-        .select({ count: sql<string>`count(*)` })
-        .from(userPreferences);
-      return result[0];
-    }
-  );
-
-  // Test 4: Complex query with multiple conditions
-  if (process.env.TEST_USER_ID) {
-    await compareResults(
-      'SELECT user-specific adjustments with filters',
+  try {
+    // Test 1: Simple SELECT
+    await verifyQuery(
+      'Simple SELECT from forecast_adjustments',
       async () => {
-        const result = await query(`
-          SELECT id, adjustment_value, inventory_item_name
-          FROM forecast_adjustments
-          WHERE user_id = $1 AND is_active = true
-          ORDER BY created_at DESC
-          LIMIT 10
-        `, [process.env.TEST_USER_ID]);
-        return result.rows;
-      },
+        return await db
+          .select()
+          .from(forecastAdjustments)
+          .limit(5);
+      }
+    );
+
+    // Test 2: SELECT with WHERE
+    await verifyQuery(
+      'SELECT with WHERE clause',
       async () => {
-        const result = await db
-          .select({
-            id: forecastAdjustments.id,
-            adjustment_value: forecastAdjustments.adjustmentValue,
-            inventory_item_name: forecastAdjustments.inventoryItemName
-          })
+        return await db
+          .select()
+          .from(forecastAdjustments)
+          .where(eq(forecastAdjustments.userId, testUserId))
+          .limit(5);
+      }
+    );
+
+    // Test 3: Complex WHERE with multiple conditions
+    await verifyQuery(
+      'Complex WHERE with AND conditions',
+      async () => {
+        const startDate = new Date('2024-01-01');
+        const endDate = new Date('2024-12-31');
+
+        return await db
+          .select()
           .from(forecastAdjustments)
           .where(
             and(
-              eq(forecastAdjustments.userId, process.env.TEST_USER_ID!),
-              eq(forecastAdjustments.isActive, true)
+              eq(forecastAdjustments.userId, testUserId),
+              gte(forecastAdjustments.adjustmentStartDate, '2024-01-01'),
+              lte(forecastAdjustments.adjustmentEndDate, '2024-12-31')
             )
-          )
-          .orderBy(desc(forecastAdjustments.createdAt))
-          .limit(10);
-        return result;
+          );
       }
     );
+
+    // Test 4: ORDER BY and LIMIT
+    await verifyQuery(
+      'SELECT with ORDER BY and LIMIT',
+      async () => {
+        return await db
+          .select()
+          .from(forecastAdjustments)
+          .orderBy(desc(forecastAdjustments.createdAt))
+          .limit(10);
+      }
+    );
+
+    // Test 5: INSERT operation
+    await verifyQuery(
+      'INSERT new adjustment',
+      async () => {
+        return await db
+          .insert(forecastAdjustments)
+          .values({
+            userId: testUserId,
+            adjustmentValue: '50.5',
+            inventoryItemName: 'Test Item for Verification',
+            filterContext: { test: true, version: 'drizzle' },
+            adjustmentStartDate: '2024-01-01',
+            adjustmentEndDate: '2024-12-31',
+          })
+          .returning();
+      }
+    );
+
+    // Test 6: UPDATE operation
+    await verifyQuery(
+      'UPDATE adjustment',
+      async () => {
+        return await db
+          .update(forecastAdjustments)
+          .set({
+            adjustmentValue: '75.5',
+            updatedAt: new Date()
+          })
+          .where(eq(forecastAdjustments.userId, testUserId))
+          .returning();
+      }
+    );
+
+    // Test 7: Raw SQL query
+    await verifyQuery(
+      'Raw SQL query',
+      async () => {
+        return await db.execute(sql`
+          SELECT
+            COUNT(*) as total_adjustments,
+            AVG(adjustment_value) as avg_adjustment,
+            MAX(adjustment_value) as max_adjustment
+          FROM forecast_adjustments
+          WHERE user_id = ${testUserId}
+        `);
+      }
+    );
+
+    // Test 8: Transaction
+    await verifyQuery(
+      'Transaction with multiple operations',
+      async () => {
+        return await db.transaction(async (tx) => {
+          // Insert user preference
+          await tx
+            .insert(userPreferences)
+            .values({
+              userId: testUserId,
+              tooltipsEnabled: true,
+              preferredHelpFormat: 'text'
+            })
+            .onConflictDoNothing();
+
+          // Update if exists
+          const updated = await tx
+            .update(userPreferences)
+            .set({
+              tooltipsEnabled: false,
+              preferredHelpFormat: 'video',
+              updatedAt: new Date()
+            })
+            .where(eq(userPreferences.userId, testUserId))
+            .returning();
+
+          return updated;
+        });
+      }
+    );
+
+    // Test 9: DELETE operation
+    await verifyQuery(
+      'DELETE operation',
+      async () => {
+        return await db
+          .delete(forecastAdjustments)
+          .where(eq(forecastAdjustments.userId, testUserId))
+          .returning();
+      }
+    );
+
+    // Test 10: Complex aggregation
+    await verifyQuery(
+      'Complex aggregation query',
+      async () => {
+        return await db.execute(sql`
+          SELECT
+            DATE_TRUNC('month', created_at) as month,
+            COUNT(*) as adjustment_count,
+            SUM(adjustment_value) as total_adjustments
+          FROM forecast_adjustments
+          WHERE created_at >= NOW() - INTERVAL '6 months'
+          GROUP BY DATE_TRUNC('month', created_at)
+          ORDER BY month DESC
+        `);
+      }
+    );
+
+    // Cleanup
+    console.log('\n🧹 Cleaning up test data...');
+    await db.delete(userPreferences).where(eq(userPreferences.userId, testUserId));
+
+  } catch (error) {
+    console.error('❌ Unexpected error during verification:', error);
   }
 
-  // Test 5: Check schema structure
-  await compareResults(
-    'Verify table column names',
-    async () => {
-      const result = await query(`
-        SELECT column_name, data_type, is_nullable
-        FROM information_schema.columns
-        WHERE table_name = 'forecast_adjustments'
-        ORDER BY ordinal_position
-      `);
-      return result.rows;
-    },
-    async () => {
-      const result = await db.execute(sql`
-        SELECT column_name, data_type, is_nullable
-        FROM information_schema.columns
-        WHERE table_name = 'forecast_adjustments'
-        ORDER BY ordinal_position
-      `);
-      return result.rows;
-    }
-  );
-
-  // Summary
-  console.log('\n📊 Compatibility Test Summary\n');
+  // Print summary
+  console.log('\n\n📊 Verification Summary');
+  console.log('======================\n');
 
   const passed = results.filter(r => r.passed).length;
   const failed = results.filter(r => !r.passed).length;
 
-  results.forEach(result => {
-    const status = result.passed ? '✅' : '❌';
-    console.log(`${status} ${result.testName}`);
-    if (result.details?.error) {
-      console.log(`   Error: ${result.details.error}`);
-    }
-  });
-
-  console.log(`\nTotal: ${results.length}, Passed: ${passed}, Failed: ${failed}`);
+  console.log(`Total tests: ${results.length}`);
+  console.log(`✅ Passed: ${passed}`);
+  console.log(`❌ Failed: ${failed}`);
+  console.log(`Success rate: ${((passed / results.length) * 100).toFixed(1)}%`);
 
   if (failed > 0) {
-    console.log('\n⚠️  Some compatibility tests failed. Review the differences above.');
-    process.exit(1);
-  } else {
-    console.log('\n✅ All compatibility tests passed! Drizzle queries match SQL queries.');
-    process.exit(0);
+    console.log('\n❌ Failed Tests:');
+    results
+      .filter(r => !r.passed)
+      .forEach(r => {
+        console.log(`\n- ${r.testName}`);
+        console.log(`  Error: ${r.details?.error}`);
+      });
   }
+
+  console.log('\n✅ Migration verification complete');
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-// Run the compatibility test
-main().catch((error) => {
-  console.error('💥 Compatibility test crashed:', error);
-  process.exit(1);
-});
+// Run the verification
+runVerificationTests();

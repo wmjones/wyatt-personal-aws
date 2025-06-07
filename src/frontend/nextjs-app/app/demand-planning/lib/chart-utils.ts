@@ -48,6 +48,12 @@ export function formatDate(date: Date, periodType: TimePeriod['type']): string {
  * Gets a date from a time period ID (assuming format like "day-2025-01-01", "Q1-2025" or "2025-01")
  */
 export function getDateFromPeriodId(periodId: string): Date {
+  // Validate periodId
+  if (!periodId) {
+    console.warn('getDateFromPeriodId called with undefined/null periodId');
+    return new Date(); // Return current date as fallback
+  }
+
   // Handle day format (e.g., "day-2025-01-01")
   if (periodId.startsWith('day-')) {
     const dateStr = periodId.replace('day-', '');
@@ -56,14 +62,24 @@ export function getDateFromPeriodId(periodId: string): Date {
 
   // Handle quarter format (e.g., "Q1-2025")
   if (periodId.startsWith('Q')) {
-    const [quarter, year] = periodId.replace('Q', '').split('-');
+    const parts = periodId.replace('Q', '').split('-');
+    if (parts.length !== 2) {
+      console.warn('Invalid quarter format:', periodId);
+      return new Date();
+    }
+    const [quarter, year] = parts;
     const month = (parseInt(quarter) - 1) * 3;
     return new Date(parseInt(year), month, 1);
   }
 
   // Handle year-month format (e.g., "2025-01")
   if (periodId.match(/^\d{4}-\d{2}$/)) {
-    const [year, month] = periodId.split('-');
+    const parts = periodId.split('-');
+    if (parts.length !== 2) {
+      console.warn('Invalid year-month format:', periodId);
+      return new Date();
+    }
+    const [year, month] = parts;
     return new Date(parseInt(year), parseInt(month) - 1, 1);
   }
 
@@ -85,7 +101,21 @@ export function getDateFromPeriodId(periodId: string): Date {
 export function createChartDataset(
   dataPoints: ForecastDataPoint[],
   timePeriods: TimePeriod[]
-): { date: Date; value: number; periodId: string; y_05?: number; y_50?: number; y_95?: number }[] {
+): {
+  date: Date;
+  value: number;
+  periodId: string;
+  y_05?: number;
+  y_50?: number;
+  y_95?: number;
+  original_y_05?: number;
+  original_y_50?: number;
+  original_y_95?: number;
+  adjusted_y_50?: number;
+  total_adjustment_percent?: number;
+  adjustment_count?: number;
+  hasAdjustment?: boolean;
+}[] {
   // Early return for empty data
   if (!dataPoints || dataPoints.length === 0) {
     return [];
@@ -106,7 +136,15 @@ export function createChartDataset(
         count: 0,
         totalY05: 0,
         totalY50: 0,
-        totalY95: 0
+        totalY95: 0,
+        // Adjustment fields
+        original_y_05: point.original_y_05,
+        original_y_50: point.original_y_50,
+        original_y_95: point.original_y_95,
+        adjusted_y_50: point.adjusted_y_50,
+        total_adjustment_percent: point.total_adjustment_percent,
+        adjustment_count: point.adjustment_count,
+        hasAdjustment: point.hasAdjustment
       };
     }
     acc[point.periodId].totalValue += point.value;
@@ -115,11 +153,41 @@ export function createChartDataset(
     if (point.y_05 !== undefined) acc[point.periodId].totalY05 += point.y_05;
     if (point.y_50 !== undefined) acc[point.periodId].totalY50 += point.y_50;
     if (point.y_95 !== undefined) acc[point.periodId].totalY95 += point.y_95;
+
+    // For adjustment fields, use the first point's values (assuming they're consistent for the period)
     return acc;
-  }, {} as Record<string, { periodId: string; totalValue: number; count: number; totalY05: number; totalY50: number; totalY95: number }>);
+  }, {} as Record<string, {
+    periodId: string;
+    totalValue: number;
+    count: number;
+    totalY05: number;
+    totalY50: number;
+    totalY95: number;
+    original_y_05?: number;
+    original_y_50?: number;
+    original_y_95?: number;
+    adjusted_y_50?: number;
+    total_adjustment_percent?: number;
+    adjustment_count?: number;
+    hasAdjustment?: boolean;
+  }>);
 
   // Convert to chart data format
-  const chartData = Object.values(aggregatedData).map(({ periodId, totalValue, totalY05, totalY50, totalY95, count }) => {
+  const chartData = Object.values(aggregatedData).map(({
+    periodId,
+    totalValue,
+    totalY05,
+    totalY50,
+    totalY95,
+    count,
+    original_y_05,
+    original_y_50,
+    original_y_95,
+    adjusted_y_50,
+    total_adjustment_percent,
+    adjustment_count,
+    hasAdjustment
+  }) => {
     const period = periodMap.get(periodId);
     let date: Date;
 
@@ -149,7 +217,15 @@ export function createChartDataset(
       // Include aggregated confidence intervals if available
       y_05: count > 0 && totalY05 > 0 ? totalY05 : undefined,
       y_50: count > 0 && totalY50 > 0 ? totalY50 : undefined,
-      y_95: count > 0 && totalY95 > 0 ? totalY95 : undefined
+      y_95: count > 0 && totalY95 > 0 ? totalY95 : undefined,
+      // Adjustment fields
+      original_y_05,
+      original_y_50,
+      original_y_95,
+      adjusted_y_50,
+      total_adjustment_percent,
+      adjustment_count,
+      hasAdjustment
     };
   }).sort((a, b) => a.date.getTime() - b.date.getTime());
 

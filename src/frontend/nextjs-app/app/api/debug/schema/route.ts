@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/app/lib/postgres';
+import { sql } from 'drizzle-orm';
+import { db } from '@/app/db/drizzle';
 
 export async function GET() {
   try {
     // Check if forecast_adjustments table exists
-    const tableExists = await query(`
+    const tableExistsResult = await db.execute(sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_name = 'forecast_adjustments'
       ) as exists
     `);
 
-    const tableExistsResult = tableExists.rows[0].exists;
+    const tableExists = tableExistsResult.rows[0].exists;
 
     let columns: Array<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }> = [];
-    if (tableExistsResult) {
+    if (tableExists) {
       // Get column information
-      const columnsResult = await query(`
+      const columnsResult = await db.execute(sql`
         SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns
         WHERE table_name = 'forecast_adjustments'
@@ -25,32 +26,56 @@ export async function GET() {
       columns = columnsResult.rows as Array<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>;
     }
 
-    // Check migration status
-    const migrationsExist = await query(`
+    // Check migration status - now checking for Drizzle migrations
+    const drizzleMigrationsExist = await db.execute(sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'drizzle' AND table_name = '__drizzle_migrations'
+      ) as exists
+    `);
+
+    let migrations: Array<{ id: number; hash: string; created_at: string }> = [];
+    if (drizzleMigrationsExist.rows[0].exists) {
+      const migrationsResult = await db.execute(sql`
+        SELECT id, hash, created_at
+        FROM drizzle.__drizzle_migrations
+        ORDER BY id
+      `);
+      migrations = migrationsResult.rows as Array<{ id: number; hash: string; created_at: string }>;
+    }
+
+    // Also check for legacy migrations table
+    const legacyMigrationsExist = await db.execute(sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_name = 'migrations'
       ) as exists
     `);
 
-    let migrations: Array<{ id: string; name: string; applied_at: string }> = [];
-    if (migrationsExist.rows[0].exists) {
-      const migrationsResult = await query(`
+    let legacyMigrations: Array<{ id: string; name: string; applied_at: string }> = [];
+    if (legacyMigrationsExist.rows[0].exists) {
+      const legacyMigrationsResult = await db.execute(sql`
         SELECT id, name, applied_at
         FROM migrations
         ORDER BY id
       `);
-      migrations = migrationsResult.rows as Array<{ id: string; name: string; applied_at: string }>;
+      legacyMigrations = legacyMigrationsResult.rows as Array<{ id: string; name: string; applied_at: string }>;
     }
 
     return NextResponse.json({
       forecast_adjustments_table: {
-        exists: tableExistsResult,
+        exists: tableExists,
         columns: columns
       },
       migrations: {
-        table_exists: migrationsExist.rows[0].exists,
-        applied: migrations
+        drizzle: {
+          table_exists: drizzleMigrationsExist.rows[0].exists,
+          applied: migrations
+        },
+        legacy: {
+          table_exists: legacyMigrationsExist.rows[0].exists,
+          applied: legacyMigrations
+        }
       }
     });
 

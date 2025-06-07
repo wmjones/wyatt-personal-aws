@@ -173,5 +173,8 @@ RUN echo 'alias gh-runs="gh run list"' >> /home/vscode/.bashrc && \
     echo 'alias gh-watch="gh run watch"' >> /home/vscode/.zshrc && \
     echo 'alias gh-view="gh run view"' >> /home/vscode/.zshrc
 
+# Environment variables are passed directly by VS Code from .env file
+# No need for manual loading scripts
+
 # Default shell on container start
 CMD [ "zsh" ]

@@ -25,6 +25,14 @@ export interface ForecastDataPoint {
   y_05?: number;
   y_50?: number;
   y_95?: number;
+  // Adjustment support
+  original_y_05?: number;
+  original_y_50?: number;
+  original_y_95?: number;
+  adjusted_y_50?: number;
+  total_adjustment_percent?: number;
+  adjustment_count?: number;
+  hasAdjustment?: boolean;
 }
 
 // Inventory item information

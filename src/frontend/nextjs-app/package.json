@@ -24,7 +24,10 @@
     "test:drizzle-migration": "npx tsx scripts/test-drizzle-migration.ts",
     "test:drizzle-compat": "npx tsx scripts/verify-migration-compatibility.ts",
     "test:drizzle-perf": "npx tsx scripts/drizzle-performance-test.ts",
-    "drizzle:cleanup-test": "npx tsx scripts/cleanup-test-migration.ts"
+    "drizzle:cleanup-test": "npx tsx scripts/cleanup-test-migration.ts",
+    "test:api": "npx tsx scripts/test-drizzle-api-routes.ts",
+    "test:branch-db": "npx tsx scripts/test-branch-database.ts",
+    "cleanup:legacy": "npx tsx scripts/cleanup-legacy-postgres.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
@@ -59,6 +62,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/d3": "^7.4.3",
+    "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -69,6 +73,7 @@
     "drizzle-kit": "^0.31.1",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
+    "glob": "^11.0.2",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.0.0-beta.3",
     "tailwindcss": "^4",

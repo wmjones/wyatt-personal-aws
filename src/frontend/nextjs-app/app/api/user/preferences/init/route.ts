@@ -1,67 +1,47 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/app/lib/postgres';
+import { db } from '@/app/db/drizzle';
+import { sql } from 'drizzle-orm';
 import { withAuth } from '@/app/lib/auth-middleware';
 
 export const GET = withAuth(async () => {
   try {
-    // Check if the user_preferences table exists
-    const tableCheck = await query(`
+    // Check if the user_preferences table exists using Drizzle
+    const tableCheck = await db.execute(sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_name = 'user_preferences'
       ) as exists
     `);
 
-    if (!tableCheck.rows[0]?.exists) {
-      // Create the table if it doesn't exist
-      await query(`
-        CREATE TABLE IF NOT EXISTS user_preferences (
-          id SERIAL PRIMARY KEY,
-          user_id VARCHAR(255) UNIQUE NOT NULL,
-          has_seen_welcome BOOLEAN DEFAULT FALSE,
-          has_completed_tour BOOLEAN DEFAULT FALSE,
-          tour_progress JSON DEFAULT '{}',
-          onboarding_completed_at TIMESTAMP WITH TIME ZONE,
-          tooltips_enabled BOOLEAN DEFAULT TRUE,
-          preferred_help_format VARCHAR(20) DEFAULT 'text',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
+    const exists = tableCheck.rows[0]?.exists as boolean;
 
-        -- Create indexes for performance
-        CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
-        CREATE INDEX IF NOT EXISTS idx_user_preferences_onboarding ON user_preferences(has_seen_welcome, has_completed_tour);
-
-        -- Create trigger to update updated_at timestamp
-        CREATE OR REPLACE FUNCTION update_user_preferences_updated_at()
-        RETURNS TRIGGER AS $$
-        BEGIN
-          NEW.updated_at = NOW();
-          RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-
-        DROP TRIGGER IF EXISTS user_preferences_updated_at_trigger ON user_preferences;
-        CREATE TRIGGER user_preferences_updated_at_trigger
-        BEFORE UPDATE ON user_preferences
-        FOR EACH ROW
-        EXECUTE FUNCTION update_user_preferences_updated_at();
-      `);
-
+    if (!exists) {
+      // With Drizzle, tables should be created via migrations
+      // This endpoint is kept for backward compatibility but shouldn't create tables
       return NextResponse.json({
-        message: 'User preferences table created successfully',
-        created: true
+        message: 'User preferences table does not exist. Please run database migrations.',
+        created: false,
+        requiresMigration: true
       });
     }
 
+    // Optionally verify the table structure
+    const columnCheck = await db.execute(sql`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'user_preferences'
+      ORDER BY ordinal_position
+    `);
+
     return NextResponse.json({
-      message: 'User preferences table already exists',
-      created: false
+      message: 'User preferences table exists',
+      created: false,
+      columns: columnCheck.rows
     });
   } catch (error) {
-    console.error('Failed to initialize user preferences table:', error);
+    console.error('Failed to check user preferences table:', error);
     return NextResponse.json(
-      { error: 'Failed to initialize user preferences table' },
+      { error: 'Failed to check user preferences table' },
       { status: 500 }
     );
   }

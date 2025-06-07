@@ -3,6 +3,10 @@
 import { useState, memo, useCallback } from 'react';
 import DemandPlanningHeader from './DemandPlanningHeader';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
+import IntegratedControlPanel from './IntegratedControlPanel';
+import { ForecastSeries } from '@/app/types/demand-planning';
+import { ErrorBoundary } from '../../components/error-boundary';
+
 // Dashboard view type
 type DashboardView = 'forecast' | 'history' | 'settings';
 
@@ -12,6 +16,12 @@ interface DashboardLayoutProps {
   onFilterSelectionChange?: (selections: FilterSelections) => void;
   activeTab: DashboardView;
   onTabChange: (tab: DashboardView) => void;
+  // New props for integrated control panel
+  forecastData?: ForecastSeries | null;
+  currentAdjustmentValue?: number;
+  onAdjustmentChange?: (adjustmentValue: number) => void;
+  onSaveAdjustment?: (adjustmentValue: number, filterContext: FilterSelections) => Promise<void>;
+  useIntegratedPanel?: boolean; // Flag to enable new integrated panel
 }
 
 const DashboardLayout = memo(function DashboardLayout({
@@ -19,7 +29,12 @@ const DashboardLayout = memo(function DashboardLayout({
   filterSelections,
   onFilterSelectionChange,
   activeTab,
-  onTabChange
+  onTabChange,
+  forecastData,
+  currentAdjustmentValue = 0,
+  onAdjustmentChange,
+  onSaveAdjustment,
+  useIntegratedPanel = true // Default to true to use the new integrated panel
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -91,10 +106,39 @@ const DashboardLayout = memo(function DashboardLayout({
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
-          <FilterSidebar
-            selections={filterSelections}
-            onSelectionChange={handleFilterSelectionChange}
-          />
+          {useIntegratedPanel && onAdjustmentChange && onSaveAdjustment ? (
+            <ErrorBoundary
+              resetKeys={[
+                JSON.stringify(filterSelections),
+                currentAdjustmentValue,
+                forecastData?.baseline?.length || 0
+              ]}
+              onError={(error, errorInfo) => {
+                console.error('IntegratedControlPanel Error:', error, errorInfo);
+              }}
+            >
+              <IntegratedControlPanel
+                filterSelections={filterSelections}
+                onFilterSelectionChange={handleFilterSelectionChange}
+                forecastData={forecastData}
+                currentAdjustmentValue={currentAdjustmentValue}
+                onAdjustmentChange={onAdjustmentChange}
+                onSaveAdjustment={onSaveAdjustment}
+              />
+            </ErrorBoundary>
+          ) : (
+            <ErrorBoundary
+              resetKeys={[JSON.stringify(filterSelections)]}
+              onError={(error, errorInfo) => {
+                console.error('FilterSidebar Error:', error, errorInfo);
+              }}
+            >
+              <FilterSidebar
+                selections={filterSelections}
+                onSelectionChange={handleFilterSelectionChange}
+              />
+            </ErrorBoundary>
+          )}
         </div>
 
         {/* Backdrop for mobile */}

@@ -1,0 +1,31 @@
+name: Reusable Node.js Setup
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: 'Working directory for npm operations'
+        required: false
+        type: string
+        default: '.'
+      node-version:
+        description: 'Node.js version to use (defaults to 22)'
+        required: false
+        type: string
+        default: '22'
+      cache-dependency-path:
+        description: 'Path to package-lock.json for caching'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/package-lock.json', inputs.working-directory) }}
