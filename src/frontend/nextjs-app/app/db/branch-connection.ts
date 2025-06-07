@@ -17,7 +17,7 @@ export interface DatabaseConfig {
 /**
  * Get the current branch name from various sources
  */
-function getCurrentBranch(): string | undefined {
+export function getCurrentBranch(): string | undefined {
   // Check Vercel environment variables
   if (process.env.VERCEL_GIT_COMMIT_REF) {
     return process.env.VERCEL_GIT_COMMIT_REF;
@@ -39,7 +39,7 @@ function getCurrentBranch(): string | undefined {
 /**
  * Determine the deployment environment
  */
-function getEnvironment(): 'production' | 'preview' | 'development' {
+export function getEnvironment(): 'production' | 'preview' | 'development' {
   // Local development
   if (process.env.NODE_ENV === 'development' && !process.env.VERCEL) {
     return 'development';
@@ -88,6 +88,21 @@ function getBranchDatabaseUrls(): { pooled?: string; unpooled?: string } {
       pooled: process.env.LOCAL_DATABASE_URL || process.env.DATABASE_URL,
       unpooled: process.env.LOCAL_DATABASE_URL_UNPOOLED || process.env.DATABASE_URL_UNPOOLED
     };
+  }
+
+  // For Vercel preview deployments, check for project-level environment variables
+  // These would be set in Vercel dashboard for all preview deployments
+  if (process.env.VERCEL_ENV === 'preview') {
+    // Try to use preview-specific database URLs if available
+    const previewPooled = process.env.PREVIEW_DATABASE_URL || process.env.DATABASE_URL_PREVIEW;
+    const previewUnpooled = process.env.PREVIEW_DATABASE_URL_UNPOOLED || process.env.DATABASE_URL_UNPOOLED_PREVIEW;
+
+    if (previewPooled) {
+      return {
+        pooled: previewPooled,
+        unpooled: previewUnpooled || previewPooled
+      };
+    }
   }
 
   return {};
