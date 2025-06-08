@@ -61,10 +61,15 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = [
-              for branch in local.allowed_branches :
-              "repo:${local.github_org}/${local.github_repo}:ref:refs/heads/${branch}"
-            ]
+            "token.actions.githubusercontent.com:sub" = concat(
+              # Allow branch-based claims
+              [for branch in local.allowed_branches :
+                "repo:${local.github_org}/${local.github_repo}:ref:refs/heads/${branch}"
+              ],
+              # Allow environment-based claims (used by workflows with environment: parameter)
+              ["repo:${local.github_org}/${local.github_repo}:environment:dev",
+              "repo:${local.github_org}/${local.github_repo}:environment:prod"]
+            )
           }
         }
       }
