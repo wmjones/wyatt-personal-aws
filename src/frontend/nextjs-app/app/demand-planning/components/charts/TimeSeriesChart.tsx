@@ -57,21 +57,32 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
   // Generate forecast confidence intervals (y_05, y_50, y_95)
   const forecastData = useMemo(() => {
+
     const y_05Data = baselineDataset.map(d => ({
       ...d,
       value: d.y_05 !== undefined ? d.y_05 : d.value * 0.85
     }));
 
-    // For y_50 (blue line): use original values when adjustments exist, otherwise use y_50
+    // For y_50 (blue line): show the forecast value (without adjustments)
     const y_50Data = baselineDataset.map(d => {
       let value;
-      if (hasSavedAdjustments && d.original_y_50 !== undefined) {
-        value = d.original_y_50;
-      } else if (!hasSavedAdjustments && d.y_50 !== undefined) {
-        value = d.y_50;
-      } else {
-        value = d.value;
+
+      // When there are NO adjustments, y_50 is the forecast value
+      if (!d.hasAdjustment) {
+        value = d.y_50 !== undefined ? d.y_50 : d.value;
       }
+      // When there ARE adjustments, we need the original forecast
+      else {
+        // First try original_y_50
+        if (d.original_y_50 !== undefined && d.original_y_50 !== null && d.original_y_50 > 0) {
+          value = d.original_y_50;
+        }
+        // If original_y_50 is not available, fall back to value
+        else {
+          value = d.value;
+        }
+      }
+
       return { ...d, value };
     });
 
@@ -82,15 +93,17 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
     // For adjusted line (yellow): only show when adjustments exist
     const adjustedY50Data = [];
-    if (hasSavedAdjustments) {
-      // Use the y_50 field which contains adjusted values
+    if (adjustedDataset.length > 0) {
+      // Use real-time adjustments from adjustedData prop
+      adjustedY50Data.push(...adjustedDataset);
+    } else if (hasSavedAdjustments) {
+      // When we have saved adjustments, show all points
+      // Points with adjustments will show adjusted values, others will show forecast
       adjustedY50Data.push(...baselineDataset.map(d => ({
         ...d,
+        // Use y_50 which contains adjusted values where adjustments exist
         value: d.y_50 !== undefined ? d.y_50 : d.value
       })));
-    } else if (adjustedDataset.length > 0) {
-      // Use real-time adjustments
-      adjustedY50Data.push(...adjustedDataset);
     }
 
     return { y_05Data, y_50Data, y_95Data, adjustedY50Data };
