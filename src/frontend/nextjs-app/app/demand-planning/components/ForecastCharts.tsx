@@ -34,20 +34,41 @@ const ForecastCharts = memo(function ForecastCharts({
 
   // Apply real-time adjustment to create adjusted data - memoized for performance
   const filteredAdjustedData = useMemo(() => {
-    // If we have saved adjustments, don't apply real-time adjustments on top
-    if (hasSavedAdjustments || adjustmentValue === 0) {
-      return forecastData.adjusted;
+    // If we have saved adjustments in the data, extract them
+    if (hasSavedAdjustments) {
+      // Create adjusted data from the baseline data using adjusted_y_50 values
+      const adjustedPoints = forecastData.baseline
+        .filter(point => point.adjusted_y_50 !== undefined)
+        .map(point => ({
+          ...point,
+          value: point.adjusted_y_50!,
+          y_50: point.adjusted_y_50!
+        }));
+
+      console.log('ForecastCharts - Extracted adjusted points:', adjustedPoints.length);
+      if (adjustedPoints.length > 0) {
+        console.log('ForecastCharts - Sample adjusted point:', adjustedPoints[0]);
+      }
+
+      return adjustedPoints;
     }
 
-    // Only apply real-time adjustments if there are no saved adjustments
-    return forecastData.baseline.map(point => ({
-      ...point,
-      value: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
-      y_05: point.y_05,
-      y_50: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
-      y_95: point.y_95
-    }));
-  }, [adjustmentValue, forecastData.baseline, forecastData.adjusted, hasSavedAdjustments]);
+    // If there's a real-time adjustment value, apply it
+    if (adjustmentValue !== 0) {
+      console.log('ForecastCharts - Applying real-time adjustment:', adjustmentValue);
+      return forecastData.baseline.map(point => ({
+        ...point,
+        value: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
+        y_05: point.y_05,
+        y_50: point.y_50 ? applyAdjustmentToForecast(point.y_50, adjustmentValue) : applyAdjustmentToForecast(point.value, adjustmentValue),
+        y_95: point.y_95
+      }));
+    }
+
+    // No adjustments - return empty array
+    console.log('ForecastCharts - No adjustments to display');
+    return [];
+  }, [adjustmentValue, forecastData.baseline, hasSavedAdjustments]);
 
 
   return (
@@ -57,18 +78,23 @@ const ForecastCharts = memo(function ForecastCharts({
       {/* Chart display */}
       <div className="p-4">
         <ResponsiveChartWrapper aspectRatio={2.75}>
-          {(width, height) => (
-            <TimeSeriesChart
-              width={width}
-              height={height}
-              baselineData={filteredBaselineData}
-              adjustedData={filteredAdjustedData}
-              timePeriods={forecastData.timePeriods}
-              showY05={true}
-              showY50={true}
-              showY95={true}
-            />
-          )}
+          {(width, height) => {
+            console.log('ForecastCharts - Passing to TimeSeriesChart:');
+            console.log('- Baseline data points:', filteredBaselineData.length);
+            console.log('- Adjusted data points:', filteredAdjustedData.length);
+            return (
+              <TimeSeriesChart
+                width={width}
+                height={height}
+                baselineData={filteredBaselineData}
+                adjustedData={filteredAdjustedData}
+                timePeriods={forecastData.timePeriods}
+                showY05={true}
+                showY50={true}
+                showY95={true}
+              />
+            );
+          }}
         </ResponsiveChartWrapper>
 
         {/* Today pill removed per user request */}
