@@ -116,32 +116,27 @@ describe('FilterSidebar Integration Tests', () => {
     expect(screen.getAllByTestId('single-select-dropdown')).toHaveLength(1); // Inventory Item
     expect(screen.getAllByTestId('multi-select-dropdown')).toHaveLength(3); // States, DMAs, DCs
 
-    // Verify the first inventory item is auto-selected
-    expect(screen.getByText('Item 1')).toBeInTheDocument();
+    // Verify inventory dropdown placeholder is shown (no auto-selection)
+    expect(screen.getByText('Select an item')).toBeInTheDocument();
   });
 
-  it('should auto-select first inventory item and default date range', async () => {
+  it('should display selected inventory item when provided', async () => {
     const onSelectionChange = jest.fn();
+    const selectionsWithItem = {
+      ...defaultSelections,
+      inventoryItemId: '1'
+    };
 
     renderWithQuery(
       <FilterSidebar
-        selections={defaultSelections}
+        selections={selectionsWithItem}
         onSelectionChange={onSelectionChange}
       />
     );
 
-    // Wait for auto-selection to occur
+    // Verify the selected inventory item is displayed
     await waitFor(() => {
-      expect(onSelectionChange).toHaveBeenCalledWith({
-        states: [],
-        dmaIds: [],
-        dcIds: [],
-        inventoryItemId: '1', // First item auto-selected
-        dateRange: {
-          startDate: '2025-01-01',
-          endDate: '2025-03-31'
-        }
-      });
+      expect(screen.getByText('Item 1')).toBeInTheDocument();
     });
   });
 
@@ -215,7 +210,7 @@ describe('FilterSidebar Integration Tests', () => {
 
     // Data should be immediately available from cache
     expect(screen.getByText('Inventory Item')).toBeInTheDocument();
-    // Verify the first item is still selected (from cache)
-    expect(screen.getByText('Item 1')).toBeInTheDocument();
+    // Verify dropdown placeholder is shown (no selection persisted)
+    expect(screen.getByText('Select an item')).toBeInTheDocument();
   });
 });

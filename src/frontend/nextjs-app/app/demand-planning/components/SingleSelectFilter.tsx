@@ -20,6 +20,10 @@ export default function SingleSelectFilter({
   placeholder = 'Select an option...',
   disabled = false
 }: SingleSelectFilterProps) {
+  // Debug logging
+  console.log('SingleSelectFilter - selectedValue:', selectedValue);
+  console.log('SingleSelectFilter - options:', options);
+
   return (
     <div>
       <label className="block text-sm font-medium text-dp-text-secondary mb-2">

@@ -14,6 +14,9 @@ precommit.log
 .taskmaster
 .stackframe-initialized
 
+# IDE directories
+.cursor
+
 # Dependencies
 node_modules/
 **/node_modules/
@@ -97,3 +100,4 @@ tasks.json
 tasks/
 tasks_old/
 **/.claude/settings.local.json
+.env.local

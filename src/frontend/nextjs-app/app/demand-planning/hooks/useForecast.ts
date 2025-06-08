@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useForecastData } from './useForecastQuery';
 import {
   ForecastSeries,
@@ -9,7 +8,6 @@ import {
   InventoryItem
 } from '@/app/types/demand-planning';
 import { FilterSelections } from '../components/FilterSidebar';
-import { postgresForecastService } from '@/app/services/postgresForecastService';
 
 interface UseForecastProps {
   filterSelections?: FilterSelections;
@@ -28,6 +26,16 @@ function transformToForecastSeries(
     y_05: number;
     y_50: number;
     y_95: number;
+    // New adjustment fields
+    original_y_05?: number;
+    original_y_50?: number;
+    original_y_95?: number;
+    adjusted_y_50?: number;
+    total_adjustment_percent?: number;
+    adjustment_count?: number;
+    // Aggregation fields
+    aggregation_level?: string;
+    record_count?: number;
   }> }
 ): ForecastSeries {
   // Extract unique dates and create time periods
@@ -35,7 +43,24 @@ function transformToForecastSeries(
   const inventoryItemsMap = new Map<string, InventoryItem>();
   const forecastData: ForecastDataPoint[] = [];
 
+  // Validate data structure
+  if (!data || !data.timeSeries || !Array.isArray(data.timeSeries)) {
+    console.warn('Invalid data structure passed to transformToForecastSeries:', data);
+    return {
+      id: `forecast-${Date.now()}`,
+      timePeriods: [],
+      baseline: [],
+      inventoryItems: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
   data.timeSeries.forEach((row) => {
+    // Ensure business_date exists before processing
+    if (!row.business_date) {
+      console.warn('Row missing business_date:', row);
+      return;
+    }
     const date = row.business_date.split('T')[0];
     datesSet.add(date);
 
@@ -47,9 +72,17 @@ function transformToForecastSeries(
       });
     }
 
+    // Check if this data point has adjustments
+    const hasAdjustment = row.adjustment_count !== undefined && row.adjustment_count > 0;
+
+    // Use adjusted value if available, otherwise use original
+    const displayValue = hasAdjustment && row.adjusted_y_50 !== undefined
+      ? row.adjusted_y_50
+      : row.y_50 || 0;
+
     forecastData.push({
       periodId: `day-${date}`,
-      value: row.y_50 || 0,
+      value: displayValue,
       inventoryItemId: row.inventory_item_id,
       state: row.state,
       dmaId: row.dma_id,
@@ -57,6 +90,14 @@ function transformToForecastSeries(
       y_05: row.y_05 || 0,
       y_50: row.y_50 || 0,
       y_95: row.y_95 || 0,
+      // Include adjustment data
+      original_y_05: row.original_y_05,
+      original_y_50: row.original_y_50,
+      original_y_95: row.original_y_95,
+      adjusted_y_50: row.adjusted_y_50,
+      total_adjustment_percent: row.total_adjustment_percent,
+      adjustment_count: row.adjustment_count,
+      hasAdjustment
     });
   });
 
@@ -86,39 +127,9 @@ function transformToForecastSeries(
 }
 
 export default function useForecast({ filterSelections }: UseForecastProps) {
-  const [firstInventoryItemId, setFirstInventoryItemId] = useState<string | null>(null);
-  const [isLoadingFirstItem, setIsLoadingFirstItem] = useState(true);
-
-  // Fetch first available inventory item on mount if no item is selected
-  useEffect(() => {
-    const fetchFirstInventoryItem = async () => {
-      if (filterSelections?.inventoryItemId) {
-        setIsLoadingFirstItem(false);
-        return;
-      }
-
-      try {
-        const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
-        if (inventoryItems.length > 0) {
-          const firstItem = inventoryItems[0];
-          console.log(`Auto-selecting first inventory item: ${firstItem} (from ${inventoryItems.length} available items)`);
-          setFirstInventoryItemId(firstItem);
-        }
-      } catch (error) {
-        console.error('Failed to fetch first inventory item:', error);
-      } finally {
-        setIsLoadingFirstItem(false);
-      }
-    };
-
-    fetchFirstInventoryItem();
-  }, [filterSelections?.inventoryItemId]);
-
-  // Extract query parameters - use first available item if no item is selected
+  // Extract query parameters - only use selected item from filterSelections
   const itemIds = filterSelections?.inventoryItemId
     ? [filterSelections.inventoryItemId]
-    : firstInventoryItemId
-    ? [firstInventoryItemId]
     : [];
 
   // Determine date range from filter selections
@@ -135,22 +146,33 @@ export default function useForecast({ filterSelections }: UseForecastProps) {
   }
 
   // Use TanStack Query hook with proper location filters
-  const { data, isLoading, error, refetch } = useForecastData({
+  const queryParams = {
     itemIds,
     startDate,
     endDate,
     states: filterSelections?.states || [],
     dmaIds: filterSelections?.dmaIds || [],
     dcIds: filterSelections?.dcIds || []
-  });
+  };
+
+  // Debug logging
+  console.log('useForecast - Query params:', queryParams);
+  console.log('useForecast - Query will be enabled:', itemIds.length > 0);
+
+  const { data, isLoading, error, refetch } = useForecastData(queryParams);
 
   // Transform data to expected format
   const forecastData = data && itemIds.length > 0
     ? transformToForecastSeries(data)
     : null;
 
+  // Debug logging
+  if (data && !forecastData) {
+    console.log('Data exists but forecastData is null. ItemIds:', itemIds);
+  }
+
   return {
-    isLoading: isLoading || isLoadingFirstItem,
+    isLoading,
     forecastData,
     error: error?.message || null,
     refetch

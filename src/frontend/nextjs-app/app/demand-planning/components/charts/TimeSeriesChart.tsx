@@ -15,8 +15,6 @@ interface TimeSeriesChartProps extends Omit<BaseChartProps, 'className'> {
   showY05?: boolean;
   showY50?: boolean;
   showY95?: boolean;
-  showEdited?: boolean;
-  showActual?: boolean;
 }
 
 const TimeSeriesChart = memo(function TimeSeriesChart({
@@ -29,9 +27,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
   className = '',
   showY05 = true,
   showY50 = true,
-  showY95 = true,
-  showEdited = true,
-  showActual = true
+  showY95 = true
 }: TimeSeriesChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -50,19 +46,12 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       : [];
   }, [adjustedData, timePeriods]);
 
-  // Generate forecast confidence intervals (y_05, y_50, y_95)
+  // Simplified forecast data processing
   const forecastData = useMemo(() => {
-    // Use adjusted data for y_50 if available, otherwise use baseline
-    const dataSource = adjustedDataset.length > 0 ? adjustedDataset : baselineDataset;
-
+    // 1. Red lines: Confidence intervals (y_05 and y_95)
     const y_05Data = baselineDataset.map(d => ({
       ...d,
       value: d.y_05 !== undefined ? d.y_05 : d.value * 0.85
-    }));
-
-    const y_50Data = dataSource.map(d => ({
-      ...d,
-      value: d.y_50 !== undefined ? d.y_50 : d.value
     }));
 
     const y_95Data = baselineDataset.map(d => ({
@@ -70,7 +59,20 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       value: d.y_95 !== undefined ? d.y_95 : d.value * 1.15
     }));
 
-    return { y_05Data, y_50Data, y_95Data };
+    // 2. Blue line: Always show the median forecast (y_50)
+    const y_50Data = baselineDataset.map(d => ({
+      ...d,
+      value: d.y_50 !== undefined ? d.y_50 : d.value
+    }));
+
+    // 3. Yellow line: Show adjusted values when they exist
+    let adjustedY50Data: typeof baselineDataset = [];
+    if (adjustedDataset.length > 0) {
+      // Use the provided adjusted data
+      adjustedY50Data = adjustedDataset;
+    }
+
+    return { y_05Data, y_50Data, y_95Data, adjustedY50Data };
   }, [baselineDataset, adjustedDataset]);
 
   // Get the period type from the first time period (assuming all periods have the same type)
@@ -113,7 +115,11 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     }
     // Include forecast confidence intervals in domain calculation
     allValues.push(...forecastData.y_05Data.map(d => d.value));
+    allValues.push(...forecastData.y_50Data.map(d => d.value));
     allValues.push(...forecastData.y_95Data.map(d => d.value));
+    if (forecastData.adjustedY50Data.length > 0) {
+      allValues.push(...forecastData.adjustedY50Data.map(d => d.value));
+    }
 
     const yMax = d3.max(allValues) || 0;
     const yMin = d3.min(allValues) || 0;
@@ -144,7 +150,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
     // Create axes - styling to match screenshot exactly
     const xAxis = d3.axisBottom(xScale)
-      .ticks(d3.timeMonth.every(1)) // Monthly ticks for 3-month view
+      .ticks(baselineDataset.length > 30 ? d3.timeWeek.every(1) : d3.timeDay.every(Math.ceil(baselineDataset.length / 10))) // Dynamic ticks based on data
       .tickSize(0) // Remove tick marks
       .tickFormat(() => ''); // Empty labels since we handle them separately with custom month display
 
@@ -193,6 +199,10 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       .curve(d3.curveMonotoneX);
 
     // Display forecast confidence intervals and data series
+    // Color scheme:
+    // - Blue (--dp-chart-forecasted): y_50 median forecast
+    // - Yellow (--dp-chart-edited): Adjusted forecast values
+    // - Red (--dp-chart-actual): y_05/y_95 forecast range
 
     // 1. y_05 (Lower confidence interval) - if enabled
     if (showY05) {
@@ -201,10 +211,10 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('class', 'y05-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke', 'var(--dp-chart-actual)') // Use red for confidence intervals
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '6,3') // Dashed line
-        .attr('opacity', 0.7);
+        .attr('opacity', 0.4); // Lower opacity for confidence intervals
     }
 
     // 2. y_95 (Upper confidence interval) - if enabled
@@ -214,20 +224,21 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('class', 'y95-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke', 'var(--dp-chart-actual)') // Use red for confidence intervals
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '3,6') // Dotted line
-        .attr('opacity', 0.7);
+        .attr('opacity', 0.4); // Lower opacity for confidence intervals
     }
 
     // 3. y_50 (Median forecast) - if enabled
     if (showY50) {
+      // Base y_50 line (blue)
       g.append('path')
         .datum(forecastData.y_50Data)
         .attr('class', 'y50-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-forecasted)')
+        .attr('stroke', 'var(--dp-chart-forecasted)') // Blue for median forecast
         .attr('stroke-width', 2.5);
 
       // Add data points for y_50
@@ -239,45 +250,35 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('cx', d => xScale(d.date))
         .attr('cy', d => yScale(d.value))
         .attr('r', 4)
-        .attr('fill', 'var(--dp-chart-forecasted)')
+        .attr('fill', 'var(--dp-chart-forecasted)') // Blue for median forecast
         .attr('stroke', '#FFFFFF')
         .attr('stroke-width', 1.5);
+
+      // Adjusted line (yellow) when adjustments exist
+      if (forecastData.adjustedY50Data.length > 0) {
+        g.append('path')
+          .datum(forecastData.adjustedY50Data)
+          .attr('class', 'adjusted-line')
+          .attr('d', line)
+          .attr('fill', 'none')
+          .attr('stroke', 'var(--dp-chart-edited)') // Yellow color for adjustments
+          .attr('stroke-width', 2.5);
+
+        // Add data points for adjusted line
+        g.selectAll('.adjusted-point')
+          .data(forecastData.adjustedY50Data)
+          .enter()
+          .append('circle')
+          .attr('class', 'adjusted-point')
+          .attr('cx', d => xScale(d.date))
+          .attr('cy', d => yScale(d.value))
+          .attr('r', 4)
+          .attr('fill', 'var(--dp-chart-edited)') // Yellow color for adjustments
+          .attr('stroke', '#FFFFFF')
+          .attr('stroke-width', 1.5);
+      }
     }
 
-    // 4. Actual data (blue line) - if enabled
-    if (showActual) {
-      g.append('path')
-        .datum(baselineDataset)
-        .attr('class', 'actual-line')
-        .attr('d', line)
-        .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)')
-        .attr('stroke-width', 2.5);
-
-      // Add data points for actual
-      g.selectAll('.actual-point')
-        .data(baselineDataset)
-        .enter()
-        .append('circle')
-        .attr('class', 'actual-point')
-        .attr('cx', d => xScale(d.date))
-        .attr('cy', d => yScale(d.value))
-        .attr('r', 3)
-        .attr('fill', 'var(--dp-chart-actual)')
-        .attr('stroke', '#FFFFFF')
-        .attr('stroke-width', 1.5);
-    }
-
-    // 5. Edited data (yellow line) - if enabled and available
-    if (showEdited && adjustedDataset.length > 0) {
-      g.append('path')
-        .datum(adjustedDataset)
-        .attr('class', 'edited-line')
-        .attr('d', line)
-        .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-edited)')
-        .attr('stroke-width', 2.5);
-    }
 
     // Add comprehensive hover functionality
     // Create bisector for finding closest data points
@@ -301,7 +302,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     const hoverCircleY50 = hoverGroup.append('circle')
       .attr('class', 'hover-circle-y50')
       .attr('r', 5)
-      .attr('fill', 'var(--dp-chart-forecasted)')
+      .attr('fill', 'var(--dp-chart-forecasted)') // Blue to match y_50 line
       .attr('stroke', '#FFFFFF')
       .attr('stroke-width', 2);
 
@@ -325,22 +326,48 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       const i = bisectDate(forecastData.y_50Data, xDate, 1);
       const d0 = forecastData.y_50Data[i - 1];
       const d1 = forecastData.y_50Data[i];
-      const d = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
+      const basePoint = d1 && (xDate.getTime() - d0.date.getTime() > d1.date.getTime() - xDate.getTime()) ? d1 : d0;
 
-      if (!d) return;
+      if (!basePoint) return;
+
+      // Find corresponding adjusted point if exists
+      let adjustedPoint = null;
+      if (forecastData.adjustedY50Data.length > 0) {
+        const adjI = bisectDate(forecastData.adjustedY50Data, xDate, 1);
+        const adjD0 = forecastData.adjustedY50Data[adjI - 1];
+        const adjD1 = forecastData.adjustedY50Data[adjI];
+        adjustedPoint = adjD1 && (xDate.getTime() - adjD0.date.getTime() > adjD1.date.getTime() - xDate.getTime()) ? adjD1 : adjD0;
+      }
 
       // Position hover elements
-      const xPos = xScale(d.date);
-      const yPosY50 = yScale(d.value);
+      const xPos = xScale(basePoint.date);
+      const yPosY50 = yScale(basePoint.value);
 
       hoverLine.attr('x1', xPos).attr('x2', xPos);
-      hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
+      hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50)
+        .attr('fill', 'var(--dp-chart-forecasted)'); // Make hover circle blue to match y_50 line
 
-      // Update tooltip content - clean and simple
-      const tooltipHtml = `<div class="p-2">
-        <div class="text-xs text-gray-600">${formatDate(d.date as Date, periodType)}</div>
-        <div class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</div>
-      </div>`;
+      // Update tooltip content - show both forecast and adjusted values
+      let tooltipHtml = `<div class="p-2">
+        <div class="text-xs text-gray-600">${formatDate(basePoint.date as Date, periodType)}</div>`;
+
+      // Always show forecast value
+      tooltipHtml += `
+        <div class="text-sm">
+          <span class="text-gray-600">Forecast:</span> <span class="text-gray-700">$${formatNumber(basePoint.value)}k</span>
+        </div>`;
+
+      // Show adjusted value if it exists
+      if (adjustedPoint) {
+        const adjustmentPercent = ((adjustedPoint.value - basePoint.value) / basePoint.value) * 100;
+        tooltipHtml += `
+          <div class="text-sm font-semibold" style="color: var(--dp-chart-edited);">
+            <span>Adjusted:</span> $${formatNumber(adjustedPoint.value)}k
+            <span class="text-xs">(${adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent.toFixed(1)}%)</span>
+          </div>`;
+      }
+
+      tooltipHtml += `</div>`;
 
       setTooltipContent(tooltipHtml);
       setTooltipPosition({
@@ -356,8 +383,51 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     });
 
     // Apply clip path to all chart elements
-    g.selectAll('.y05-line, .y50-line, .y95-line, .actual-line, .edited-line')
+    g.selectAll('.y05-line, .y50-line, .y95-line, .adjusted-line')
       .attr('clip-path', 'url(#chart-clip)');
+
+    // Add simple legend
+    const legendData = [
+      { label: 'Forecast (y_50)', color: 'var(--dp-chart-forecasted)' },
+      ...(forecastData.adjustedY50Data.length > 0 ? [{ label: 'Adjusted', color: 'var(--dp-chart-edited)' }] : []),
+      { label: 'Confidence Range', color: 'var(--dp-chart-actual)', dashed: true }
+    ];
+
+    const legendGroup = g.append('g')
+      .attr('class', 'legend')
+      .attr('transform', `translate(${innerWidth - 150}, 10)`);
+
+    legendData.forEach((item, i) => {
+      const legendItem = legendGroup.append('g')
+        .attr('transform', `translate(0, ${i * 20})`);
+
+      if (item.dashed) {
+        legendItem.append('line')
+          .attr('x1', 0)
+          .attr('x2', 20)
+          .attr('y1', 5)
+          .attr('y2', 5)
+          .attr('stroke', item.color)
+          .attr('stroke-width', 1.5)
+          .attr('stroke-dasharray', '4,2');
+      } else {
+        legendItem.append('line')
+          .attr('x1', 0)
+          .attr('x2', 20)
+          .attr('y1', 5)
+          .attr('y2', 5)
+          .attr('stroke', item.color)
+          .attr('stroke-width', 2.5);
+      }
+
+      legendItem.append('text')
+        .attr('x', 25)
+        .attr('y', 5)
+        .attr('dy', '0.3em')
+        .attr('font-size', '11px')
+        .attr('fill', 'var(--dp-chart-axis-text)')
+        .text(item.label);
+    });
 
   }, [
     baselineDataset,
@@ -369,9 +439,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     periodType,
     showY05,
     showY50,
-    showY95,
-    showEdited,
-    showActual
+    showY95
   ]);
 
   return (

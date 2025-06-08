@@ -5,29 +5,34 @@ import DashboardLayout from './components/DashboardLayout';
 import { FilterSelections } from './components/FilterSidebar';
 import useForecast from './hooks/useForecast';
 import CacheStatus from './components/CacheStatus';
-import NewAdjustmentPanel from './components/NewAdjustmentPanel';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
+import { useInventoryItemOptions } from '@/app/hooks/useDropdownOptions';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
 
 export default function DemandPlanningPage() {
-  // Filter selections state
+  // Get inventory options to set default
+  const { data: inventoryOptions = [] } = useInventoryItemOptions();
+
+  // Track if we've initialized the default inventory item
+  const [hasInitializedDefault, setHasInitializedDefault] = useState(false);
+
+  // Filter selections state with proper defaults
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
     dcIds: [],
-    inventoryItemId: null,
-    dateRange: { startDate: null, endDate: null }
+    inventoryItemId: '152', // Default to item 152
+    dateRange: { startDate: '2025-01-01', endDate: '2025-03-31' }
   });
 
   const [activeTab, setActiveTab] = useState<'forecast' | 'history' | 'settings'>('forecast');
 
   // Real-time adjustment state
   const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
-  const [showNewAdjustment, setShowNewAdjustment] = useState(false);
 
   // Use adjustment history hook for better state management
   const {
@@ -41,22 +46,34 @@ export default function DemandPlanningPage() {
     deleteAdjustment
   } = useAdjustmentHistory();
 
-  // Initialize without hardcoded selections
+  // Set default inventory item only if current selection is invalid
   useEffect(() => {
-    // Page component mount - users will select their own hierarchies and filters
-  }, []);
+    if (inventoryOptions.length > 0 && !hasInitializedDefault) {
+      // Only update if the current inventoryItemId is not in the options
+      const currentItemValid = inventoryOptions.some(opt => opt.value === filterSelections.inventoryItemId);
+      if (!currentItemValid) {
+        setFilterSelections(prev => ({
+          ...prev,
+          inventoryItemId: inventoryOptions[0].value
+        }));
+      }
+      setHasInitializedDefault(true);
+    }
+  }, [inventoryOptions, hasInitializedDefault, filterSelections.inventoryItemId]);
 
   // Fetch forecast data using TanStack Query
   const {
     forecastData,
     isLoading: isLoadingForecast,
-    error: forecastError
+    error: forecastError,
+    refetch: refetchForecast
   } = useForecast({
     filterSelections,
   });
 
   // Handle filter changes from FilterSidebar
   const handleFilterChange = (newSelections: FilterSelections) => {
+    console.log('Page - Filter change:', newSelections);
     setFilterSelections(newSelections);
   };
 
@@ -74,6 +91,12 @@ export default function DemandPlanningPage() {
 
     // Use the hook's saveAdjustment method
     await saveAdjustment(adjustmentValue, filterContext, inventoryItemName);
+
+    // Reset current adjustment value
+    setCurrentAdjustmentValue(0);
+
+    // Refetch forecast data to include the saved adjustment
+    await refetchForecast();
   };
 
   // Remove the manual loading as it's handled by the hook
@@ -88,6 +111,11 @@ export default function DemandPlanningPage() {
       onFilterSelectionChange={handleFilterChange}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      forecastData={forecastData}
+      currentAdjustmentValue={currentAdjustmentValue}
+      onAdjustmentChange={handleAdjustmentChange}
+      onSaveAdjustment={handleSaveAdjustment}
+      useIntegratedPanel={true}
     >
       {/* Main content area based on active tab */}
       {activeTab === 'forecast' && (
@@ -95,15 +123,6 @@ export default function DemandPlanningPage() {
           {/* Action Bar */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Forecast Overview</h2>
-            <button
-              className="new-adjustment-button px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
-              onClick={() => setShowNewAdjustment(!showNewAdjustment)}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Adjustment
-            </button>
           </div>
 
           {/* Chart Section */}
@@ -134,15 +153,6 @@ export default function DemandPlanningPage() {
             </Suspense>
           </div>
 
-          {/* New Adjustment Panel */}
-          {forecastData && showNewAdjustment && (
-            <NewAdjustmentPanel
-              forecastData={forecastData}
-              filterSelections={filterSelections}
-              onAdjustmentChange={handleAdjustmentChange}
-              onSaveAdjustment={handleSaveAdjustment}
-            />
-          )}
 
           {/* Adjustment History */}
           {historyError && (
@@ -185,7 +195,7 @@ export default function DemandPlanningPage() {
           <CacheStatus />
         </div>
       )}
-      
+
       {/* Debug panel for troubleshooting */}
       {process.env.NODE_ENV === 'development' && <AdjustmentDebugPanel />}
     </DashboardLayout>

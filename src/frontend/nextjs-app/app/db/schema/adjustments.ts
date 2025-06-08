@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, timestamp, jsonb, index, boolean, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp, jsonb, index, boolean, decimal, date } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // Forecast adjustments table
@@ -11,6 +11,8 @@ export const forecastAdjustments = pgTable('forecast_adjustments', {
   userEmail: varchar('user_email', { length: 255 }),
   userName: varchar('user_name', { length: 255 }),
   isActive: boolean('is_active').default(true).notNull(),
+  adjustmentStartDate: date('adjustment_start_date'),
+  adjustmentEndDate: date('adjustment_end_date'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -20,6 +22,7 @@ export const forecastAdjustments = pgTable('forecast_adjustments', {
   userIdIdx: index('idx_forecast_adjustments_user_id').on(table.userId),
   isActiveIdx: index('idx_forecast_adjustments_is_active').on(table.isActive),
   userEmailIdx: index('idx_forecast_adjustments_user_email').on(table.userEmail),
+  dateRangeIdx: index('idx_forecast_adjustments_date_range').on(table.adjustmentStartDate, table.adjustmentEndDate).where(sql`adjustment_start_date IS NOT NULL`),
 }));
 
 // Type exports for TypeScript inference
