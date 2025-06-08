@@ -11,8 +11,25 @@
   "remoteUser": "vscode",
   "postCreateCommand": ".devcontainer/post-create.sh",
   "forwardPorts": [3000, 5173, 8080],
-  "settings": {
-    "terminal.integrated.defaultProfile.linux": "bash"
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-vscode-remote.remote-containers",
+        "HashiCorp.terraform",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions",
+        "bradlc.vscode-tailwindcss",
+        "prisma.prisma",
+        "jock.svg",
+        "styled-components.vscode-styled-components"
+      ]
+    }
   },
   "mounts": [
     // Persist Claude Code configuration and history
@@ -41,21 +58,5 @@
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   },
-  "extensions": [
-    "ms-vscode.remote-containers",
-    "HashiCorp.terraform",
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
-    "ms-python.python",
-    "redhat.vscode-yaml",
-    "eamodio.gitlens",
-    "github.vscode-github-actions",
-    "bradlc.vscode-tailwindcss",
-    "prisma.prisma",
-    "dsznajder.es7-react-js-snippets",
-    "burkeholland.simple-react-snippets",
-    "jock.svg",
-    "styled-components.vscode-styled-components"
-  ],
   "runArgs": ["--ipc=host"]
 }

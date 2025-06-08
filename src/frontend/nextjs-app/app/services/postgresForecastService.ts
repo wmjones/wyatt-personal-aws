@@ -25,8 +25,6 @@ export interface ForecastByDate {
   avgForecast: number;
 }
 
-type AggregationLevel = 'none' | 'daily' | 'weekly' | 'monthly';
-
 export interface ForecastFilters {
   restaurantId?: number;
   inventoryItemId?: number;
@@ -36,20 +34,6 @@ export interface ForecastFilters {
   startDate?: string;
   endDate?: string;
   limit?: number;
-  aggregationLevel?: AggregationLevel;
-}
-
-/**
- * Determine the appropriate aggregation level based on date range
- */
-function determineAggregationLevel(startDate: string, endDate: string): AggregationLevel {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (daysDiff <= 31) return 'daily';
-  if (daysDiff <= 90) return 'weekly';
-  return 'monthly';
 }
 
 class PostgresForecastService {
@@ -93,22 +77,15 @@ class PostgresForecastService {
    * Get forecast data with filters - optimized query
    */
   async getForecastData(filters?: ForecastFilters): Promise<PostgresForecastData[]> {
-    // Auto-determine aggregation level if not provided
-    const enhancedFilters = { ...filters };
-    if (!enhancedFilters.aggregationLevel && filters?.startDate && filters?.endDate) {
-      enhancedFilters.aggregationLevel = determineAggregationLevel(filters.startDate, filters.endDate);
-      console.log(`Auto-determined aggregation level: ${enhancedFilters.aggregationLevel}`);
-    }
-
     const response = await apiClient.post<{ data: PostgresForecastData[] }>(
       this.endpoint,
       {
         action: 'get_forecast_data',
-        filters: enhancedFilters
+        filters
       }
     );
 
-    console.log(`Forecast data request with aggregation: ${enhancedFilters.aggregationLevel}, received ${response.data.length} rows`);
+    console.log(`Forecast data request received ${response.data.length} rows`);
     return response.data;
   }
 

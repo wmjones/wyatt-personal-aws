@@ -3,7 +3,6 @@ import { sql, eq, inArray, and, gte, lte } from 'drizzle-orm';
 import { db } from '@/app/db/drizzle';
 import { forecastData, dashboardForecastView } from '@/app/db/schema/forecast-data';
 import { toPostgresDate } from '@/app/lib/date-utils';
-import { AggregationLevel, determineAggregationLevel } from './aggregation-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +90,6 @@ interface ForecastFilters {
   startDate?: string;
   endDate?: string;
   limit?: number;
-  aggregationLevel?: AggregationLevel;
 }
 
 async function getForecastData(filters: ForecastFilters | undefined) {
@@ -144,83 +142,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     }
   }
 
-  const limit = filters?.limit || 100000;
-
-  // Determine aggregation level
-  let aggregationLevel = filters?.aggregationLevel;
-  if (!aggregationLevel && filters?.startDate && filters?.endDate) {
-    aggregationLevel = determineAggregationLevel(filters.startDate, filters.endDate);
-  }
-
-  // If aggregation is requested, perform server-side aggregation
-  if (aggregationLevel && aggregationLevel !== 'none') {
-    console.log(`API - Using ${aggregationLevel} aggregation`);
-
-    // Determine the date truncation based on aggregation level
-    let dateTrunc;
-    switch (aggregationLevel) {
-      case 'daily':
-        dateTrunc = sql`DATE(${forecastData.businessDate})`;
-        break;
-      case 'weekly':
-        dateTrunc = sql`DATE_TRUNC('week', ${forecastData.businessDate})`;
-        break;
-      case 'monthly':
-        dateTrunc = sql`DATE_TRUNC('month', ${forecastData.businessDate})`;
-        break;
-    }
-
-    // Build aggregated query
-    const aggregatedQuery = db
-      .select({
-        business_date: dateTrunc,
-        inventory_item_id: forecastData.inventoryItemId,
-        state: forecastData.state,
-        dma_id: forecastData.dmaId,
-        dc_id: forecastData.dcId,
-        // Aggregate the forecast values
-        y_05: sql<number>`SUM(${forecastData.y05})::numeric`,
-        y_50: sql<number>`SUM(${forecastData.y50})::numeric`,
-        y_95: sql<number>`SUM(${forecastData.y95})::numeric`,
-        record_count: sql<number>`COUNT(*)::int`,
-        aggregation_level: sql<string>`${aggregationLevel}`
-      })
-      .from(forecastData);
-
-    const filteredAggregatedQuery = conditions.length > 0
-      ? aggregatedQuery.where(and(...conditions))
-      : aggregatedQuery;
-
-    const result = await filteredAggregatedQuery
-      .groupBy(
-        dateTrunc,
-        forecastData.inventoryItemId,
-        forecastData.state,
-        forecastData.dmaId,
-        forecastData.dcId
-      )
-      .orderBy(dateTrunc)
-      .limit(limit);
-
-    console.log(`API - Aggregated query returned ${result.length} rows`);
-
-    // Transform aggregated results
-    return result.map(row => ({
-      restaurant_id: null, // Not applicable for aggregated data
-      inventory_item_id: row.inventory_item_id?.toString() || '',
-      business_date: row.business_date?.toString() || '',
-      dma_id: row.dma_id || '',
-      dc_id: row.dc_id?.toString() || '',
-      state: row.state || '',
-      y_05: parseFloat(row.y_05?.toString() || '0'),
-      y_50: parseFloat(row.y_50?.toString() || '0'),
-      y_95: parseFloat(row.y_95?.toString() || '0'),
-      record_count: row.record_count,
-      aggregation_level: row.aggregation_level
-    }));
-  }
-
-  // Original non-aggregated query logic
+  // Original non-aggregated query logic without limit
   const baseQuery = db
     .select()
     .from(forecastData);
@@ -230,8 +152,7 @@ async function getForecastData(filters: ForecastFilters | undefined) {
     : baseQuery;
 
   const result = await filteredQuery
-    .orderBy(forecastData.businessDate)
-    .limit(limit);
+    .orderBy(forecastData.businessDate);
 
   console.log(`API - Query returned ${result.length} rows with ${conditions.length} conditions`);
   if (conditions.length > 0) {

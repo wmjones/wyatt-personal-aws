@@ -33,9 +33,6 @@ export interface ForecastDataPoint {
   total_adjustment_percent?: number;
   adjustment_count?: number;
   hasAdjustment?: boolean;
-  // Aggregation support
-  aggregation_level?: 'none' | 'daily' | 'weekly' | 'monthly';
-  record_count?: number;
 }
 
 // Inventory item information

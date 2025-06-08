@@ -8,18 +8,21 @@ import CacheStatus from './components/CacheStatus';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
-import { postgresForecastService } from '@/app/services/postgresForecastService';
+import { useInventoryItemOptions } from '@/app/hooks/useDropdownOptions';
 
 // Lazy load the heavy chart component
 const ForecastCharts = lazy(() => import('./components/ForecastCharts'));
 
 export default function DemandPlanningPage() {
-  // Filter selections state
+  // Get inventory options to set default
+  const { data: inventoryOptions = [] } = useInventoryItemOptions();
+
+  // Filter selections state with proper defaults
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
     dcIds: [],
-    inventoryItemId: null,
+    inventoryItemId: inventoryOptions.length > 0 ? inventoryOptions[0].value : null,
     dateRange: { startDate: '2025-01-01', endDate: '2025-03-31' }
   });
 
@@ -40,28 +43,15 @@ export default function DemandPlanningPage() {
     deleteAdjustment
   } = useAdjustmentHistory();
 
-  // Auto-select first inventory item if none selected
+  // Set default inventory item only once when options first load
   useEffect(() => {
-    const autoSelectFirstInventoryItem = async () => {
-      if (!filterSelections.inventoryItemId) {
-        try {
-          const inventoryItems = await postgresForecastService.getDistinctInventoryItems();
-          if (inventoryItems.length > 0) {
-            const firstItem = inventoryItems[0].toString();
-            console.log(`Auto-selecting first inventory item: ${firstItem}`);
-            setFilterSelections(prev => ({
-              ...prev,
-              inventoryItemId: firstItem
-            }));
-          }
-        } catch (error) {
-          console.error('Failed to fetch first inventory item:', error);
-        }
-      }
-    };
-
-    autoSelectFirstInventoryItem();
-  }, [filterSelections.inventoryItemId]); // Run when inventory item selection changes
+    if (inventoryOptions.length > 0 && !filterSelections.inventoryItemId) {
+      setFilterSelections(prev => ({
+        ...prev,
+        inventoryItemId: inventoryOptions[0].value
+      }));
+    }
+  }, [inventoryOptions]); // Only depend on inventoryOptions to avoid loops
 
   // Fetch forecast data using TanStack Query
   const {

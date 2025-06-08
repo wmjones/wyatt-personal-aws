@@ -97,10 +97,7 @@ function transformToForecastSeries(
       adjusted_y_50: row.adjusted_y_50,
       total_adjustment_percent: row.total_adjustment_percent,
       adjustment_count: row.adjustment_count,
-      hasAdjustment,
-      // Include aggregation data
-      aggregation_level: row.aggregation_level as ('none' | 'daily' | 'weekly' | 'monthly' | undefined),
-      record_count: row.record_count
+      hasAdjustment
     });
   });
 
