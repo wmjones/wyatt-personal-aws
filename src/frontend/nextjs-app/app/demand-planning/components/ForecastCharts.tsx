@@ -67,8 +67,6 @@ const ForecastCharts = memo(function ForecastCharts({
               showY05={true}
               showY50={true}
               showY95={true}
-              showEdited={true}
-              showActual={true}
             />
           )}
         </ResponsiveChartWrapper>
