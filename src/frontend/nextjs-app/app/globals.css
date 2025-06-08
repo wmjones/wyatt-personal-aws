@@ -23,10 +23,10 @@
   --error: #940929;
   --success: #00a050;
 
-  /* Demand planning specific variables */
-  --dp-chart-forecasted: #DD0033;
-  --dp-chart-edited: #EAB308;
-  --dp-chart-actual: #3B82F6;
+  /* Demand planning chart colors */
+  --dp-chart-forecasted: #3B82F6; /* Blue - y_50 median forecast value */
+  --dp-chart-edited: #EAB308; /* Yellow - user-adjusted forecast values */
+  --dp-chart-actual: #DD0033; /* Red - y_05/y_95 forecast confidence range */
   --dp-chart-actual-2024: #F59E0B;
   --dp-chart-actual-2023: #65A30D;
   --dp-chart-grid: #E5E7EB;

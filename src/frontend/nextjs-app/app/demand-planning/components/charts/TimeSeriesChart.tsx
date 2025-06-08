@@ -220,6 +220,10 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       .curve(d3.curveMonotoneX);
 
     // Display forecast confidence intervals and data series
+    // Color scheme:
+    // - Blue (--dp-chart-forecasted): y_50 median forecast
+    // - Yellow (--dp-chart-edited): Adjusted forecast values
+    // - Red (--dp-chart-actual): y_05/y_95 forecast range
 
     // 1. y_05 (Lower confidence interval) - if enabled
     if (showY05) {
@@ -228,7 +232,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('class', 'y05-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)') // Use blue for confidence intervals
+        .attr('stroke', 'var(--dp-chart-actual)') // Use red for confidence intervals
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '6,3') // Dashed line
         .attr('opacity', 0.4); // Lower opacity for confidence intervals
@@ -241,7 +245,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('class', 'y95-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)') // Use blue for confidence intervals
+        .attr('stroke', 'var(--dp-chart-actual)') // Use red for confidence intervals
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '3,6') // Dotted line
         .attr('opacity', 0.4); // Lower opacity for confidence intervals
@@ -255,7 +259,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('class', 'y50-line')
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', 'var(--dp-chart-actual)') // Using actual (blue) instead of forecasted (red)
+        .attr('stroke', 'var(--dp-chart-forecasted)') // Blue for median forecast
         .attr('stroke-width', 2.5);
 
       // Add data points for y_50
@@ -267,7 +271,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('cx', d => xScale(d.date))
         .attr('cy', d => yScale(d.value))
         .attr('r', 4)
-        .attr('fill', 'var(--dp-chart-actual)') // Using actual (blue) instead of forecasted (red)
+        .attr('fill', 'var(--dp-chart-forecasted)') // Blue for median forecast
         .attr('stroke', '#FFFFFF')
         .attr('stroke-width', 1.5);
 
@@ -359,7 +363,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
     const hoverCircleY50 = hoverGroup.append('circle')
       .attr('class', 'hover-circle-y50')
       .attr('r', 5)
-      .attr('fill', 'var(--dp-chart-actual)') // Blue to match y_50 line
+      .attr('fill', 'var(--dp-chart-forecasted)') // Blue to match y_50 line
       .attr('stroke', '#FFFFFF')
       .attr('stroke-width', 2);
 
@@ -402,7 +406,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
       hoverLine.attr('x1', xPos).attr('x2', xPos);
       hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50)
-        .attr('fill', 'var(--dp-chart-actual)'); // Make hover circle blue to match y_50 line
+        .attr('fill', 'var(--dp-chart-forecasted)'); // Make hover circle blue to match y_50 line
 
       // Update tooltip content - show both y_50 and adjusted values
       let tooltipHtml = `<div class="p-2">
