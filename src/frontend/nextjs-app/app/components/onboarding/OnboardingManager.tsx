@@ -56,7 +56,7 @@ const demandPlanningTourSteps: TourStep[] = [
 
 export default function OnboardingManager({ children }: OnboardingManagerProps) {
   const pathname = usePathname();
-  const { shouldShowWelcome, shouldShowTour, preferences, isLoading } = useOnboarding();
+  const { shouldShowWelcome, shouldShowTour, preferences, isLoading, markTourCompleted } = useOnboarding();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showProductTour, setShowProductTour] = useState(false);
   const [currentTourSteps, setCurrentTourSteps] = useState<TourStep[]>([]);
@@ -96,8 +96,10 @@ export default function OnboardingManager({ children }: OnboardingManagerProps) 
     setShowProductTour(false);
   };
 
-  const handleTourSkip = () => {
+  const handleTourSkip = async () => {
     setShowProductTour(false);
+    // Mark the tour as completed when skipped to prevent it from showing again
+    await markTourCompleted();
   };
 
   // Get the tour steps for the current page
