@@ -51,7 +51,7 @@ export default function DemandPlanningPage() {
         inventoryItemId: inventoryOptions[0].value
       }));
     }
-  }, [inventoryOptions]); // Only depend on inventoryOptions to avoid loops
+  }, [inventoryOptions, filterSelections.inventoryItemId]); // Include inventoryItemId to satisfy ESLint
 
   // Fetch forecast data using TanStack Query
   const {

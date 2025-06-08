@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
-import SimpleDateRangeFilter from './SimpleDateRangeFilter';
+import DateRangeFilter from './DateRangeFilter';
 import { FilterSelections } from './FilterSidebar';
 import { ForecastSeries } from '@/app/types/demand-planning';
 import toast from 'react-hot-toast';
@@ -352,10 +352,15 @@ export default function IntegratedControlPanel({
               />
 
               {/* Date Range Selection */}
-              <SimpleDateRangeFilter
-                startDate={localSelections.dateRange.startDate}
-                endDate={localSelections.dateRange.endDate}
-                onChange={handleDateRangeChange}
+              <DateRangeFilter
+                value={{
+                  startDate: localSelections.dateRange.startDate ? new Date(localSelections.dateRange.startDate) : null,
+                  endDate: localSelections.dateRange.endDate ? new Date(localSelections.dateRange.endDate) : null
+                }}
+                onChange={(value) => handleDateRangeChange({
+                  startDate: value.startDate ? value.startDate.toISOString().split('T')[0] : null,
+                  endDate: value.endDate ? value.endDate.toISOString().split('T')[0] : null
+                })}
                 minDate="2025-01-01"
               />
             </div>
@@ -442,10 +447,15 @@ export default function IntegratedControlPanel({
 
                 {useTimeWindow && (
                   <div className="ml-6 space-y-2">
-                    <SimpleDateRangeFilter
-                      startDate={adjustmentTimeWindow.startDate}
-                      endDate={adjustmentTimeWindow.endDate}
-                      onChange={(dateRange) => setAdjustmentTimeWindow(dateRange)}
+                    <DateRangeFilter
+                      value={{
+                        startDate: adjustmentTimeWindow.startDate ? new Date(adjustmentTimeWindow.startDate) : null,
+                        endDate: adjustmentTimeWindow.endDate ? new Date(adjustmentTimeWindow.endDate) : null
+                      }}
+                      onChange={(value) => setAdjustmentTimeWindow({
+                        startDate: value.startDate ? value.startDate.toISOString().split('T')[0] : value.startDate,
+                        endDate: value.endDate ? value.endDate.toISOString().split('T')[0] : value.endDate
+                      })}
                       minDate={localSelections.dateRange.startDate}
                       maxDate={localSelections.dateRange.endDate}
                     />

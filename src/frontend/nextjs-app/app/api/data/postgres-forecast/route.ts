@@ -92,7 +92,19 @@ interface ForecastFilters {
   limit?: number;
 }
 
-async function getForecastData(filters: ForecastFilters | undefined) {
+interface ForecastDataResponse {
+  restaurant_id: number;
+  inventory_item_id: string;
+  business_date: string;
+  dma_id: string;
+  dc_id: string;
+  state: string;
+  y_05: number;
+  y_50: number;
+  y_95: number;
+}
+
+async function getForecastData(filters: ForecastFilters | undefined): Promise<ForecastDataResponse[]> {
   const conditions = [];
 
   // Build WHERE conditions
