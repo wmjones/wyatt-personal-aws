@@ -131,7 +131,8 @@ resource "aws_iam_policy" "github_actions_permissions" {
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*",
-          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*"
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/nextjs/*/neon/database-url"
         ]
       },
       # SSM DescribeParameters requires wildcard resource when using parameter filters
