@@ -127,6 +127,42 @@ export function createChartDataset(
     periodMap.set(period.id, period);
   });
 
+  // Check if data is pre-aggregated (has aggregation_level field)
+  const isPreAggregated = dataPoints.some((point) => 'aggregation_level' in point && point.aggregation_level);
+
+  if (isPreAggregated) {
+    console.log('Data is pre-aggregated, skipping client-side aggregation');
+    // If data is pre-aggregated, convert directly to chart format
+    return dataPoints.map(point => {
+      const period = periodMap.get(point.periodId);
+      if (!period) {
+        console.warn(`Period not found for ID: ${point.periodId}`);
+        return null;
+      }
+
+      const date = new Date(period.startDate);
+      return {
+        date,
+        value: point.value,
+        periodId: point.periodId,
+        // Use the values directly since they're already aggregated
+        y_05: point.y_05,
+        y_50: point.y_50 || point.value,
+        y_95: point.y_95,
+        // Adjustment fields
+        original_y_05: point.original_y_05,
+        original_y_50: point.original_y_50,
+        original_y_95: point.original_y_95,
+        adjusted_y_50: point.adjusted_y_50,
+        total_adjustment_percent: point.total_adjustment_percent,
+        adjustment_count: point.adjustment_count,
+        hasAdjustment: point.hasAdjustment
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }
+
+  // Original client-side aggregation logic for non-aggregated data
   // Group data points by period ID and sum their values
   const aggregatedData = dataPoints.reduce((acc, point) => {
     if (!acc[point.periodId]) {

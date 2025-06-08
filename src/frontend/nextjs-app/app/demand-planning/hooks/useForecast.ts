@@ -33,6 +33,9 @@ function transformToForecastSeries(
     adjusted_y_50?: number;
     total_adjustment_percent?: number;
     adjustment_count?: number;
+    // Aggregation fields
+    aggregation_level?: string;
+    record_count?: number;
   }> }
 ): ForecastSeries {
   // Extract unique dates and create time periods
@@ -94,7 +97,10 @@ function transformToForecastSeries(
       adjusted_y_50: row.adjusted_y_50,
       total_adjustment_percent: row.total_adjustment_percent,
       adjustment_count: row.adjustment_count,
-      hasAdjustment
+      hasAdjustment,
+      // Include aggregation data
+      aggregation_level: row.aggregation_level as ('none' | 'daily' | 'weekly' | 'monthly' | undefined),
+      record_count: row.record_count
     });
   });
 
