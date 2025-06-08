@@ -72,6 +72,10 @@ on:
 env:
   NODE_VERSION: '22'
 
+permissions:
+  contents: read    # Required for actions/checkout
+  id-token: write   # Required for OIDC authentication with AWS
+
 jobs:
   # Skip migrations if deployment failed
   check-deployment-status:
@@ -217,8 +221,10 @@ jobs:
         if: matrix.environment != 'preview'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          role-session-name: GitHubActionsDrizzleMigrations
           aws-region: us-east-2
+          audience: sts.amazonaws.com
 
       - name: Validate SSM parameters exist
         if: matrix.environment != 'preview'
