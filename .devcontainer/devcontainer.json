@@ -22,7 +22,7 @@
           }
         },
         "terminal.integrated.fontSize": 14,
-        "terminal.integrated.fontFamily": "'Cascadia Code', 'Courier New', monospace",
+        "terminal.integrated.fontFamily": "'JetBrains Mono', 'Cascadia Code', 'Courier New', monospace",
         "terminal.integrated.shellIntegration.enabled": true,
         "terminal.integrated.suggest.enabled": true,
         "terminal.integrated.enablePersistentSessions": false,

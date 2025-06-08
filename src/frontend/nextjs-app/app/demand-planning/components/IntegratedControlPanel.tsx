@@ -44,11 +44,6 @@ export default function IntegratedControlPanel({
     filters: true,
     adjustment: true
   });
-  const [useTimeWindow, setUseTimeWindow] = useState(false);
-  const [adjustmentTimeWindow, setAdjustmentTimeWindow] = useState({
-    startDate: localSelections.dateRange.startDate,
-    endDate: localSelections.dateRange.endDate
-  });
   const [filterLocked] = useState(false);
   const [pendingAdjustment, setPendingAdjustment] = useState(false);
 
@@ -69,35 +64,6 @@ export default function IntegratedControlPanel({
     }
   }, [filterSelections, adjustmentValue, filterLocked]);
 
-  // Sync adjustment time window when main date range changes
-  useEffect(() => {
-    if (useTimeWindow && localSelections.dateRange.startDate && localSelections.dateRange.endDate) {
-      // Validate and adjust the adjustment time window to be within bounds
-      setAdjustmentTimeWindow(prev => {
-        const mainStart = new Date(localSelections.dateRange.startDate!);
-        const mainEnd = new Date(localSelections.dateRange.endDate!);
-        const adjStart = prev.startDate ? new Date(prev.startDate) : mainStart;
-        const adjEnd = prev.endDate ? new Date(prev.endDate) : mainEnd;
-
-        // Ensure adjustment dates are within main filter bounds
-        const validStart = adjStart < mainStart ? mainStart : adjStart;
-        const validEnd = adjEnd > mainEnd ? mainEnd : adjEnd;
-
-        // If the adjustment window becomes invalid, reset it
-        if (validStart > validEnd) {
-          return {
-            startDate: localSelections.dateRange.startDate,
-            endDate: localSelections.dateRange.endDate
-          };
-        }
-
-        return {
-          startDate: validStart.toISOString().split('T')[0],
-          endDate: validEnd.toISOString().split('T')[0]
-        };
-      });
-    }
-  }, [localSelections.dateRange, useTimeWindow]);
 
   // Toggle section expansion
   const toggleSection = (section: 'filters' | 'adjustment') => {
@@ -228,23 +194,11 @@ export default function IntegratedControlPanel({
 
     setIsSaving(true);
     try {
-      // Include time window in the filter context if enabled
-      const adjustmentContext = {
-        ...localSelections,
-        ...(useTimeWindow ? {
-          adjustmentDateRange: adjustmentTimeWindow
-        } : {})
-      };
-
-      await onSaveAdjustment(adjustmentValue, adjustmentContext);
+      // Always use the current filter selections including date range
+      await onSaveAdjustment(adjustmentValue, localSelections);
       setAdjustmentValue(0);
       onAdjustmentChange(0);
       setPendingAdjustment(false);
-      setUseTimeWindow(false);
-      setAdjustmentTimeWindow({
-        startDate: localSelections.dateRange.startDate,
-        endDate: localSelections.dateRange.endDate
-      });
       toast.success('Adjustment saved successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save adjustment');
@@ -431,49 +385,15 @@ export default function IntegratedControlPanel({
                 </div>
               </div>
 
-              {/* Time Window Selection */}
-              <div className="space-y-3">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={useTimeWindow}
-                    onChange={(e) => setUseTimeWindow(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Apply to specific time window
-                  </span>
-                </label>
-
-                {useTimeWindow && (
-                  <div className="ml-6 space-y-2">
-                    <DateRangeFilter
-                      value={{
-                        startDate: adjustmentTimeWindow.startDate ? new Date(adjustmentTimeWindow.startDate) : null,
-                        endDate: adjustmentTimeWindow.endDate ? new Date(adjustmentTimeWindow.endDate) : null
-                      }}
-                      onChange={(value) => setAdjustmentTimeWindow({
-                        startDate: value.startDate ? value.startDate.toISOString().split('T')[0] : value.startDate,
-                        endDate: value.endDate ? value.endDate.toISOString().split('T')[0] : value.endDate
-                      })}
-                      minDate={localSelections.dateRange.startDate}
-                      maxDate={localSelections.dateRange.endDate}
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Adjustment will only apply within this date range
-                    </p>
-                  </div>
-                )}
-              </div>
 
               {/* Impact Preview */}
               {adjustmentValue !== 0 && (
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
                     {adjustmentValue > 0 ? '+' : ''}{adjustmentValue}% adjustment
-                    {useTimeWindow && adjustmentTimeWindow.startDate && adjustmentTimeWindow.endDate && (
+                    {localSelections.dateRange.startDate && localSelections.dateRange.endDate && (
                       <span className="block text-xs mt-1">
-                        From {new Date(adjustmentTimeWindow.startDate).toLocaleDateString()} to {new Date(adjustmentTimeWindow.endDate).toLocaleDateString()}
+                        Applied to: {new Date(localSelections.dateRange.startDate).toLocaleDateString()} - {new Date(localSelections.dateRange.endDate).toLocaleDateString()}
                       </span>
                     )}
                   </p>

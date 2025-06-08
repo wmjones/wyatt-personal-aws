@@ -69,33 +69,8 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       );
     }
 
-    // Validate adjustment date range if provided
-    if (filterContext.adjustmentDateRange) {
-      const adjStartDate = new Date(filterContext.adjustmentDateRange.startDate);
-      const adjEndDate = new Date(filterContext.adjustmentDateRange.endDate);
-
-      if (isNaN(adjStartDate.getTime()) || isNaN(adjEndDate.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid adjustment date range format. Please use YYYY-MM-DD format.' },
-          { status: 400 }
-        );
-      }
-
-      if (adjStartDate >= adjEndDate) {
-        return NextResponse.json(
-          { error: 'Adjustment start date must be before end date' },
-          { status: 400 }
-        );
-      }
-
-      // Ensure adjustment date range is within main filter bounds
-      if (adjStartDate < mainStartDate || adjEndDate > mainEndDate) {
-        return NextResponse.json(
-          { error: 'Adjustment date range must be within the main filter date range' },
-          { status: 400 }
-        );
-      }
-    }
+    // Since we now always use the main date range for adjustments,
+    // we'll use the main filter's date range as the adjustment date range
 
     // Validate required filter dimensions
     if (!processedFilterContext.inventoryItemId) {
@@ -116,6 +91,9 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
         userEmail: request.user?.email,
         userName: request.user?.username || request.user?.email?.split('@')[0] || 'Unknown',
         isActive: true,
+        // Always use the main filter's date range as the adjustment date range
+        adjustmentStartDate: processedFilterContext.dateRange.startDate,
+        adjustmentEndDate: processedFilterContext.dateRange.endDate,
       })
       .returning();
 
@@ -130,7 +108,9 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
         userEmail: savedAdjustment.userEmail,
         userName: savedAdjustment.userName,
         isActive: savedAdjustment.isActive,
-        timestamp: savedAdjustment.createdAt
+        timestamp: savedAdjustment.createdAt,
+        adjustmentStartDate: savedAdjustment.adjustmentStartDate,
+        adjustmentEndDate: savedAdjustment.adjustmentEndDate
       }
     });
 
@@ -194,6 +174,8 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       isActive: row.isActive,
       timestamp: row.createdAt,
       updatedAt: row.updatedAt,
+      adjustmentStartDate: row.adjustmentStartDate,
+      adjustmentEndDate: row.adjustmentEndDate,
       isOwn: row.userId === request.user?.sub
     }));
 

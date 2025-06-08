@@ -57,7 +57,8 @@ export default function DemandPlanningPage() {
   const {
     forecastData,
     isLoading: isLoadingForecast,
-    error: forecastError
+    error: forecastError,
+    refetch: refetchForecast
   } = useForecast({
     filterSelections,
   });
@@ -82,6 +83,12 @@ export default function DemandPlanningPage() {
 
     // Use the hook's saveAdjustment method
     await saveAdjustment(adjustmentValue, filterContext, inventoryItemName);
+
+    // Reset current adjustment value
+    setCurrentAdjustmentValue(0);
+
+    // Refetch forecast data to include the saved adjustment
+    await refetchForecast();
   };
 
   // Remove the manual loading as it's handled by the hook

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql, eq, inArray, and, gte, lte } from 'drizzle-orm';
 import { db } from '@/app/db/drizzle';
 import { forecastData, dashboardForecastView } from '@/app/db/schema/forecast-data';
+import { forecastAdjustments } from '@/app/db/schema/adjustments';
 import { toPostgresDate } from '@/app/lib/date-utils';
 
 export async function POST(request: NextRequest) {
@@ -102,6 +103,12 @@ interface ForecastDataResponse {
   y_05: number;
   y_50: number;
   y_95: number;
+  // Adjustment fields
+  adjusted_y_50?: number;
+  original_y_50?: number;
+  total_adjustment_percent?: number;
+  adjustment_count?: number;
+  hasAdjustment?: boolean;
 }
 
 async function getForecastData(filters: ForecastFilters | undefined): Promise<ForecastDataResponse[]> {
@@ -154,10 +161,95 @@ async function getForecastData(filters: ForecastFilters | undefined): Promise<Fo
     }
   }
 
-  // Original non-aggregated query logic without limit
+  // Query with LEFT JOIN to adjustments to calculate adjusted values
   const baseQuery = db
-    .select()
-    .from(forecastData);
+    .select({
+      // Forecast data fields
+      restaurantId: forecastData.restaurantId,
+      inventoryItemId: forecastData.inventoryItemId,
+      businessDate: forecastData.businessDate,
+      dmaId: forecastData.dmaId,
+      dcId: forecastData.dcId,
+      state: forecastData.state,
+      y05: forecastData.y05,
+      y50: forecastData.y50,
+      y95: forecastData.y95,
+      // Aggregated adjustment fields
+      totalAdjustmentPercent: sql<number>`
+        COALESCE(
+          SUM(
+            CASE
+              WHEN ${forecastAdjustments.isActive} = true
+              AND ${forecastData.businessDate} >= ${forecastAdjustments.adjustmentStartDate}
+              AND ${forecastData.businessDate} <= ${forecastAdjustments.adjustmentEndDate}
+              THEN ${forecastAdjustments.adjustmentValue}::numeric
+              ELSE 0
+            END
+          ),
+          0
+        )
+      `.as('total_adjustment_percent'),
+      adjustmentCount: sql<number>`
+        COUNT(
+          CASE
+            WHEN ${forecastAdjustments.isActive} = true
+            AND ${forecastData.businessDate} >= ${forecastAdjustments.adjustmentStartDate}
+            AND ${forecastData.businessDate} <= ${forecastAdjustments.adjustmentEndDate}
+            THEN 1
+            ELSE NULL
+          END
+        )
+      `.as('adjustment_count'),
+    })
+    .from(forecastData)
+    .leftJoin(
+      forecastAdjustments,
+      and(
+        // Match on inventory item
+        sql`${forecastAdjustments.filterContext}->>'inventoryItemId' = ${forecastData.inventoryItemId}::text`,
+        // Match on states (if adjustment has states filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'states' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'states' = '[]'
+          OR ${forecastData.state} = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'states')
+            )
+          )
+        )`,
+        // Match on DMAs (if adjustment has DMA filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'dmaIds' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'dmaIds' = '[]'
+          OR ${forecastData.dmaId} = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'dmaIds')
+            )
+          )
+        )`,
+        // Match on DCs (if adjustment has DC filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'dcIds' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'dcIds' = '[]'
+          OR ${forecastData.dcId}::text = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'dcIds')
+            )
+          )
+        )`
+      )
+    )
+    .groupBy(
+      forecastData.restaurantId,
+      forecastData.inventoryItemId,
+      forecastData.businessDate,
+      forecastData.dmaId,
+      forecastData.dcId,
+      forecastData.state,
+      forecastData.y05,
+      forecastData.y50,
+      forecastData.y95
+    );
 
   const filteredQuery = conditions.length > 0
     ? baseQuery.where(and(...conditions))
@@ -178,17 +270,30 @@ async function getForecastData(filters: ForecastFilters | undefined): Promise<Fo
   }
 
   // Transform the result to snake_case format expected by frontend
-  return result.map(row => ({
-    restaurant_id: row.restaurantId,
-    inventory_item_id: row.inventoryItemId?.toString() || '',
-    business_date: row.businessDate?.toString() || '',
-    dma_id: row.dmaId || '',
-    dc_id: row.dcId?.toString() || '',
-    state: row.state || '',
-    y_05: parseFloat(row.y05?.toString() || '0'),
-    y_50: parseFloat(row.y50?.toString() || '0'),
-    y_95: parseFloat(row.y95?.toString() || '0')
-  }));
+  return result.map(row => {
+    const y50Value = parseFloat(row.y50?.toString() || '0');
+    const adjustmentPercent = parseFloat(row.totalAdjustmentPercent?.toString() || '0');
+    const hasAdjustment = adjustmentPercent !== 0;
+    const adjustedY50 = hasAdjustment ? y50Value * (1 + adjustmentPercent / 100) : y50Value;
+
+    return {
+      restaurant_id: row.restaurantId,
+      inventory_item_id: row.inventoryItemId?.toString() || '',
+      business_date: row.businessDate?.toString() || '',
+      dma_id: row.dmaId || '',
+      dc_id: row.dcId?.toString() || '',
+      state: row.state || '',
+      y_05: parseFloat(row.y05?.toString() || '0'),
+      y_50: y50Value,
+      y_95: parseFloat(row.y95?.toString() || '0'),
+      // Adjustment fields
+      adjusted_y_50: adjustedY50,
+      original_y_50: hasAdjustment ? y50Value : undefined,
+      total_adjustment_percent: hasAdjustment ? adjustmentPercent : undefined,
+      adjustment_count: parseInt(row.adjustmentCount?.toString() || '0'),
+      hasAdjustment
+    };
+  });
 }
 
 async function getForecastSummary(state: string | undefined) {
