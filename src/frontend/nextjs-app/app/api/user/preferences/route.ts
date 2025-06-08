@@ -31,12 +31,36 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
         .returning();
 
       return NextResponse.json({
-        preferences: newPreferences
+        preferences: {
+          ...newPreferences,
+          // Convert back to snake_case for API compatibility
+          has_seen_welcome: newPreferences.hasSeenWelcome,
+          has_completed_tour: newPreferences.hasCompletedTour,
+          tour_progress: newPreferences.tourProgress,
+          onboarding_completed_at: newPreferences.onboardingCompletedAt,
+          tooltips_enabled: newPreferences.tooltipsEnabled,
+          preferred_help_format: newPreferences.preferredHelpFormat,
+          user_id: newPreferences.userId,
+          created_at: newPreferences.createdAt,
+          updated_at: newPreferences.updatedAt,
+        }
       });
     }
 
     return NextResponse.json({
-      preferences: existingPreferences
+      preferences: {
+        ...existingPreferences,
+        // Convert back to snake_case for API compatibility
+        has_seen_welcome: existingPreferences.hasSeenWelcome,
+        has_completed_tour: existingPreferences.hasCompletedTour,
+        tour_progress: existingPreferences.tourProgress,
+        onboarding_completed_at: existingPreferences.onboardingCompletedAt,
+        tooltips_enabled: existingPreferences.tooltipsEnabled,
+        preferred_help_format: existingPreferences.preferredHelpFormat,
+        user_id: existingPreferences.userId,
+        created_at: existingPreferences.createdAt,
+        updated_at: existingPreferences.updatedAt,
+      }
     });
   } catch (error) {
     console.error('Failed to fetch user preferences:', error);

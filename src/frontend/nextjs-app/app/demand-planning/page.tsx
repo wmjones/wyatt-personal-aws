@@ -17,12 +17,15 @@ export default function DemandPlanningPage() {
   // Get inventory options to set default
   const { data: inventoryOptions = [] } = useInventoryItemOptions();
 
+  // Track if we've initialized the default inventory item
+  const [hasInitializedDefault, setHasInitializedDefault] = useState(false);
+
   // Filter selections state with proper defaults
   const [filterSelections, setFilterSelections] = useState<FilterSelections>({
     states: [],
     dmaIds: [],
     dcIds: [],
-    inventoryItemId: inventoryOptions.length > 0 ? inventoryOptions[0].value : null,
+    inventoryItemId: '152', // Default to item 152
     dateRange: { startDate: '2025-01-01', endDate: '2025-03-31' }
   });
 
@@ -43,15 +46,20 @@ export default function DemandPlanningPage() {
     deleteAdjustment
   } = useAdjustmentHistory();
 
-  // Set default inventory item only once when options first load
+  // Set default inventory item only if current selection is invalid
   useEffect(() => {
-    if (inventoryOptions.length > 0 && !filterSelections.inventoryItemId) {
-      setFilterSelections(prev => ({
-        ...prev,
-        inventoryItemId: inventoryOptions[0].value
-      }));
+    if (inventoryOptions.length > 0 && !hasInitializedDefault) {
+      // Only update if the current inventoryItemId is not in the options
+      const currentItemValid = inventoryOptions.some(opt => opt.value === filterSelections.inventoryItemId);
+      if (!currentItemValid) {
+        setFilterSelections(prev => ({
+          ...prev,
+          inventoryItemId: inventoryOptions[0].value
+        }));
+      }
+      setHasInitializedDefault(true);
     }
-  }, [inventoryOptions, filterSelections.inventoryItemId]); // Include inventoryItemId to satisfy ESLint
+  }, [inventoryOptions, hasInitializedDefault, filterSelections.inventoryItemId]);
 
   // Fetch forecast data using TanStack Query
   const {

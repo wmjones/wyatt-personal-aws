@@ -233,19 +233,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
 
     // 3. y_50 (Median forecast) - if enabled
     if (showY50) {
-      // If we have saved adjustments, show original line first (dashed and grayed)
-      if (hasSavedAdjustments && forecastData.originalY50Data.length > 0) {
-        g.append('path')
-          .datum(forecastData.originalY50Data)
-          .attr('class', 'original-y50-line')
-          .attr('d', line)
-          .attr('fill', 'none')
-          .attr('stroke', 'var(--dp-text-tertiary, #9CA3AF)') // Gray color
-          .attr('stroke-width', 2)
-          .attr('stroke-dasharray', '4,4') // Dashed line
-          .attr('opacity', 0.6);
-      }
-
       // Current/adjusted y_50 line
       g.append('path')
         .datum(forecastData.y_50Data)
@@ -267,25 +254,6 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
         .attr('fill', hasSavedAdjustments ? 'var(--dp-chart-edited, #FCD34D)' : 'var(--dp-chart-forecasted)')
         .attr('stroke', '#FFFFFF')
         .attr('stroke-width', 1.5);
-
-      // Add adjustment indicators for points with saved adjustments
-      if (hasSavedAdjustments) {
-        g.selectAll('.adjustment-indicator')
-          .data(forecastData.y_50Data.filter((d) => (d as ForecastDataPoint).hasAdjustment))
-          .enter()
-          .append('text')
-          .attr('class', 'adjustment-indicator')
-          .attr('x', (d) => xScale(d.date))
-          .attr('y', d => yScale(d.value) - 10)
-          .attr('text-anchor', 'middle')
-          .attr('font-size', '10px')
-          .attr('fill', 'var(--dp-chart-edited, #FCD34D)')
-          .text((d) => {
-            const point = d as ForecastDataPoint;
-            const adjustment = point.total_adjustment_percent;
-            return adjustment ? `${adjustment > 0 ? '+' : ''}${adjustment.toFixed(1)}%` : '';
-          });
-      }
     }
 
     // 4. Actual data (blue line) - if enabled
@@ -380,7 +348,7 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       hoverLine.attr('x1', xPos).attr('x2', xPos);
       hoverCircleY50.attr('cx', xPos).attr('cy', yPosY50);
 
-      // Update tooltip content - show both original and adjusted if applicable
+      // Update tooltip content - show both y_50 and adjusted values
       let tooltipHtml = `<div class="p-2">
         <div class="text-xs text-gray-600">${formatDate(d.date as Date, periodType)}</div>`;
 
@@ -391,14 +359,21 @@ const TimeSeriesChart = memo(function TimeSeriesChart({
       const adjustmentPercent = point.total_adjustment_percent;
 
       if (hasAdjustment && originalValue !== undefined) {
+        // Show both y_50 and adjusted value
         tooltipHtml += `
-          <div class="text-sm text-gray-500" style="text-decoration: line-through;">$${formatNumber(originalValue)}k</div>
+          <div class="text-sm">
+            <span class="text-gray-600">y_50:</span> <span class="text-gray-700">$${formatNumber(originalValue)}k</span>
+          </div>
           <div class="text-sm font-semibold" style="color: var(--dp-chart-edited, #FCD34D);">
-            $${formatNumber(d.value)}k
+            <span>Adjusted:</span> $${formatNumber(d.value)}k
             <span class="text-xs">(${adjustmentPercent && adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent?.toFixed(1)}%)</span>
           </div>`;
       } else {
-        tooltipHtml += `<div class="text-sm font-semibold text-gray-900">$${formatNumber(d.value)}k</div>`;
+        // Just show the y_50 value when no adjustments
+        tooltipHtml += `
+          <div class="text-sm font-semibold text-gray-900">
+            <span class="text-gray-600">y_50:</span> $${formatNumber(d.value)}k
+          </div>`;
       }
 
       tooltipHtml += `</div>`;
