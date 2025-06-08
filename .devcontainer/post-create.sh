@@ -88,6 +88,14 @@ fi
 # Set up ZSH plugins if not already installed
 echo "Setting up ZSH plugins..."
 
+# First check if Oh My Zsh is installed
+if [ ! -d ~/.oh-my-zsh ]; then
+  echo "Installing Oh My Zsh..."
+  # Install Oh My Zsh non-interactively
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  status "Oh My Zsh installed"
+fi
+
 # Install zsh-autosuggestions if not already installed
 if [ ! -d "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
   echo "Installing zsh-autosuggestions plugin..."
@@ -107,26 +115,44 @@ else
 fi
 
 # Update .zshrc plugins if needed
-if grep -q "plugins=(git)" ~/.zshrc; then
+if [ -f ~/.zshrc ]; then
   echo "Updating plugins in .zshrc..."
-  sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc
-  status "Updated plugins in .zshrc"
-elif ! grep -q "zsh-autosuggestions" ~/.zshrc; then
-  echo "Adding plugins to .zshrc..."
-  # This is a bit trickier - we need to find the plugins line and modify it
-  # For now, let's just inform the user
-  warning "Couldn't automatically update plugins in .zshrc"
-  echo "   Please manually ensure these plugins are enabled in your .zshrc:"
-  echo "   plugins=(... zsh-autosuggestions zsh-syntax-highlighting ...)"
+
+  # First, check if plugins line exists
+  if grep -q "^plugins=" ~/.zshrc; then
+    # Check if our plugins are already there
+    if ! grep -q "zsh-autosuggestions" ~/.zshrc || ! grep -q "zsh-syntax-highlighting" ~/.zshrc; then
+      # Backup the original .zshrc
+      cp ~/.zshrc ~/.zshrc.backup
+
+      # Use a more robust sed command to update the plugins line
+      # This handles various formats like plugins=(git) or plugins=(git docker) etc.
+      sed -i '/^plugins=/s/)$/ zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc
+      sed -i 's/zsh-autosuggestions zsh-autosuggestions/zsh-autosuggestions/g' ~/.zshrc
+      sed -i 's/zsh-syntax-highlighting zsh-syntax-highlighting/zsh-syntax-highlighting/g' ~/.zshrc
+
+      status "Updated plugins in .zshrc"
+    else
+      status "ZSH plugins already configured in .zshrc"
+    fi
+  else
+    # If no plugins line exists, add it after the ZSH theme line
+    echo "" >> ~/.zshrc
+    echo "# Which plugins would you like to load?" >> ~/.zshrc
+    echo "plugins=(git zsh-autosuggestions zsh-syntax-highlighting)" >> ~/.zshrc
+    status "Added plugins configuration to .zshrc"
+  fi
+else
+  warning "No .zshrc file found, skipping plugin configuration"
 fi
 
 # Stackframe initialization removed
 
-# Check if Node.js 18+ is installed
+# Check if Node.js 22+ is installed
 echo "Checking Node.js version..."
 node_version=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$node_version" -lt 18 ]; then
-  error_exit "Node.js version $node_version is too old. Need 18 or higher."
+if [ "$node_version" -lt 22 ]; then
+  error_exit "Node.js version $node_version is too old. Need 22 or higher."
 else
   status "Node.js version $node_version is compatible"
 fi
@@ -208,9 +234,125 @@ if [ -d "/home/vscode/.npm" ]; then
   chown -R vscode:vscode /home/vscode/.npm 2>/dev/null || true
 fi
 
-# Configure Claude Code to exclude irrelevant directories
-echo "Configuring Claude Code exclude directories..."
-# claude config add ignorePatterns "node_modules,venv,.git,__pycache__,build,dist,.venv,coverage,.pytest_cache,.terraform,terraform.tfstate,terraform.tfstate.backup,.terraform.lock.hcl,*.log,*.pyc,*.pyo,*.pyd,*.so,*.dylib,*.dll,*.exe,*.o,*.obj,.DS_Store,Thumbs.db,*.swp,*.swo,*~,.idea,*.iml,*.ipr,*.iws,*.egg-info,*.egg,.tox,.coverage,htmlcov,.cache,.mypy_cache,.ruff_cache,__MACOSX,.Spotlight-V100,.Trashes,ehthumbs.db,Desktop.ini,$RECYCLE.BIN,*.cab,*.msi,*.msm,*.msp,*.lnk,npm-debug.log*,yarn-debug.log*,yarn-error.log*,pnpm-debug.log*,lerna-debug.log*,.vercel,.next,out,.nuxt,.cache,.parcel-cache,.turbo,.docusaurus,.serverless,.fusebox,.dynamodb,.npm,.yarn,.pnpm-store,.eslintcache" || warning "Failed to configure Claude Code exclude directories"
-status "Claude Code configuration updated"
+# Configure enhanced aliases and zsh settings
+echo "Configuring enhanced zsh aliases and settings..."
+cat >> ~/.zshrc << 'EOF'
+
+# Performance optimizations
+export DISABLE_AUTO_UPDATE="true"
+export ZSH_AUTOSUGGEST_MANUAL_REBIND="true"
+export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE="20"
+export ZSH_AUTOSUGGEST_USE_ASYNC="true"
+
+# Claude Code aliases
+alias cc="claude-code"
+alias cca="claude-code agent"
+alias ccm="claude-code memory"
+
+# Task Master integration
+alias tm="npx taskmaster"
+alias tms="npx taskmaster status"
+alias tmn="npx taskmaster next"
+alias tma="npx taskmaster add"
+
+# Quick navigation
+alias cdfr="cd /workspaces/wyatt-personal-aws-2/src/frontend/nextjs-app"
+alias cdtf="cd /workspaces/wyatt-personal-aws-2/main"
+alias cdroot="cd /workspaces/wyatt-personal-aws-2"
+
+# Git shortcuts
+alias g="git"
+alias gs="git status"
+alias gp="git pull"
+alias gpu="git push"
+alias gco="git checkout"
+alias gcm="git commit -m"
+alias gd="git diff"
+alias gl="git log --oneline -10"
+
+# AWS/Terraform shortcuts
+alias tf="terraform"
+alias tfa="terraform apply"
+alias tfp="terraform plan"
+alias tfw="terraform workspace"
+alias tfi="terraform init"
+alias tfd="terraform destroy"
+
+# Docker shortcuts
+alias dc="docker compose"
+alias dcu="docker compose up"
+alias dcd="docker compose down"
+alias dcl="docker compose logs"
+
+# Development shortcuts
+alias ni="npm install"
+alias nr="npm run"
+alias nrd="npm run dev"
+alias nrb="npm run build"
+alias nrt="npm run test"
+
+# Enhanced history settings
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_VERIFY
+setopt APPEND_HISTORY
+setopt INC_APPEND_HISTORY
+
+# Better completion settings
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path ~/.zsh/cache
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
+# Directory navigation
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt PUSHD_IGNORE_DUPS
+setopt PUSHD_SILENT
+
+# Productivity settings
+setopt CORRECT
+setopt INTERACTIVE_COMMENTS
+
+# Auto-load environment variables from .env file
+if [ -f /workspaces/wyatt-personal-aws-2/.env ]; then
+  set -a  # automatically export all variables
+  source /workspaces/wyatt-personal-aws-2/.env
+  set +a  # disable automatic export
+fi
+
+# Function to reload env vars on demand
+reload-env() {
+  if [ -f /workspaces/wyatt-personal-aws-2/.env ]; then
+    echo "Reloading environment variables from .env..."
+    set -a  # automatically export all variables
+    source /workspaces/wyatt-personal-aws-2/.env
+    set +a  # disable automatic export
+    echo "✅ Environment variables reloaded"
+  else
+    echo "⚠️ No .env file found at /workspaces/wyatt-personal-aws-2/.env"
+  fi
+}
+EOF
+
+status "Enhanced zsh configuration added"
+
+# Install Neon MCP server
+echo "Installing Neon MCP server..."
+npm install -g @neondatabase/mcp-server-neon || warning "Failed to install Neon MCP server"
+status "Neon MCP server installed"
+
+# Load environment variables for the current session
+if [ -f /workspaces/wyatt-personal-aws-2/.env ]; then
+  echo "Loading environment variables..."
+  set -a  # automatically export all variables
+  source /workspaces/wyatt-personal-aws-2/.env
+  set +a  # disable automatic export
+  status "Environment variables loaded"
+fi
 
 status "Post-create setup completed!"
