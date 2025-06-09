@@ -61,10 +61,15 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = [
-              for branch in local.allowed_branches :
-              "repo:${local.github_org}/${local.github_repo}:ref:refs/heads/${branch}"
-            ]
+            "token.actions.githubusercontent.com:sub" = concat(
+              # Allow branch-based claims
+              [for branch in local.allowed_branches :
+                "repo:${local.github_org}/${local.github_repo}:ref:refs/heads/${branch}"
+              ],
+              # Allow environment-based claims (used by workflows with environment: parameter)
+              ["repo:${local.github_org}/${local.github_repo}:environment:dev",
+              "repo:${local.github_org}/${local.github_repo}:environment:prod"]
+            )
           }
         }
       }
@@ -131,7 +136,8 @@ resource "aws_iam_policy" "github_actions_permissions" {
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/wyatt-personal-aws-*",
-          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*"
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/forecast-sync/*",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/nextjs/*/neon/database-url"
         ]
       },
       # SSM DescribeParameters requires wildcard resource when using parameter filters

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GitHub Repository
+    url: https://github.com/wmjones/wyatt-personal-aws
+    about: View the project repository
+  - name: Documentation
+    url: https://github.com/wmjones/wyatt-personal-aws/tree/main/docs
+    about: Check out the project documentation

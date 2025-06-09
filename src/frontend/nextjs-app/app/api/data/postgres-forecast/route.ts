@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { sql, eq, inArray, and, gte, lte } from 'drizzle-orm';
+import { db } from '@/app/db/drizzle';
+import { forecastData, dashboardForecastView } from '@/app/db/schema/forecast-data';
+import { forecastAdjustments } from '@/app/db/schema/adjustments';
 import { toPostgresDate } from '@/app/lib/date-utils';
-
-// Initialize connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +20,7 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'get_forecast_data':
+        console.log('API - get_forecast_data filters:', filters);
         result = await getForecastData(filters);
         break;
 
@@ -100,508 +93,373 @@ interface ForecastFilters {
   limit?: number;
 }
 
-async function getForecastData(filters: ForecastFilters | undefined) {
-  const conditions: string[] = [];
-  const values: (string | number)[] = [];
-  let paramCount = 0;
+interface ForecastDataResponse {
+  restaurant_id: number;
+  inventory_item_id: string;
+  business_date: string;
+  dma_id: string;
+  dc_id: string;
+  state: string;
+  y_05: number;
+  y_50: number;
+  y_95: number;
+  // Adjustment fields
+  adjusted_y_50?: number;
+  original_y_50?: number;
+  total_adjustment_percent?: number;
+  adjustment_count?: number;
+  hasAdjustment?: boolean;
+}
+
+async function getForecastData(filters: ForecastFilters | undefined): Promise<ForecastDataResponse[]> {
+  const conditions = [];
 
   // Build WHERE conditions
   if (filters?.restaurantId) {
-    conditions.push(`restaurant_id = $${++paramCount}`);
-    values.push(filters.restaurantId);
+    conditions.push(eq(forecastData.restaurantId, filters.restaurantId));
   }
 
   if (filters?.inventoryItemId) {
-    conditions.push(`inventory_item_id = $${++paramCount}`);
-    values.push(filters.inventoryItemId);
+    conditions.push(eq(forecastData.inventoryItemId, filters.inventoryItemId));
   }
 
   if (filters?.state) {
-    if (Array.isArray(filters.state)) {
-      const placeholders = filters.state.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`state IN (${placeholders})`);
-      values.push(...filters.state);
-    } else {
-      conditions.push(`state = $${++paramCount}`);
-      values.push(filters.state);
+    if (Array.isArray(filters.state) && filters.state.length > 0) {
+      conditions.push(inArray(forecastData.state, filters.state));
+    } else if (!Array.isArray(filters.state)) {
+      conditions.push(eq(forecastData.state, filters.state));
     }
   }
 
   if (filters?.dmaId) {
-    if (Array.isArray(filters.dmaId)) {
-      const placeholders = filters.dmaId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dma_id IN (${placeholders})`);
-      values.push(...filters.dmaId);
-    } else {
-      conditions.push(`dma_id = $${++paramCount}`);
-      values.push(filters.dmaId);
+    if (Array.isArray(filters.dmaId) && filters.dmaId.length > 0) {
+      conditions.push(inArray(forecastData.dmaId, filters.dmaId));
+    } else if (!Array.isArray(filters.dmaId)) {
+      conditions.push(eq(forecastData.dmaId, filters.dmaId));
     }
   }
 
   if (filters?.dcId) {
-    if (Array.isArray(filters.dcId)) {
-      const placeholders = filters.dcId.map(() => `$${++paramCount}`).join(',');
-      conditions.push(`dc_id IN (${placeholders})`);
-      values.push(...filters.dcId);
-    } else {
-      conditions.push(`dc_id = $${++paramCount}`);
-      values.push(filters.dcId);
+    if (Array.isArray(filters.dcId) && filters.dcId.length > 0) {
+      conditions.push(inArray(forecastData.dcId, filters.dcId));
+    } else if (!Array.isArray(filters.dcId)) {
+      conditions.push(eq(forecastData.dcId, filters.dcId));
     }
   }
 
   if (filters?.startDate) {
     const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
-      conditions.push(`business_date >= $${++paramCount}`);
-      values.push(startDate);
+      conditions.push(gte(forecastData.businessDate, startDate));
     }
   }
 
   if (filters?.endDate) {
     const endDate = toPostgresDate(filters.endDate);
     if (endDate) {
-      conditions.push(`business_date <= $${++paramCount}`);
-      values.push(endDate);
+      conditions.push(lte(forecastData.businessDate, endDate));
     }
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const limit = filters?.limit || 10000;
+  // Query with LEFT JOIN to adjustments to calculate adjusted values
+  const baseQuery = db
+    .select({
+      // Forecast data fields
+      restaurantId: forecastData.restaurantId,
+      inventoryItemId: forecastData.inventoryItemId,
+      businessDate: forecastData.businessDate,
+      dmaId: forecastData.dmaId,
+      dcId: forecastData.dcId,
+      state: forecastData.state,
+      y05: forecastData.y05,
+      y50: forecastData.y50,
+      y95: forecastData.y95,
+      // Aggregated adjustment fields
+      totalAdjustmentPercent: sql<number>`
+        COALESCE(
+          SUM(
+            CASE
+              WHEN ${forecastAdjustments.isActive} = true
+              AND ${forecastData.businessDate} >= ${forecastAdjustments.adjustmentStartDate}
+              AND ${forecastData.businessDate} <= ${forecastAdjustments.adjustmentEndDate}
+              THEN ${forecastAdjustments.adjustmentValue}::numeric
+              ELSE 0
+            END
+          ),
+          0
+        )
+      `.as('total_adjustment_percent'),
+      adjustmentCount: sql<number>`
+        COUNT(
+          CASE
+            WHEN ${forecastAdjustments.isActive} = true
+            AND ${forecastData.businessDate} >= ${forecastAdjustments.adjustmentStartDate}
+            AND ${forecastData.businessDate} <= ${forecastAdjustments.adjustmentEndDate}
+            THEN 1
+            ELSE NULL
+          END
+        )
+      `.as('adjustment_count'),
+    })
+    .from(forecastData)
+    .leftJoin(
+      forecastAdjustments,
+      and(
+        // Match on inventory item
+        sql`${forecastAdjustments.filterContext}->>'inventoryItemId' = ${forecastData.inventoryItemId}::text`,
+        // Match on states (if adjustment has states filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'states' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'states' = '[]'
+          OR ${forecastData.state} = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'states')
+            )
+          )
+        )`,
+        // Match on DMAs (if adjustment has DMA filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'dmaIds' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'dmaIds' = '[]'
+          OR ${forecastData.dmaId} = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'dmaIds')
+            )
+          )
+        )`,
+        // Match on DCs (if adjustment has DC filter)
+        sql`(
+          ${forecastAdjustments.filterContext}->>'dcIds' IS NULL
+          OR ${forecastAdjustments.filterContext}->>'dcIds' = '[]'
+          OR ${forecastData.dcId}::text = ANY(
+            ARRAY(
+              SELECT jsonb_array_elements_text(${forecastAdjustments.filterContext}->'dcIds')
+            )
+          )
+        )`
+      )
+    )
+    .groupBy(
+      forecastData.restaurantId,
+      forecastData.inventoryItemId,
+      forecastData.businessDate,
+      forecastData.dmaId,
+      forecastData.dcId,
+      forecastData.state,
+      forecastData.y05,
+      forecastData.y50,
+      forecastData.y95
+    );
 
-  // When filtering by specific inventory item, aggregate by date
-  // This provides pre-aggregated data equivalent to:
-  // SELECT inventory_item_id, business_date, SUM(y_50), SUM(y_05), SUM(y_95)
-  // FROM forecast_data WHERE inventory_item_id = X GROUP BY inventory_item_id, business_date
-  const aggregateByDate = filters?.inventoryItemId != null;
+  const filteredQuery = conditions.length > 0
+    ? baseQuery.where(and(...conditions))
+    : baseQuery;
 
-  const query = aggregateByDate ? `
-    SELECT
-      inventory_item_id,
-      business_date::text as business_date,
-      ${filters?.dmaId ? 'STRING_AGG(DISTINCT dma_id::text, \',\' ORDER BY dma_id::text)' : '\'AGGREGATED\''} as dma_id,
-      ${filters?.dcId ? 'STRING_AGG(DISTINCT dc_id::text, \',\' ORDER BY dc_id::text)' : '\'-1\''} as dc_id,
-      ${filters?.state ? 'STRING_AGG(DISTINCT state, \',\' ORDER BY state)' : '\'ALL\''} as state,
-      1 as restaurant_id,
-      SUM(y_05) as y_05,
-      SUM(y_50) as y_50,
-      SUM(y_95) as y_95
-    FROM forecast_data
-    ${whereClause}
-    GROUP BY inventory_item_id, business_date
-    ORDER BY business_date DESC
-    LIMIT ${limit}
-  ` : `
-    SELECT
-      restaurant_id,
-      inventory_item_id,
-      business_date::text as business_date,
-      dma_id,
-      dc_id,
-      state,
-      y_05,
-      y_50,
-      y_95
-    FROM forecast_data
-    ${whereClause}
-    ORDER BY business_date DESC, state, restaurant_id
-    LIMIT ${limit}
-  `;
+  const result = await filteredQuery
+    .orderBy(forecastData.businessDate);
 
-  const result = await pool.query(query, values);
-
-  // Debug logging for aggregated queries
-  if (aggregateByDate) {
-    console.log('Aggregated forecast query:', {
+  console.log(`API - Query returned ${result.length} rows with ${conditions.length} conditions`);
+  if (conditions.length > 0) {
+    console.log('API - Applied filters:', {
       inventoryItemId: filters?.inventoryItemId,
-      appliedFilters: {
-        state: filters?.state,
-        dmaId: filters?.dmaId,
-        dcId: filters?.dcId
-      },
-      rowCount: result.rows.length,
-      sampleRows: result.rows.slice(0, 3).map(row => ({
-        date: row.business_date,
-        y_50: row.y_50,
-        state: row.state,
-        dma_id: row.dma_id,
-        dc_id: row.dc_id
-      }))
+      states: filters?.state,
+      dmaIds: filters?.dmaId,
+      dcIds: filters?.dcId,
+      dateRange: `${filters?.startDate} to ${filters?.endDate}`
     });
   }
 
-  return result.rows;
+  // Transform the result to snake_case format expected by frontend
+  return result.map(row => {
+    const y50Value = parseFloat(row.y50?.toString() || '0');
+    const adjustmentPercent = parseFloat(row.totalAdjustmentPercent?.toString() || '0');
+    const hasAdjustment = adjustmentPercent !== 0;
+    const adjustedY50 = hasAdjustment ? y50Value * (1 + adjustmentPercent / 100) : y50Value;
+
+    return {
+      restaurant_id: row.restaurantId,
+      inventory_item_id: row.inventoryItemId?.toString() || '',
+      business_date: row.businessDate?.toString() || '',
+      dma_id: row.dmaId || '',
+      dc_id: row.dcId?.toString() || '',
+      state: row.state || '',
+      y_05: parseFloat(row.y05?.toString() || '0'),
+      y_50: y50Value,
+      y_95: parseFloat(row.y95?.toString() || '0'),
+      // Adjustment fields
+      adjusted_y_50: adjustedY50,
+      original_y_50: hasAdjustment ? y50Value : undefined,
+      total_adjustment_percent: hasAdjustment ? adjustmentPercent : undefined,
+      adjustment_count: parseInt(row.adjustmentCount?.toString() || '0'),
+      hasAdjustment
+    };
+  });
 }
 
-async function getForecastSummary(state?: string) {
-  const conditions: string[] = [];
-  const values: string[] = [];
-  let paramCount = 0;
+async function getForecastSummary(state: string | undefined) {
+  const baseQuery = db
+    .select({
+      inventoryItemId: forecastData.inventoryItemId,
+      totalCount: sql<number>`COUNT(*)`,
+      avgY50: sql<number>`AVG(${forecastData.y50})`,
+      minDate: sql<Date>`MIN(${forecastData.businessDate})`,
+      maxDate: sql<Date>`MAX(${forecastData.businessDate})`,
+    })
+    .from(forecastData);
 
   if (state) {
-    conditions.push(`state = $${++paramCount}`);
-    values.push(state);
+    baseQuery.where(eq(forecastData.state, state));
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  // Use materialized view for better performance
-  const query = `
-    SELECT
-      state,
-      COUNT(*) as record_count,
-      AVG(avg_forecast) as avg_forecast,
-      MIN(min_forecast) as min_forecast,
-      MAX(max_forecast) as max_forecast
-    FROM forecast_summary
-    ${whereClause}
-    GROUP BY state
-    ORDER BY state
-  `;
-
-  const result = await pool.query(query, values);
-  return result.rows.map(row => ({
-    state: row.state,
-    recordCount: parseInt(row.record_count),
-    avgForecast: parseFloat(row.avg_forecast),
-    minForecast: parseFloat(row.min_forecast),
-    maxForecast: parseFloat(row.max_forecast)
-  }));
+  const result = await baseQuery.groupBy(forecastData.inventoryItemId);
+  return result;
 }
 
-async function getForecastByDate(filters: {
-  start_date?: string;
-  end_date?: string;
-  startDate?: string;  // Support both camelCase and snake_case
-  endDate?: string;    // Support both camelCase and snake_case
-  state?: string;
-}) {
-  const conditions: string[] = [];
-  const values: string[] = [];
-  let paramCount = 0;
+async function getForecastByDate(filters: ForecastFilters) {
+  const conditions = [];
 
-  // Support both camelCase and snake_case
-  const startDateValue = filters?.start_date || filters?.startDate;
-  const endDateValue = filters?.end_date || filters?.endDate;
-
-  if (startDateValue) {
-    const startDate = toPostgresDate(startDateValue);
+  if (filters?.startDate) {
+    const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
-      conditions.push(`business_date >= $${++paramCount}`);
-      values.push(startDate);
+      conditions.push(gte(forecastData.businessDate, startDate));
     }
   }
 
-  if (endDateValue) {
-    const endDate = toPostgresDate(endDateValue);
+  if (filters?.endDate) {
+    const endDate = toPostgresDate(filters.endDate);
     if (endDate) {
-      conditions.push(`business_date <= $${++paramCount}`);
-      values.push(endDate);
+      conditions.push(lte(forecastData.businessDate, endDate));
     }
   }
 
   if (filters?.state) {
-    conditions.push(`state = $${++paramCount}`);
-    values.push(filters.state);
+    conditions.push(eq(forecastData.state, filters.state as string));
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const result = await db
+    .select({
+      businessDate: forecastData.businessDate,
+      state: forecastData.state,
+      totalY50: sql<number>`SUM(${forecastData.y50})`,
+      avgY50: sql<number>`AVG(${forecastData.y50})`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(forecastData)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(forecastData.businessDate, forecastData.state)
+    .orderBy(forecastData.businessDate);
 
-  // Use materialized view for better performance
-  const query = `
-    SELECT
-      business_date::text as business_date,
-      ${filters?.state ? 'avg_forecast' : 'AVG(avg_forecast) as avg_forecast'}
-    FROM forecast_summary
-    ${whereClause}
-    ${!filters?.state ? 'GROUP BY business_date' : ''}
-    ORDER BY business_date
-  `;
-
-  const result = await pool.query(query, values);
-  return result.rows.map(row => ({
-    businessDate: row.business_date,
-    avgForecast: parseFloat(row.avg_forecast)
-  }));
+  return result;
 }
 
 async function getDistinctValues(column: string) {
-  // Validate column name to prevent SQL injection
-  const validColumns = ['state', 'dma_id', 'dc_id', 'inventory_item_id', 'restaurant_id'];
-  if (!validColumns.includes(column)) {
-    throw new Error('Invalid column name');
+  let query;
+
+  switch (column) {
+    case 'state':
+      query = db
+        .selectDistinct({ value: forecastData.state })
+        .from(forecastData)
+        .where(sql`${forecastData.state} IS NOT NULL`)
+        .orderBy(forecastData.state);
+      break;
+    case 'dma_id':
+      query = db
+        .selectDistinct({ value: forecastData.dmaId })
+        .from(forecastData)
+        .where(sql`${forecastData.dmaId} IS NOT NULL`)
+        .orderBy(forecastData.dmaId);
+      break;
+    case 'dc_id':
+      query = db
+        .selectDistinct({ value: forecastData.dcId })
+        .from(forecastData)
+        .where(sql`${forecastData.dcId} IS NOT NULL`)
+        .orderBy(forecastData.dcId);
+      break;
+    case 'inventory_item_id':
+      query = db
+        .selectDistinct({ value: forecastData.inventoryItemId })
+        .from(forecastData)
+        .orderBy(forecastData.inventoryItemId);
+      break;
+    case 'restaurant_id':
+      query = db
+        .selectDistinct({ value: forecastData.restaurantId })
+        .from(forecastData)
+        .orderBy(forecastData.restaurantId);
+      break;
+    default:
+      return [];
   }
 
-  const query = `
-    SELECT DISTINCT ${column}
-    FROM forecast_data
-    WHERE ${column} IS NOT NULL
-    ORDER BY ${column}
-  `;
-
-  const result = await pool.query(query);
-  return result.rows.map(row => {
-    const value = row[column];
-    return value != null ? String(value) : '';
-  }).filter(value => value !== '');
+  const result = await query;
+  return result.map(r => r.value?.toString() || '');
 }
 
-interface DashboardFilters {
-  states?: string[];
-  dmaIds?: string[];
-  dcIds?: number[];
-  startDate?: string;
-  endDate?: string;
-}
+async function getDashboardForecast(filters: ForecastFilters) {
+  // Use materialized view if available
+  const conditions = [];
 
-async function getDashboardForecast(filters: DashboardFilters) {
-  const conditions: string[] = [];
-  const values: (string | number)[] = [];
-  let paramCount = 0;
-
-  // Required: states filter
-  if (!filters?.states || filters.states.length === 0) {
-    throw new Error('States filter is required');
-  }
-
-  const statePlaceholders = filters.states.map(() => `$${++paramCount}`).join(',');
-  conditions.push(`state IN (${statePlaceholders})`);
-  values.push(...filters.states);
-
-  // Optional filters
-  if (filters?.dmaIds && filters.dmaIds.length > 0) {
-    const dmaPlaceholders = filters.dmaIds.map(() => `$${++paramCount}`).join(',');
-    conditions.push(`dma_id IN (${dmaPlaceholders})`);
-    values.push(...filters.dmaIds);
-  }
-
-  if (filters?.dcIds && filters.dcIds.length > 0) {
-    const dcPlaceholders = filters.dcIds.map(() => `$${++paramCount}`).join(',');
-    conditions.push(`dc_id IN (${dcPlaceholders})`);
-    values.push(...filters.dcIds);
+  if (filters?.state) {
+    conditions.push(eq(dashboardForecastView.state, filters.state as string));
   }
 
   if (filters?.startDate) {
     const startDate = toPostgresDate(filters.startDate);
     if (startDate) {
-      conditions.push(`business_date >= $${++paramCount}`);
-      values.push(startDate);
+      conditions.push(gte(dashboardForecastView.businessDate, startDate));
     }
   }
 
   if (filters?.endDate) {
     const endDate = toPostgresDate(filters.endDate);
     if (endDate) {
-      conditions.push(`business_date <= $${++paramCount}`);
-      values.push(endDate);
+      conditions.push(lte(dashboardForecastView.businessDate, endDate));
     }
   }
 
-  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+  const result = await db
+    .select()
+    .from(dashboardForecastView)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .limit(filters?.limit || 1000);
 
-  // Main query with aggregation
-  const dataQuery = `
-    SELECT
-      business_date::text as business_date,
-      state,
-      dma_id,
-      dc_id,
-      SUM(y_50) as total_forecast,
-      AVG(y_50) as avg_forecast,
-      COUNT(*) as location_count
-    FROM forecast_data
-    ${whereClause}
-    GROUP BY business_date, state, dma_id, dc_id
-    ORDER BY business_date, state
-  `;
-
-  // Summary query
-  const summaryQuery = `
-    SELECT
-      COUNT(*) as total_records,
-      AVG(y_50) as avg_forecast,
-      MIN(business_date)::text as min_date,
-      MAX(business_date)::text as max_date
-    FROM forecast_data
-    ${whereClause}
-  `;
-
-  const [dataResult, summaryResult] = await Promise.all([
-    pool.query(dataQuery, values),
-    pool.query(summaryQuery, values)
-  ]);
-
-  return {
-    data: dataResult.rows,
-    summary: {
-      totalRecords: parseInt(summaryResult.rows[0].total_records),
-      avgForecast: parseFloat(summaryResult.rows[0].avg_forecast),
-      dateRange: {
-        min: summaryResult.rows[0].min_date,
-        max: summaryResult.rows[0].max_date
-      }
-    }
-  };
+  return result;
 }
 
 async function refreshMaterializedView() {
-  try {
-    await pool.query('REFRESH MATERIALIZED VIEW CONCURRENTLY forecast_summary');
-    return {
-      success: true,
-      message: 'Materialized view refreshed successfully'
-    };
-  } catch (error) {
-    console.error('Error refreshing materialized view:', error);
-    throw error;
-  }
+  await db.execute(sql`REFRESH MATERIALIZED VIEW CONCURRENTLY dashboard_forecast_view`);
+  return { success: true };
 }
 
 async function executeRawQuery(query: string) {
-  try {
-    // Only allow SELECT queries for safety
-    const cleanQuery = query.trim();
-    if (!cleanQuery.toLowerCase().startsWith('select')) {
-      throw new Error('Only SELECT queries are allowed');
-    }
-
-    const result = await pool.query(cleanQuery);
-
-    // Format response to match expected structure
+  // For security, validate that the query is a SELECT statement
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery.startsWith('select') && !normalizedQuery.startsWith('with')) {
     return {
-      message: 'Query executed successfully',
-      data: {
-        columns: result.fields.map(field => field.name),
-        rows: result.rows.map(row => {
-          return result.fields.map(field => {
-            const value = row[field.name];
-            return value !== null ? String(value) : '';
-          });
-        })
-      }
+      error: 'Only SELECT queries are allowed',
+      fields: [],
+      rows: []
     };
-  } catch (error) {
-    console.error('Error executing raw query:', error);
-    throw error;
   }
-}
 
-export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type');
+    const result = await db.execute(sql.raw(query));
 
-    // Parse query parameters
-    const itemIds = searchParams.get('itemIds')?.split(',').filter(Boolean) || [];
-    const startDate = searchParams.get('startDate') || '';
-    const endDate = searchParams.get('endDate') || '';
-
-    // Parse location filters
-    const states = searchParams.get('states')?.split(',').filter(Boolean) || [];
-    const dmaIds = searchParams.get('dmaIds')?.split(',').filter(Boolean) || [];
-    const dcIds = searchParams.get('dcIds')?.split(',').filter(Boolean).map(id => parseInt(id)) || [];
-
-    if (!itemIds.length || !startDate || !endDate) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: itemIds, startDate, endDate' },
-        { status: 400 }
-      );
-    }
-
-    // Convert to filters format expected by getForecastData
-    const filters: ForecastFilters = {
-      inventoryItemId: parseInt(itemIds[0]), // Using first item ID for now
-      startDate,
-      endDate,
-      limit: 10000,
-      // Add location filters if provided
-      ...(states.length > 0 && { state: states }),
-      ...(dmaIds.length > 0 && { dmaId: dmaIds }),
-      ...(dcIds.length > 0 && { dcId: dcIds })
+    return {
+      fields: result.fields.map(f => ({
+        name: f.name,
+        dataTypeID: f.dataTypeID
+      })),
+      rows: result.rows
     };
-
-    if (type === 'summary') {
-      // For summary, get the already aggregated data from getForecastData
-      // When inventoryItemId is specified, getForecastData already does the aggregation
-      const data = await getForecastData(filters);
-
-      // If data is already aggregated (when inventoryItemId is specified), return it directly
-      if (data.length > 0 && (data[0].state === 'ALL' || data[0].dma_id === 'AGGREGATED')) {
-        console.log('Using pre-aggregated data from getForecastData for summary view');
-        // Data is already aggregated, just transform to expected format
-        const summaryData = data.map(row => ({
-          business_date: row.business_date,
-          inventory_item_id: row.inventory_item_id || itemIds[0],
-          restaurant_id: row.restaurant_id || '1',
-          state: row.state,
-          dma_id: row.dma_id,
-          dc_id: row.dc_id,
-          y_05: parseFloat(row.y_05) || 0,
-          y_50: parseFloat(row.y_50) || 0,
-          y_95: parseFloat(row.y_95) || 0,
-          avgForecast: parseFloat(row.y_50) || 0,
-          totalForecast: parseFloat(row.y_50) || 0
-        }));
-        return NextResponse.json(summaryData);
-      }
-
-      // Otherwise, do manual aggregation by date for summary view
-      console.log('Performing manual aggregation for summary view');
-      const summaryMap = new Map<string, { y_05: number; y_50: number; y_95: number; count: number }>();
-
-      data.forEach(row => {
-        const date = row.business_date;
-        if (!summaryMap.has(date)) {
-          summaryMap.set(date, { y_05: 0, y_50: 0, y_95: 0, count: 0 });
-        }
-        const summary = summaryMap.get(date)!;
-        summary.y_05 += parseFloat(row.y_05) || 0;
-        summary.y_50 += parseFloat(row.y_50) || 0;
-        summary.y_95 += parseFloat(row.y_95) || 0;
-        summary.count += 1;
-      });
-
-      const summaryData = Array.from(summaryMap.entries()).map(([date, values]) => ({
-        business_date: date,
-        inventory_item_id: itemIds[0],
-        restaurant_id: '1', // Placeholder value - data is aggregated across all locations
-        state: 'ALL',
-        dma_id: 'AGGREGATED',
-        dc_id: '-1',
-        y_05: values.y_05,
-        y_50: values.y_50,
-        y_95: values.y_95,
-        avgForecast: values.y_50 / values.count,
-        totalForecast: values.y_50
-      }));
-
-      return NextResponse.json(summaryData);
-    } else if (type === 'timeseries') {
-      // For time series, return the raw data grouped by date
-      const data = await getForecastData(filters);
-
-      const timeSeriesData = data.map(row => ({
-        business_date: row.business_date,
-        inventory_item_id: row.inventory_item_id,
-        restaurant_id: row.restaurant_id,
-        state: row.state,
-        dma_id: row.dma_id,
-        dc_id: row.dc_id,
-        y_05: parseFloat(row.y_05) || 0,
-        y_50: parseFloat(row.y_50) || 0,
-        y_95: parseFloat(row.y_95) || 0
-      }));
-
-      return NextResponse.json(timeSeriesData);
-    } else {
-      // Default: return raw forecast data
-      const data = await getForecastData(filters);
-      return NextResponse.json({ data });
-    }
   } catch (error) {
-    console.error('Postgres forecast GET API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    console.error('Query execution error:', error);
+    return {
+      error: error instanceof Error ? error.message : 'Query execution failed',
+      fields: [],
+      rows: []
+    };
   }
 }

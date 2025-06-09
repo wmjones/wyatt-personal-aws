@@ -45,47 +45,16 @@ export default function FilterSidebar({
   const isLoading = isLoadingStates || isLoadingDMAs || isLoadingDCs || isLoadingInventory;
   const error = statesError || dmasError || dcsError || inventoryError;
 
-  // Initialize with first inventory item and default date range if not selected
+  // Sync local selections with parent when they change
   useEffect(() => {
-    if (inventoryOptions.length > 0 && !isLoadingInventory) {
-      setLocalSelections((prevSelections) => {
-        let hasChanges = false;
-        const updatedSelections = { ...prevSelections };
-
-        // Auto-select first inventory item if none selected
-        if (!updatedSelections.inventoryItemId) {
-          updatedSelections.inventoryItemId = inventoryOptions[0].value;
-          hasChanges = true;
-        }
-
-        // Set default date range if not selected (full data range)
-        if (!updatedSelections.dateRange.startDate || !updatedSelections.dateRange.endDate) {
-          updatedSelections.dateRange = {
-            startDate: '2025-01-01',
-            endDate: '2025-03-31'
-          };
-          hasChanges = true;
-        }
-
-        if (hasChanges) {
-          // Call onSelectionChange in a separate effect to avoid issues
-          setTimeout(() => onSelectionChange(updatedSelections), 0);
-          return updatedSelections;
-        }
-
-        return prevSelections;
-      });
-    }
-  }, [inventoryOptions, isLoadingInventory, onSelectionChange]);
+    setLocalSelections(selections);
+  }, [selections]);
 
   // Handle state selection changes
   const handleStateChange = (states: string[]) => {
     const updatedSelections = {
       ...localSelections,
-      states,
-      // Clear dependent selections when states change
-      dmaIds: [],
-      dcIds: []
+      states
     };
     setLocalSelections(updatedSelections);
     onSelectionChange(updatedSelections);
@@ -95,9 +64,7 @@ export default function FilterSidebar({
   const handleDmaChange = (dmaIds: string[]) => {
     const updatedSelections = {
       ...localSelections,
-      dmaIds,
-      // Clear dependent selections when DMAs change
-      dcIds: []
+      dmaIds
     };
     setLocalSelections(updatedSelections);
     onSelectionChange(updatedSelections);
@@ -144,7 +111,7 @@ export default function FilterSidebar({
   }
 
   return (
-    <aside className={`w-64 bg-white shadow-md p-6 ${className}`}>
+    <aside className={`filter-sidebar w-64 bg-white shadow-md p-6 ${className}`}>
       <h2 className="text-lg font-semibold mb-6">Filters</h2>
 
       <div className="space-y-6">
@@ -202,15 +169,16 @@ export default function FilterSidebar({
           <h3 className="text-sm font-medium text-gray-700 mb-3">Date Range</h3>
           <DateRangeFilter
             value={{
-              startDate: localSelections.dateRange.startDate ? new Date(localSelections.dateRange.startDate) : null,
-              endDate: localSelections.dateRange.endDate ? new Date(localSelections.dateRange.endDate) : null
+              startDate: localSelections.dateRange?.startDate ? new Date(localSelections.dateRange.startDate) : null,
+              endDate: localSelections.dateRange?.endDate ? new Date(localSelections.dateRange.endDate) : null
             }}
             onChange={(range) => {
+              // Ensure range is defined and has the expected structure
               const updatedSelections = {
                 ...localSelections,
                 dateRange: {
-                  startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
-                  endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+                  startDate: range?.startDate instanceof Date ? range.startDate.toISOString().split('T')[0] : null,
+                  endDate: range?.endDate instanceof Date ? range.endDate.toISOString().split('T')[0] : null
                 }
               };
               setLocalSelections(updatedSelections);

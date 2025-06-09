@@ -1,4 +1,4 @@
-You will run pre-commit checks and analyze the results.
+Ultrathink, You will run pre-commit checks and analyze the results.
 
 1. Run the pre-commit checks twice:
    - First run directly: `pre-commit run --all-files`

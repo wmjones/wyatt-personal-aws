@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, memo, useCallback } from 'react';
-import Header from './Header';
-import Footer from './Footer';
+import DemandPlanningHeader from './DemandPlanningHeader';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
+import IntegratedControlPanel from './IntegratedControlPanel';
+import { ForecastSeries } from '@/app/types/demand-planning';
+import { ErrorBoundary } from '../../components/error-boundary';
+
 // Dashboard view type
 type DashboardView = 'forecast' | 'history' | 'settings';
 
@@ -13,6 +16,12 @@ interface DashboardLayoutProps {
   onFilterSelectionChange?: (selections: FilterSelections) => void;
   activeTab: DashboardView;
   onTabChange: (tab: DashboardView) => void;
+  // New props for integrated control panel
+  forecastData?: ForecastSeries | null;
+  currentAdjustmentValue?: number;
+  onAdjustmentChange?: (adjustmentValue: number) => void;
+  onSaveAdjustment?: (adjustmentValue: number, filterContext: FilterSelections) => Promise<void>;
+  useIntegratedPanel?: boolean; // Flag to enable new integrated panel
 }
 
 const DashboardLayout = memo(function DashboardLayout({
@@ -20,7 +29,12 @@ const DashboardLayout = memo(function DashboardLayout({
   filterSelections,
   onFilterSelectionChange,
   activeTab,
-  onTabChange
+  onTabChange,
+  forecastData,
+  currentAdjustmentValue = 0,
+  onAdjustmentChange,
+  onSaveAdjustment,
+  useIntegratedPanel = true // Default to true to use the new integrated panel
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -46,7 +60,7 @@ const DashboardLayout = memo(function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-dp-background-primary">
-      <Header
+      <DemandPlanningHeader
         refreshData={refreshData}
         activeTab={activeTab}
         onTabChange={onTabChange}
@@ -88,14 +102,43 @@ const DashboardLayout = memo(function DashboardLayout({
 
         {/* Sidebar */}
         <div
-          className={`fixed md:relative z-20 md:z-auto w-[var(--dp-sidebar-width)] h-[calc(100vh-var(--dp-header-height)-var(--dp-footer-height))] transition-transform duration-300 ease-in-out ${
+          className={`fixed md:relative z-20 md:z-auto w-[var(--dp-sidebar-width)] h-[calc(100vh-var(--dp-header-height))] transition-transform duration-300 ease-in-out ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
-          <FilterSidebar
-            selections={filterSelections}
-            onSelectionChange={handleFilterSelectionChange}
-          />
+          {useIntegratedPanel && onAdjustmentChange && onSaveAdjustment ? (
+            <ErrorBoundary
+              resetKeys={[
+                JSON.stringify(filterSelections),
+                currentAdjustmentValue,
+                forecastData?.baseline?.length || 0
+              ]}
+              onError={(error, errorInfo) => {
+                console.error('IntegratedControlPanel Error:', error, errorInfo);
+              }}
+            >
+              <IntegratedControlPanel
+                filterSelections={filterSelections}
+                onFilterSelectionChange={handleFilterSelectionChange}
+                forecastData={forecastData}
+                currentAdjustmentValue={currentAdjustmentValue}
+                onAdjustmentChange={onAdjustmentChange}
+                onSaveAdjustment={onSaveAdjustment}
+              />
+            </ErrorBoundary>
+          ) : (
+            <ErrorBoundary
+              resetKeys={[JSON.stringify(filterSelections)]}
+              onError={(error, errorInfo) => {
+                console.error('FilterSidebar Error:', error, errorInfo);
+              }}
+            >
+              <FilterSidebar
+                selections={filterSelections}
+                onSelectionChange={handleFilterSelectionChange}
+              />
+            </ErrorBoundary>
+          )}
         </div>
 
         {/* Backdrop for mobile */}
@@ -114,7 +157,6 @@ const DashboardLayout = memo(function DashboardLayout({
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 });

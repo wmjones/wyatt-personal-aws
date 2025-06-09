@@ -178,8 +178,8 @@ module "visualization_data_bucket" {
   ]
 
   tags = {
-    Component = "D3 Dashboard"
-    Name      = "Visualization Data"
+    Component = "LTO Demand Planning"
+    Name      = "Demand Planning Data"
   }
 }
 

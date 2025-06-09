@@ -1,12 +1,14 @@
 /**
- * API Route for Forecast Cache Operations
+ * API Route for Forecast Cache Operations (Drizzle ORM version)
  *
  * This API route handles all database operations for the forecast cache system,
  * keeping PostgreSQL operations on the server side only.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { query, db } from '../../../lib/postgres';
+import { eq, gt, and, sql, desc } from 'drizzle-orm';
+import { db } from '@/app/db/drizzle';
+import { summaryCache, timeseriesCache, queryMetrics } from '@/app/db/schema/forecast-cache';
 import { cacheUtils } from '../../../lib/cache-utils';
 import { toPostgresDate } from '@/app/lib/date-utils';
 
@@ -22,16 +24,20 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Fingerprint required' }, { status: 400 });
         }
 
-        const summaryResult = await query(`
-          SELECT id, cache_key, query_fingerprint, data, created_at, updated_at, expires_at, hit_count
-          FROM forecast_cache.summary_cache
-          WHERE query_fingerprint = $1 AND expires_at > NOW()
-          ORDER BY created_at DESC
-          LIMIT 1
-        `, [fingerprint]);
+        const summaryCacheResult = await db
+          .select()
+          .from(summaryCache)
+          .where(
+            and(
+              eq(summaryCache.queryFingerprint, fingerprint),
+              gt(summaryCache.expiresAt, new Date())
+            )
+          )
+          .orderBy(desc(summaryCache.createdAt))
+          .limit(1);
 
         return NextResponse.json({
-          data: summaryResult.rows[0] || null
+          data: summaryCacheResult[0] || null
         });
 
       case 'get_timeseries':
@@ -39,50 +45,58 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Fingerprint required' }, { status: 400 });
         }
 
-        const timeseriesResult = await query(`
-          SELECT id, cache_key, query_fingerprint, data, created_at, updated_at, expires_at, hit_count
-          FROM forecast_cache.timeseries_cache
-          WHERE query_fingerprint = $1 AND expires_at > NOW()
-          ORDER BY created_at DESC
-          LIMIT 1
-        `, [fingerprint]);
+        const timeseriesCacheResult = await db
+          .select()
+          .from(timeseriesCache)
+          .where(
+            and(
+              eq(timeseriesCache.queryFingerprint, fingerprint),
+              gt(timeseriesCache.expiresAt, new Date())
+            )
+          )
+          .orderBy(desc(timeseriesCache.createdAt))
+          .limit(1);
 
         return NextResponse.json({
-          data: timeseriesResult.rows[0] || null
+          data: timeseriesCacheResult[0] || null
         });
 
       case 'get_stats':
-        const [hitRateResult, avgTimeResult, cacheSizeResult] = await Promise.all([
-          query<{ cache_hits: string; total_queries: string }>(`
-            SELECT
-              COUNT(*) FILTER (WHERE cache_hit = true) as cache_hits,
-              COUNT(*) as total_queries
-            FROM forecast_cache.query_metrics
-            WHERE executed_at > NOW() - INTERVAL '24 hours'
-          `),
-          query<{ avg_time: string }>(`
-            SELECT AVG(execution_time_ms) as avg_time
-            FROM forecast_cache.query_metrics
-            WHERE executed_at > NOW() - INTERVAL '24 hours'
-          `),
-          query<{ cache_size: string }>(`
-            SELECT
-              (SELECT COUNT(*) FROM forecast_cache.summary_cache WHERE expires_at > NOW()) +
-              (SELECT COUNT(*) FROM forecast_cache.timeseries_cache WHERE expires_at > NOW()) as cache_size
-          `)
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        // Get hit rate metrics
+        const metricsResult = await db
+          .select({
+            cacheHits: sql<number>`COUNT(*) FILTER (WHERE ${queryMetrics.cacheHit} = true)`,
+            totalQueries: sql<number>`COUNT(*)`,
+            avgTime: sql<number>`AVG(${queryMetrics.executionTimeMs})`,
+          })
+          .from(queryMetrics)
+          .where(gt(queryMetrics.executedAt, twentyFourHoursAgo));
+
+        // Get cache size
+        const [summaryCacheSize, timeseriesCacheSize] = await Promise.all([
+          db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(summaryCache)
+            .where(gt(summaryCache.expiresAt, new Date())),
+          db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(timeseriesCache)
+            .where(gt(timeseriesCache.expiresAt, new Date())),
         ]);
 
-        const hitData = hitRateResult.rows[0];
-        const hitRate = hitData?.total_queries && parseInt(hitData.total_queries) > 0
-          ? (parseInt(hitData.cache_hits) / parseInt(hitData.total_queries)) * 100
+        const metrics = metricsResult[0];
+        const hitRate = metrics?.totalQueries > 0
+          ? (metrics.cacheHits / metrics.totalQueries) * 100
           : 0;
 
         return NextResponse.json({
           data: {
             hitRate: Math.round(hitRate * 100) / 100,
-            totalQueries: parseInt(hitData?.total_queries || '0'),
-            avgResponseTime: Math.round(parseFloat(avgTimeResult.rows[0]?.avg_time || '0')),
-            cacheSize: parseInt(cacheSizeResult.rows[0]?.cache_size || '0'),
+            totalQueries: metrics?.totalQueries || 0,
+            avgResponseTime: Math.round(metrics?.avgTime || 0),
+            cacheSize: (summaryCacheSize[0]?.count || 0) + (timeseriesCacheSize[0]?.count || 0),
           }
         });
 
@@ -112,16 +126,23 @@ export async function POST(request: NextRequest) {
         const ttl = cacheUtils.determineTTL(queryType, filters);
         const expiresAt = cacheUtils.calculateExpires(ttl);
 
-        await query(`
-          INSERT INTO forecast_cache.summary_cache
-          (cache_key, query_fingerprint, state, data, expires_at)
-          VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (cache_key)
-          DO UPDATE SET
-            data = EXCLUDED.data,
-            updated_at = NOW(),
-            expires_at = EXCLUDED.expires_at
-        `, [cacheKey, fingerprint, filters.state ? String(filters.state).substring(0, 10) : null, JSON.stringify(summaryData), expiresAt]);
+        await db
+          .insert(summaryCache)
+          .values({
+            cacheKey,
+            queryFingerprint: fingerprint,
+            state: filters.state ? String(filters.state).substring(0, 10) : null,
+            data: summaryData,
+            expiresAt,
+          })
+          .onConflictDoUpdate({
+            target: summaryCache.cacheKey,
+            set: {
+              data: summaryData,
+              updatedAt: new Date(),
+              expiresAt,
+            },
+          });
 
         return NextResponse.json({ success: true });
 
@@ -136,62 +157,69 @@ export async function POST(request: NextRequest) {
         const startDate = toPostgresDate(tsFilters.startDate);
         const endDate = toPostgresDate(tsFilters.endDate);
 
-        await query(`
-          INSERT INTO forecast_cache.timeseries_cache
-          (cache_key, query_fingerprint, state, start_date, end_date, data, expires_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (cache_key)
-          DO UPDATE SET
-            data = EXCLUDED.data,
-            updated_at = NOW(),
-            expires_at = EXCLUDED.expires_at
-        `, [
-          tsCacheKey,
-          tsFingerprint,
-          tsFilters.state ? String(tsFilters.state).substring(0, 10) : null, // Truncate to fit varchar(10) until schema is updated
-          startDate,
-          endDate,
-          JSON.stringify(timeseriesData),
-          tsExpiresAt
-        ]);
+        await db
+          .insert(timeseriesCache)
+          .values({
+            cacheKey: tsCacheKey,
+            queryFingerprint: tsFingerprint,
+            state: tsFilters.state ? String(tsFilters.state).substring(0, 10) : null,
+            startDate,
+            endDate,
+            data: timeseriesData,
+            expiresAt: tsExpiresAt,
+          })
+          .onConflictDoUpdate({
+            target: timeseriesCache.cacheKey,
+            set: {
+              data: timeseriesData,
+              updatedAt: new Date(),
+              expiresAt: tsExpiresAt,
+            },
+          });
 
         return NextResponse.json({ success: true });
 
       case 'record_metrics':
         const { metrics } = data;
 
-        await query(`
-          INSERT INTO forecast_cache.query_metrics
-          (query_fingerprint, query_type, execution_time_ms, data_source, cache_hit, error_occurred, user_id, filters)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `, [
-          metrics.query_fingerprint,
-          metrics.query_type,
-          metrics.execution_time_ms,
-          metrics.data_source,
-          metrics.cache_hit,
-          metrics.error_occurred,
-          metrics.user_id,
-          JSON.stringify(metrics.filters),
-        ]);
+        await db.insert(queryMetrics).values({
+          queryFingerprint: metrics.query_fingerprint,
+          queryType: metrics.query_type,
+          executionTimeMs: metrics.execution_time_ms,
+          dataSource: metrics.data_source,
+          cacheHit: metrics.cache_hit,
+          errorOccurred: metrics.error_occurred,
+          userId: metrics.user_id,
+          filters: metrics.filters,
+        });
 
         return NextResponse.json({ success: true });
 
       case 'increment_hit':
         const { tableName, cacheId } = data;
 
-        await query(`
-          UPDATE forecast_cache.${tableName}
-          SET hit_count = hit_count + 1
-          WHERE id = $1
-        `, [cacheId]);
+        if (tableName === 'summary_cache') {
+          await db
+            .update(summaryCache)
+            .set({ hitCount: sql`${summaryCache.hitCount} + 1` })
+            .where(eq(summaryCache.id, cacheId));
+        } else if (tableName === 'timeseries_cache') {
+          await db
+            .update(timeseriesCache)
+            .set({ hitCount: sql`${timeseriesCache.hitCount} + 1` })
+            .where(eq(timeseriesCache.id, cacheId));
+        }
 
         return NextResponse.json({ success: true });
 
       case 'clear_expired':
-        await db.transaction(async (client) => {
-          await client.query('DELETE FROM forecast_cache.summary_cache WHERE expires_at <= NOW()');
-          await client.query('DELETE FROM forecast_cache.timeseries_cache WHERE expires_at <= NOW()');
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(summaryCache)
+            .where(sql`${summaryCache.expiresAt} <= NOW()`);
+          await tx
+            .delete(timeseriesCache)
+            .where(sql`${timeseriesCache.expiresAt} <= NOW()`);
         });
 
         return NextResponse.json({ success: true });

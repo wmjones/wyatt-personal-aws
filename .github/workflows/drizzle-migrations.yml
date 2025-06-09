@@ -1,0 +1,561 @@
+name: Database Migrations (Drizzle)
+
+# This workflow handles database migrations for all branches:
+# - main/dev: Uses SSM parameters for production databases
+# - feature/bugfix/hotfix: Creates/uses Neon branch databases
+# - Ensures migrations run on the same database as app deployments
+#
+# Workflow execution order:
+# 1. Deployment workflow creates Neon branch and deploys to Vercel
+# 2. This workflow runs AFTER deployment completes (via workflow_run)
+# 3. Migrations run on the already-created database branch
+# 4. No race conditions since database is guaranteed to exist
+#
+# Note: The neondatabase/create-branch-action@v5 is idempotent -
+# it returns existing branch info if branch already exists
+
+on:
+  # For feature branches, wait for deployment to complete first
+  workflow_run:
+    workflows: ["Deploy Next.js to Vercel with Branch-based Neon Setup"]
+    types:
+      - completed
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+  # For main/dev branches, run directly on push (they use persistent databases)
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/frontend/nextjs-app/drizzle/**'
+      - 'src/frontend/nextjs-app/app/db/schema/**'
+      - 'src/frontend/nextjs-app/drizzle.config.ts'
+      - 'src/frontend/nextjs-app/scripts/drizzle-*.ts'
+      - 'src/frontend/nextjs-app/scripts/*-migration*.ts'
+      - 'src/frontend/nextjs-app/app/db/migrate.ts'
+      - 'src/frontend/nextjs-app/package.json'
+      - 'src/frontend/nextjs-app/package-lock.json'
+      - '.github/workflows/drizzle-migrations.yml'
+  pull_request:
+    paths:
+      - 'src/frontend/nextjs-app/drizzle/**'
+      - 'src/frontend/nextjs-app/app/db/schema/**'
+      - 'src/frontend/nextjs-app/drizzle.config.ts'
+      - 'src/frontend/nextjs-app/scripts/drizzle-*.ts'
+      - 'src/frontend/nextjs-app/scripts/*-migration*.ts'
+      - 'src/frontend/nextjs-app/app/db/migrate.ts'
+      - 'src/frontend/nextjs-app/package.json'
+      - 'src/frontend/nextjs-app/package-lock.json'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run migrations'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      action:
+        description: 'Migration action'
+        required: true
+        default: 'migrate'
+        type: choice
+        options:
+          - migrate  # Apply pending migrations using migration files
+          - push     # Push schema changes directly without creating migration files
+          - check    # Check migration status without making any changes
+
+env:
+  NODE_VERSION: '22'
+
+permissions:
+  contents: read    # Required for actions/checkout
+  id-token: write   # Required for OIDC authentication with AWS
+
+jobs:
+  # Skip migrations if deployment failed
+  check-deployment-status:
+    name: Check Deployment Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Check if deployment succeeded
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "❌ Deployment workflow failed or was cancelled"
+            echo "Skipping migrations for failed deployment"
+            exit 1
+          fi
+          echo "✅ Deployment workflow succeeded"
+  check-migrations:
+    name: Check Migration Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/frontend/nextjs-app/package-lock.json'
+
+      - name: Install dependencies (dev only)
+        run: |
+          cd src/frontend/nextjs-app
+          # For check-migrations, we only need dev dependencies for drizzle-kit
+          npm ci --include=dev --omit=optional
+
+      - name: Generate migrations
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+        run: |
+          cd src/frontend/nextjs-app
+          npm run drizzle:generate
+
+      - name: Check for uncommitted migrations
+        run: |
+          if [ -n "$(git status --porcelain src/frontend/nextjs-app/drizzle/)" ]; then
+            echo "❌ Uncommitted migration files detected!"
+            echo "Please run 'npm run drizzle:generate' and commit the changes."
+            git status --porcelain src/frontend/nextjs-app/drizzle/
+            exit 1
+          else
+            echo "✅ All migrations are committed"
+          fi
+
+  run-migrations:
+    name: Run Migrations - ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    if: |
+      !cancelled() && (
+        (github.event_name == 'push' && (
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/dev'
+        )) ||
+        (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' && (
+          startsWith(github.event.workflow_run.head_branch, 'feature/') ||
+          startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
+          startsWith(github.event.workflow_run.head_branch, 'hotfix/')
+        )) ||
+        github.event_name == 'workflow_dispatch'
+      )
+    strategy:
+      matrix:
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && fromJSON('["preview"]')) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) }}
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/frontend/nextjs-app/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd src/frontend/nextjs-app
+          # Full installation needed for running migrations
+          npm ci
+
+      - name: Get branch name
+        id: branch_name
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # For workflow_run event, get branch from the triggering workflow
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+          else
+            # For push events, use the ref
+            BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+          echo "current_branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Branch name: $BRANCH"
+
+      - name: Sanitize branch name
+        id: sanitize_branch
+        run: |
+          ORIGINAL_BRANCH="${{ steps.branch_name.outputs.current_branch }}"
+
+          # Sanitize branch name for Neon (replace invalid chars with hyphens, lowercase)
+          SANITIZED_BRANCH=$(echo "$ORIGINAL_BRANCH" | sed 's/[^a-zA-Z0-9.-]/-/g' | tr '[:upper:]' '[:lower:]')
+          # Remove leading/trailing hyphens
+          SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | sed 's/^-\+\|-\+$//g')
+
+          # If branch name is too long, truncate and add hash for uniqueness
+          if [ ${#SANITIZED_BRANCH} -gt 63 ]; then
+            # Generate a short hash from the original branch name
+            HASH=$(echo "$ORIGINAL_BRANCH" | sha256sum | cut -c1-6)
+            # Keep first 56 chars and append hash (56 + 1 dash + 6 hash = 63)
+            SANITIZED_BRANCH=$(echo "$SANITIZED_BRANCH" | cut -c1-56)"-$HASH"
+            echo "⚠️  Branch name truncated due to length limit (>63 chars)"
+            echo "   Added hash suffix for uniqueness: -$HASH"
+          fi
+
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "Original: $ORIGINAL_BRANCH"
+          echo "Sanitized: $SANITIZED_BRANCH"
+
+      - name: Create or get Neon branch
+        id: create_neon_branch
+        if: matrix.environment == 'preview'
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          username: neondb_owner
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+
+      - name: Configure AWS credentials
+        if: matrix.environment != 'preview'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          role-session-name: GitHubActionsDrizzleMigrations
+          aws-region: us-east-2
+          audience: sts.amazonaws.com
+
+      - name: Validate SSM parameters exist
+        if: matrix.environment != 'preview'
+        run: |
+          echo "Validating SSM parameters for ${{ matrix.environment }} environment..."
+
+          # Define required SSM parameters
+          REQUIRED_PARAMS=(
+            "/nextjs/${{ matrix.environment }}/neon/database-url"
+          )
+
+          # Check if all required parameters exist
+          MISSING_PARAMS=()
+          for param in "${REQUIRED_PARAMS[@]}"; do
+            if ! aws ssm describe-parameters --parameter-filters "Key=Name,Values=$param" --query 'Parameters[0].Name' --output text | grep -q "$param"; then
+              MISSING_PARAMS+=("$param")
+            else
+              echo "✅ Found parameter: $param"
+            fi
+          done
+
+          # Report missing parameters
+          if [ ${#MISSING_PARAMS[@]} -gt 0 ]; then
+            echo "❌ Missing required SSM parameters:"
+            printf '%s\n' "${MISSING_PARAMS[@]}"
+            echo ""
+            echo "Please create these parameters in AWS Systems Manager Parameter Store:"
+            echo "- Go to AWS Console > Systems Manager > Parameter Store"
+            echo "- Create each parameter with the exact name shown above"
+            echo "- For database URLs, use SecureString type"
+            exit 1
+          fi
+
+          echo "✅ All required SSM parameters are present"
+
+      - name: Get database credentials
+        id: get-credentials
+        run: |
+          echo "Fetching database credentials for ${{ matrix.environment }}"
+
+          if [ "${{ matrix.environment }}" == "preview" ]; then
+            # Use Neon branch URL for preview environments
+            DATABASE_URL="${{ steps.create_neon_branch.outputs.db_url_with_pooler }}"
+            echo "Using Neon branch database: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          else
+            # Get Neon database URL from SSM for production environments
+            DATABASE_URL=$(aws ssm get-parameter \
+              --name "/nextjs/${{ matrix.environment }}/neon/database-url" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text 2>&1) || {
+              echo "❌ Failed to retrieve SSM parameter /nextjs/${{ matrix.environment }}/neon/database-url"
+              echo "Error: $DATABASE_URL"
+              echo ""
+              echo "Troubleshooting steps:"
+              echo "1. Check if the parameter exists in the correct region (us-east-2)"
+              echo "2. Verify IAM permissions for the GitHub Actions role"
+              echo "3. Ensure the parameter name is correct"
+              exit 1
+            }
+          fi
+
+          # Validate DATABASE_URL is not empty
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ DATABASE_URL is empty for ${{ matrix.environment }} environment"
+            exit 1
+          fi
+
+          # Mask the URL in logs
+          echo "::add-mask::$DATABASE_URL"
+
+          # Set as output
+          echo "database_url=$DATABASE_URL" >> $GITHUB_OUTPUT
+
+      - name: Check migration status
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+
+          # Add retry logic with exponential backoff for branch database readiness
+          MAX_RETRIES=5
+          BASE_DELAY=5
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES: Checking migration status..."
+
+            # Capture the error output for better diagnostics
+            ERROR_OUTPUT=$(mktemp)
+
+            if node -e "
+              const { checkMigrationStatus } = require('./app/db/migrate');
+              checkMigrationStatus().then(status => {
+                console.log('Migration Status:', status);
+                process.exit(0);
+              }).catch(err => {
+                console.error('Error type:', err.code || 'Unknown');
+                console.error('Error message:', err.message);
+
+                // Different error messages for different issues
+                if (err.message.includes('does not exist') || err.message.includes('not found')) {
+                  console.error('Database/branch may not be ready yet');
+                } else if (err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT')) {
+                  console.error('Connection issue - database may still be initializing');
+                } else {
+                  console.error('Unexpected error - check credentials and configuration');
+                }
+
+                process.exit(1);
+              });
+            " 2>"$ERROR_OUTPUT"; then
+              echo "✅ Successfully connected to database"
+              rm -f "$ERROR_OUTPUT"
+              break
+            else
+              cat "$ERROR_OUTPUT"
+
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "❌ Failed to connect after $MAX_RETRIES attempts"
+                echo "Final error output:"
+                cat "$ERROR_OUTPUT"
+                rm -f "$ERROR_OUTPUT"
+                exit 1
+              fi
+
+              # Exponential backoff: 5, 10, 20, 40 seconds
+              DELAY=$((BASE_DELAY * (2 ** (i - 1))))
+              echo "⏳ Waiting $DELAY seconds before retry (exponential backoff)..."
+              sleep $DELAY
+            fi
+
+            rm -f "$ERROR_OUTPUT"
+          done
+
+      - name: Run migrations (migrate)
+        if: github.event_name != 'workflow_dispatch' || inputs.action == 'migrate'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "Running Drizzle migrations..."
+          npm run drizzle:migrate:run
+
+      - name: Push schema changes (push)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'push'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "Pushing schema changes directly..."
+          npm run drizzle:push
+
+      - name: Check migration status only (check)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'check'
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          echo "## 📊 Migration Status Check"
+          echo ""
+
+          # Check current migration status
+          node -e "
+          const { checkMigrationStatus } = require('./app/db/migrate');
+
+          checkMigrationStatus().then(status => {
+            console.log('### Database Information');
+            console.log('- Environment: ${{ matrix.environment }}');
+            console.log('- Branch: ${{ steps.branch_name.outputs.current_branch }}');
+            if ('${{ matrix.environment }}' === 'preview') {
+              console.log('- Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}');
+            }
+            console.log('');
+
+            console.log('### Migration Status');
+            console.log('- Has Drizzle migrations table: ' + (status.hasDrizzleMigrations ? '✅ Yes' : '❌ No'));
+            console.log('- Has legacy migrations table: ' + (status.hasLegacyMigrations ? '⚠️  Yes (consider cleanup)' : '✅ No'));
+            console.log('- Total migrations applied: ' + (status.migrationsCount || 0));
+            console.log('');
+
+            if (status.latestMigration) {
+              console.log('### Latest Migration');
+              console.log('- Name: ' + status.latestMigration.name);
+              console.log('- Applied at: ' + new Date(status.latestMigration.created_at).toISOString());
+            }
+
+            // Check for pending migrations
+            const fs = require('fs');
+            const path = require('path');
+            const migrationsDir = path.join(__dirname, 'drizzle');
+
+            if (fs.existsSync(migrationsDir)) {
+              const files = fs.readdirSync(migrationsDir)
+                .filter(f => f.endsWith('.sql'))
+                .sort();
+
+              console.log('');
+              console.log('### Migration Files');
+              console.log('- Total SQL files: ' + files.length);
+
+              if (status.appliedMigrations) {
+                const unapplied = files.filter(f => !status.appliedMigrations.includes(f));
+                if (unapplied.length > 0) {
+                  console.log('- ⚠️  Unapplied migrations: ' + unapplied.length);
+                  unapplied.forEach(f => console.log('  - ' + f));
+                } else {
+                  console.log('- ✅ All migrations are applied');
+                }
+              }
+            }
+          }).catch(err => {
+            console.error('❌ Failed to check migration status:', err.message);
+            process.exit(1);
+          });
+          "
+
+          echo ""
+          echo "Use 'action: migrate' to apply any pending migrations."
+
+      - name: Verify migration success
+        env:
+          DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
+        run: |
+          cd src/frontend/nextjs-app
+          node -e "
+          const { checkMigrationStatus } = require('./app/db/migrate');
+          checkMigrationStatus().then(status => {
+            if (!status.hasDrizzleMigrations) {
+              console.error('❌ Migrations were not applied successfully');
+              process.exit(1);
+            }
+            console.log('✅ Migrations verified successfully');
+          });
+          "
+
+      - name: Log migration info
+        run: |
+          echo "## ✅ Database Migrations Complete!"
+          echo "Branch: ${{ steps.branch_name.outputs.current_branch }}"
+          echo "Environment: ${{ matrix.environment }}"
+          echo "Sanitized Branch: ${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          if [ "${{ matrix.environment }}" = "preview" ]; then
+            echo "Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+            echo "Branch ID: ${{ steps.create_neon_branch.outputs.branch_id }}"
+          fi
+          echo "Migration Status: Success"
+
+      - name: Tag branch for cleanup (if temporary)
+        if: |
+          matrix.environment == 'preview' &&
+          (startsWith(steps.branch_name.outputs.current_branch, 'bugfix/') ||
+           startsWith(steps.branch_name.outputs.current_branch, 'hotfix/'))
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          # Add metadata to track temporary branches
+          BRANCH_ID="${{ steps.create_neon_branch.outputs.branch_id }}"
+          PROJECT_ID="${{ secrets.NEON_PROJECT_ID }}"
+
+          echo "Tagging branch as temporary for future cleanup..."
+
+          curl -X PATCH \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d '{
+              "branch": {
+                "metadata": {
+                  "temporary": true,
+                  "created_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+                  "git_branch": "${{ steps.branch_name.outputs.current_branch }}"
+                }
+              }
+            }' \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID" || {
+              echo "Warning: Failed to tag branch metadata, but migrations succeeded"
+            }
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const environment = '${{ matrix.environment }}';
+            const action = '${{ inputs.action || 'migrate' }}';
+            const workflowUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+
+            // For pull requests, comment on the PR
+            if (context.eventName === 'pull_request' && context.issue?.number) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `❌ Database migration failed in **${environment}** environment (action: ${action}). Check the [workflow logs](${workflowUrl}) for details.`
+              });
+            } else {
+              // For push events, create a workflow summary
+              const summary = `## ❌ Database Migration Failed
+
+              - **Environment:** ${environment}
+              - **Action:** ${action}
+              - **Branch:** ${{ github.ref_name }}
+              - **Commit:** ${{ github.sha }}
+              - **Workflow:** [View logs](${workflowUrl})
+
+              Please check the logs for details and fix the migration issues.`;
+
+              await core.summary
+                .addRaw(summary)
+                .write();
+
+              // Also log to console for visibility
+              console.error(`Migration failed in ${environment} environment`);
+            }
+
+  rollback-migrations:
+    name: Rollback Migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Manual approval required
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ github.repository_owner }}
+          minimum-approvals: 1
+          issue-title: "Approve database rollback in ${{ inputs.environment }}"
+          issue-body: "Please approve the database rollback in **${{ inputs.environment }}** environment."
+
+      # Add rollback steps here when implemented

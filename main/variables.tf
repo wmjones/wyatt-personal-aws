@@ -153,3 +153,27 @@ variable "sns_alert_topic_arn" {
   type        = string
   default     = ""
 }
+
+variable "ignore_lambda_hash_changes" {
+  description = "Ignore Lambda source code hash changes (useful for drift detection)"
+  type        = bool
+  default     = false
+}
+
+variable "override_lambda_hash" {
+  description = "Override the computed hash for Python Lambda deployment package"
+  type        = string
+  default     = ""
+}
+
+variable "override_athena_hash" {
+  description = "Override the computed hash for Athena Lambda deployment package"
+  type        = string
+  default     = ""
+}
+
+variable "override_forecast_hash" {
+  description = "Override the computed hash for Forecast Sync Lambda deployment package"
+  type        = string
+  default     = ""
+}

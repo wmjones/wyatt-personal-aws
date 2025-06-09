@@ -84,6 +84,8 @@ class PostgresForecastService {
         filters
       }
     );
+
+    console.log(`Forecast data request received ${response.data.length} rows`);
     return response.data;
   }
 

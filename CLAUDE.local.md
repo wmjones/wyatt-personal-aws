@@ -3,7 +3,7 @@
 ## Project Directory Structure
 
 ```
-/workspaces/wyatt-personal-aws/
+/workspaces/wyatt-personal-aws-2/
    .devcontainer/          # Development container configuration
    ai_docs/                # Documentation and specifications
    main/                   # Terraform infrastructure code
@@ -13,9 +13,8 @@
    src/                    # Application source code
       frontend/
          nextjs-app/    # Next.js application
-         react-app/     # Legacy React application
       lambda/            # AWS Lambda functions
-   tasks/                  # Task Master project management
+   .taskmaster/            # Task Master data and configuration
 ```
 
 ## User Preferences
@@ -37,3 +36,11 @@
 - AWS backend services (Lambda, DynamoDB, Cognito)
 - Hybrid architecture: Vercel frontend + AWS backend
 - Task Master for project management
+
+## Shell Aliases
+
+- **Claude/Task**: `cc` (claude-code), `tm` (taskmaster), `tms` (status), `tmn` (next)
+- **Navigation**: `cdfr` (frontend), `cdtf` (terraform), `cdroot` (project root)
+- **Git**: `gs` (status), `gp` (pull), `gpu` (push), `gco` (checkout), `gcm` (commit -m)
+- **Dev**: `tf` (terraform), `tfa` (apply), `tfp` (plan), `dc` (docker compose), `nrd` (npm run dev)
+- **Features**: Auto-CD, command correction, case-insensitive completion, shared history
