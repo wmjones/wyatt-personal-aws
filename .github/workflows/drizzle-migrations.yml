@@ -5,11 +5,14 @@ name: Database Migrations (Drizzle)
 # - feature/bugfix/hotfix: Creates/uses Neon branch databases
 # - Ensures migrations run on the same database as app deployments
 #
-# Workflow execution order:
-# 1. Deployment workflow creates Neon branch and deploys to Vercel
-# 2. This workflow runs AFTER deployment completes (via workflow_run)
-# 3. Migrations run on the already-created database branch
-# 4. No race conditions since database is guaranteed to exist
+# Workflow execution triggers:
+# 1. Direct push to any branch (for immediate feedback during development)
+# 2. After deployment workflow completes (via workflow_run) for feature branches
+# 3. Manual trigger via workflow_dispatch
+#
+# For feature branches:
+# - Direct push: Creates/uses Neon branch immediately for testing
+# - After deployment: Ensures migrations are in sync with deployed app
 #
 # Note: The neondatabase/create-branch-action@v5 is idempotent -
 # it returns existing branch info if branch already exists
@@ -25,10 +28,14 @@ on:
       - 'bugfix/**'
       - 'hotfix/**'
   # For main/dev branches, run directly on push (they use persistent databases)
+  # For feature branches, also run directly for immediate feedback
   push:
     branches:
       - main
       - dev
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
       - 'src/frontend/nextjs-app/app/db/schema/**'
@@ -137,7 +144,10 @@ jobs:
       !cancelled() && (
         (github.event_name == 'push' && (
           github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/dev'
+          github.ref == 'refs/heads/dev' ||
+          startsWith(github.ref, 'refs/heads/feature/') ||
+          startsWith(github.ref, 'refs/heads/bugfix/') ||
+          startsWith(github.ref, 'refs/heads/hotfix/')
         )) ||
         (github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' && (
@@ -149,7 +159,7 @@ jobs:
       )
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && fromJSON('["preview"]')) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) }}
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && fromJSON('["preview"]')) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) || ((startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/bugfix/') || startsWith(github.ref, 'refs/heads/hotfix/')) && fromJSON('["preview"]')) }}
     environment: ${{ matrix.environment }}
     steps:
       - name: Checkout code
@@ -216,6 +226,8 @@ jobs:
           username: neondb_owner
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        # Note: This action is idempotent - if branch already exists from deployment
+        # workflow, it will return the existing branch info
 
       - name: Configure AWS credentials
         if: matrix.environment != 'preview'
