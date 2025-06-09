@@ -8,6 +8,8 @@ import CacheStatus from './components/CacheStatus';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
+import FloatingAdjustmentToolbar from './components/FloatingAdjustmentToolbar';
+import { FilterPillContainer, FilterDropdown } from './components/FilterPills';
 import { useInventoryItemOptions } from '@/app/hooks/useDropdownOptions';
 
 // Lazy load the heavy chart component
@@ -33,6 +35,11 @@ export default function DemandPlanningPage() {
 
   // Real-time adjustment state
   const [currentAdjustmentValue, setCurrentAdjustmentValue] = useState(0);
+
+  // Filter dropdown state
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [activeFilterType, setActiveFilterType] = useState<keyof FilterSelections | null>(null);
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
 
   // Use adjustment history hook for better state management
   const {
@@ -101,6 +108,38 @@ export default function DemandPlanningPage() {
 
   // Remove the manual loading as it's handled by the hook
 
+  // Handle filter pill interactions
+  const handleEditFilter = (filterType: keyof FilterSelections, event: React.MouseEvent<HTMLElement>) => {
+    setActiveFilterType(filterType);
+    setFilterAnchorEl(event.currentTarget);
+    setFilterDropdownOpen(true);
+  };
+
+  const handleRemoveFilter = (filterType: keyof FilterSelections, value?: string) => {
+    switch (filterType) {
+      case 'states':
+        if (value) {
+          setFilterSelections(prev => ({
+            ...prev,
+            states: prev.states.filter(s => s !== value)
+          }));
+        }
+        break;
+      case 'dmaIds':
+        setFilterSelections(prev => ({
+          ...prev,
+          dmaIds: []
+        }));
+        break;
+      case 'dcIds':
+        setFilterSelections(prev => ({
+          ...prev,
+          dcIds: []
+        }));
+        break;
+      // Note: inventoryItemId and dateRange are required and cannot be removed
+    }
+  };
 
   // Calculate available periods based on forecast data (removed - not used)
   // const availablePeriods = forecastData?.timePeriods || [];
@@ -115,8 +154,16 @@ export default function DemandPlanningPage() {
       currentAdjustmentValue={currentAdjustmentValue}
       onAdjustmentChange={handleAdjustmentChange}
       onSaveAdjustment={handleSaveAdjustment}
-      useIntegratedPanel={true}
+      useIntegratedPanel={false} // Disable integrated panel to use floating toolbar
     >
+      {/* Floating Adjustment Toolbar - shows when filters are selected */}
+      <FloatingAdjustmentToolbar
+        isVisible={activeTab === 'forecast' && !!filterSelections.inventoryItemId}
+        onAdjustmentChange={handleAdjustmentChange}
+        onSaveAdjustment={handleSaveAdjustment}
+        filterSelections={filterSelections}
+      />
+
       {/* Main content area based on active tab */}
       {activeTab === 'forecast' && (
         <div className="space-y-6">
@@ -124,6 +171,32 @@ export default function DemandPlanningPage() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Forecast Overview</h2>
           </div>
+
+          {/* Filter Pills */}
+          <FilterPillContainer
+            filterSelections={filterSelections}
+            forecastData={forecastData}
+            onRemoveFilter={handleRemoveFilter}
+            onEditFilter={(filterType) => {
+              // Create a synthetic event for the anchor element
+              const event = { currentTarget: document.activeElement } as React.MouseEvent<HTMLElement>;
+              handleEditFilter(filterType, event);
+            }}
+          />
+
+          {/* Filter Dropdown */}
+          <FilterDropdown
+            isOpen={filterDropdownOpen}
+            filterType={activeFilterType}
+            filterSelections={filterSelections}
+            onSelectionChange={setFilterSelections}
+            onClose={() => {
+              setFilterDropdownOpen(false);
+              setActiveFilterType(null);
+              setFilterAnchorEl(null);
+            }}
+            anchorEl={filterAnchorEl}
+          />
 
           {/* Chart Section */}
           <div className="forecast-chart bg-gray-50 rounded-lg shadow p-6">
