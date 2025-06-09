@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { animated, useSpring, config } from '@react-spring/web';
 import { FilterSelections } from '../FilterSidebar';
 import AdjustmentSlider from './AdjustmentSlider';
 import PresetButtons from './PresetButtons';
@@ -25,14 +26,38 @@ export default function FloatingAdjustmentToolbar({
   const [adjustmentValue, setAdjustmentValue] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Reset value when toolbar becomes invisible
   useEffect(() => {
     if (!isVisible) {
       setAdjustmentValue(0);
       onAdjustmentChange(0);
+    } else {
+      setIsInitialMount(false);
     }
   }, [isVisible, onAdjustmentChange]);
+
+  // Toolbar entrance animation
+  const toolbarSpring = useSpring({
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'translateX(-50%) translateY(0px)' : 'translateX(-50%) translateY(-20px)',
+    config: config.gentle,
+    immediate: isInitialMount
+  });
+
+  // Expand/collapse animation
+  const expandSpring = useSpring({
+    height: isExpanded ? 'auto' : '48px',
+    opacity: isExpanded ? 1 : 0.95,
+    config: { tension: 200, friction: 25 }
+  });
+
+  // Value change animation
+  const valueSpring = useSpring({
+    value: adjustmentValue,
+    config: { tension: 280, friction: 20 }
+  });
 
   const handleValueChange = (value: number) => {
     setAdjustmentValue(value);
@@ -57,10 +82,16 @@ export default function FloatingAdjustmentToolbar({
   if (!isVisible) return null;
 
   return (
-    <div
+    <animated.div
       className={`${styles.toolbar} ${className}`}
+      style={{
+        ...toolbarSpring,
+        ...expandSpring
+      }}
       role="toolbar"
-      aria-label="Adjustment toolbar"
+      aria-label="Forecast adjustment toolbar"
+      aria-live="polite"
+      aria-atomic="true"
     >
       {/* Collapsed state - minimal view */}
       {!isExpanded && (
@@ -68,6 +99,8 @@ export default function FloatingAdjustmentToolbar({
           onClick={() => setIsExpanded(true)}
           className={styles.expandButton}
           aria-label="Expand adjustment toolbar"
+          aria-expanded="false"
+          aria-controls="adjustment-controls"
         >
           <span className={styles.adjustmentLabel}>Adjust Forecast</span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -80,13 +113,18 @@ export default function FloatingAdjustmentToolbar({
       {isExpanded && (
         <>
           <div className={styles.toolbarHeader}>
-            <span className={styles.adjustmentValue}>
-              {adjustmentValue > 0 ? '+' : ''}{adjustmentValue}%
-            </span>
+            <animated.span className={styles.adjustmentValue}>
+              {valueSpring.value.to(val => {
+                const rounded = Math.round(val * 10) / 10;
+                return `${rounded > 0 ? '+' : ''}${rounded}%`;
+              })}
+            </animated.span>
             <button
               onClick={() => setIsExpanded(false)}
               className={styles.collapseButton}
-              aria-label="Collapse toolbar"
+              aria-label="Collapse adjustment toolbar"
+              aria-expanded="true"
+              aria-controls="adjustment-controls"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M4 10l4-4 4 4" />
@@ -94,7 +132,7 @@ export default function FloatingAdjustmentToolbar({
             </button>
           </div>
 
-          <div className={styles.controlsContainer}>
+          <div className={styles.controlsContainer} id="adjustment-controls" role="region" aria-label="Adjustment controls">
             <AdjustmentSlider
               value={adjustmentValue}
               onChange={handleValueChange}
@@ -116,6 +154,9 @@ export default function FloatingAdjustmentToolbar({
             onClick={handleSave}
             disabled={adjustmentValue === 0 || isSaving}
             className={styles.saveButton}
+            aria-label={isSaving ? 'Saving adjustment' : 'Save adjustment'}
+            aria-busy={isSaving}
+            aria-disabled={adjustmentValue === 0 || isSaving}
           >
             {isSaving ? (
               <>
@@ -128,6 +169,6 @@ export default function FloatingAdjustmentToolbar({
           </button>
         </>
       )}
-    </div>
+    </animated.div>
   );
 }

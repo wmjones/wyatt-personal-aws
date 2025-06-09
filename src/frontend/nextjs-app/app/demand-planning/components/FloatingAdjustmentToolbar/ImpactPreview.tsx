@@ -41,9 +41,18 @@ export default function ImpactPreview({
   if (!impactSummary) return null;
 
   return (
-    <div className={styles.impactPreview}>
-      <span className={styles.impactLabel}>Impact:</span>
-      <span className={styles.impactValue}>
+    <div
+      className={styles.impactPreview}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label="Adjustment impact preview"
+    >
+      <span className={styles.impactLabel} id="impact-label">Impact:</span>
+      <span
+        className={styles.impactValue}
+        aria-describedby="impact-label"
+      >
         {impactSummary.value > 0 ? '+' : ''}{impactSummary.value}% {impactSummary.direction} for {impactSummary.scope}
       </span>
     </div>

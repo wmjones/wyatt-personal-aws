@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { useTransition, animated, config } from '@react-spring/web';
 import FilterPill from './FilterPill';
 import { FilterSelections } from '../FilterSidebar';
 import { ForecastSeries } from '@/app/types/demand-planning';
@@ -90,16 +91,27 @@ const FilterPillContainer = memo(function FilterPillContainer({
     });
   }
 
+  // Animate pills in/out with staggered effect
+  const transitions = useTransition(pills, {
+    keys: pill => pill.id,
+    from: { opacity: 0, transform: 'scale(0.8)' },
+    enter: { opacity: 1, transform: 'scale(1)' },
+    leave: { opacity: 0, transform: 'scale(0.8)' },
+    trail: 35,
+    config: config.gentle
+  });
+
   return (
     <div className={`${styles.container} ${className}`}>
-      {pills.map(pill => (
-        <FilterPill
-          key={pill.id}
-          label={pill.label}
-          removable={pill.removable}
-          onRemove={() => onRemoveFilter(pill.type, pill.value)}
-          onEdit={() => onEditFilter(pill.type)}
-        />
+      {transitions((style, pill) => (
+        <animated.div key={pill.id} style={style}>
+          <FilterPill
+            label={pill.label}
+            removable={pill.removable}
+            onRemove={() => onRemoveFilter(pill.type, pill.value)}
+            onEdit={() => onEditFilter(pill.type)}
+          />
+        </animated.div>
       ))}
     </div>
   );

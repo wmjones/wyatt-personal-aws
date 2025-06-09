@@ -25,7 +25,6 @@ export default function AdjustmentSlider({
     onChange(clampedValue);
   }, [onChange]);
 
-
   return (
     <div className={styles.sliderContainer}>
       <input

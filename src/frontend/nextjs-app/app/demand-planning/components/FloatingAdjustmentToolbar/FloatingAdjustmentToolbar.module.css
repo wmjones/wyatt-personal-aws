@@ -252,6 +252,47 @@
   to { transform: rotate(360deg); }
 }
 
+/* Enhanced animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation classes */
+.toolbar.entering {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.saveButton:active:not(:disabled) {
+  animation: pulse 0.2s ease-out;
+}
+
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .toolbar {

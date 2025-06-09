@@ -18,13 +18,27 @@ const FilterPill = memo(function FilterPill({
   onEdit,
   className = ''
 }: FilterPillProps) {
+  const isRequired = !removable;
+
   return (
-    <button
-      onClick={onEdit}
+    <div
       className={`${styles.pill} ${className}`}
-      aria-label={`Edit filter: ${label}`}
+      role="group"
+      aria-label={`Filter: ${label}${isRequired ? ' (required)' : ''}`}
     >
-      <span className={styles.label}>{label}</span>
+      <button
+        onClick={onEdit}
+        className={styles.pillButton}
+        aria-label={`Edit filter: ${label}`}
+        aria-describedby={isRequired ? `${label}-required` : undefined}
+      >
+        <span className={styles.label}>{label}</span>
+      </button>
+      {isRequired && (
+        <span id={`${label}-required`} className="sr-only">
+          This filter is required and cannot be removed
+        </span>
+      )}
       {removable && onRemove && (
         <button
           onClick={(e) => {
@@ -33,8 +47,9 @@ const FilterPill = memo(function FilterPill({
           }}
           className={styles.removeButton}
           aria-label={`Remove filter: ${label}`}
+          title={`Remove ${label} filter`}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path
               d="M10 4L4 10M4 4L10 10"
               stroke="currentColor"
@@ -44,7 +59,7 @@ const FilterPill = memo(function FilterPill({
           </svg>
         </button>
       )}
-    </button>
+    </div>
   );
 });
 

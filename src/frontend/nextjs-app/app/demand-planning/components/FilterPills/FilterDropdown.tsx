@@ -179,6 +179,9 @@ export default function FilterDropdown({
     <div
       ref={dropdownRef}
       className={styles.dropdown}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Edit ${filterType} filter`}
       style={{
         position: 'fixed',
         top: position.top,
@@ -192,6 +195,7 @@ export default function FilterDropdown({
           <button
             onClick={onClose}
             className={styles.applyButton}
+            aria-label="Apply filter changes"
           >
             Apply
           </button>
