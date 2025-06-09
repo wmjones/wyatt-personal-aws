@@ -315,27 +315,7 @@ jobs:
             # Capture the error output for better diagnostics
             ERROR_OUTPUT=$(mktemp)
 
-            if node -e "
-              const { checkMigrationStatus } = require('./app/db/migrate');
-              checkMigrationStatus().then(status => {
-                console.log('Migration Status:', status);
-                process.exit(0);
-              }).catch(err => {
-                console.error('Error type:', err.code || 'Unknown');
-                console.error('Error message:', err.message);
-
-                // Different error messages for different issues
-                if (err.message.includes('does not exist') || err.message.includes('not found')) {
-                  console.error('Database/branch may not be ready yet');
-                } else if (err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT')) {
-                  console.error('Connection issue - database may still be initializing');
-                } else {
-                  console.error('Unexpected error - check credentials and configuration');
-                }
-
-                process.exit(1);
-              });
-            " 2>"$ERROR_OUTPUT"; then
+            if npx tsx scripts/check-migration-status.ts 2>"$ERROR_OUTPUT"; then
               echo "✅ Successfully connected to database"
               rm -f "$ERROR_OUTPUT"
               break
@@ -387,59 +367,10 @@ jobs:
           echo ""
 
           # Check current migration status
-          node -e "
-          const { checkMigrationStatus } = require('./app/db/migrate');
-
-          checkMigrationStatus().then(status => {
-            console.log('### Database Information');
-            console.log('- Environment: ${{ matrix.environment }}');
-            console.log('- Branch: ${{ steps.branch_name.outputs.current_branch }}');
-            if ('${{ matrix.environment }}' === 'preview') {
-              console.log('- Database Branch: branch/${{ steps.sanitize_branch.outputs.sanitized_branch }}');
-            }
-            console.log('');
-
-            console.log('### Migration Status');
-            console.log('- Has Drizzle migrations table: ' + (status.hasDrizzleMigrations ? '✅ Yes' : '❌ No'));
-            console.log('- Has legacy migrations table: ' + (status.hasLegacyMigrations ? '⚠️  Yes (consider cleanup)' : '✅ No'));
-            console.log('- Total migrations applied: ' + (status.migrationsCount || 0));
-            console.log('');
-
-            if (status.latestMigration) {
-              console.log('### Latest Migration');
-              console.log('- Name: ' + status.latestMigration.name);
-              console.log('- Applied at: ' + new Date(status.latestMigration.created_at).toISOString());
-            }
-
-            // Check for pending migrations
-            const fs = require('fs');
-            const path = require('path');
-            const migrationsDir = path.join(__dirname, 'drizzle');
-
-            if (fs.existsSync(migrationsDir)) {
-              const files = fs.readdirSync(migrationsDir)
-                .filter(f => f.endsWith('.sql'))
-                .sort();
-
-              console.log('');
-              console.log('### Migration Files');
-              console.log('- Total SQL files: ' + files.length);
-
-              if (status.appliedMigrations) {
-                const unapplied = files.filter(f => !status.appliedMigrations.includes(f));
-                if (unapplied.length > 0) {
-                  console.log('- ⚠️  Unapplied migrations: ' + unapplied.length);
-                  unapplied.forEach(f => console.log('  - ' + f));
-                } else {
-                  console.log('- ✅ All migrations are applied');
-                }
-              }
-            }
-          }).catch(err => {
-            console.error('❌ Failed to check migration status:', err.message);
-            process.exit(1);
-          });
-          "
+          MIGRATION_ENVIRONMENT="${{ matrix.environment }}" \
+          MIGRATION_BRANCH="${{ steps.branch_name.outputs.current_branch }}" \
+          MIGRATION_SANITIZED_BRANCH="${{ steps.sanitize_branch.outputs.sanitized_branch }}" \
+          npx tsx scripts/check-migration-status-detailed.ts
 
           echo ""
           echo "Use 'action: migrate' to apply any pending migrations."
@@ -449,16 +380,7 @@ jobs:
           DATABASE_URL: ${{ steps.get-credentials.outputs.database_url }}
         run: |
           cd src/frontend/nextjs-app
-          node -e "
-          const { checkMigrationStatus } = require('./app/db/migrate');
-          checkMigrationStatus().then(status => {
-            if (!status.hasDrizzleMigrations) {
-              console.error('❌ Migrations were not applied successfully');
-              process.exit(1);
-            }
-            console.log('✅ Migrations verified successfully');
-          });
-          "
+          npx tsx scripts/verify-migration-success.ts
 
       - name: Log migration info
         run: |

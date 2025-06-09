@@ -27,7 +27,10 @@
     "drizzle:cleanup-test": "npx tsx scripts/cleanup-test-migration.ts",
     "test:api": "npx tsx scripts/test-drizzle-api-routes.ts",
     "test:branch-db": "npx tsx scripts/test-branch-database.ts",
-    "cleanup:legacy": "npx tsx scripts/cleanup-legacy-postgres.ts"
+    "cleanup:legacy": "npx tsx scripts/cleanup-legacy-postgres.ts",
+    "drizzle:check-status": "npx tsx scripts/check-migration-status.ts",
+    "drizzle:check-status-detailed": "npx tsx scripts/check-migration-status-detailed.ts",
+    "drizzle:verify": "npx tsx scripts/verify-migration-success.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
