@@ -44,3 +44,22 @@
 - **Git**: `gs` (status), `gp` (pull), `gpu` (push), `gco` (checkout), `gcm` (commit -m)
 - **Dev**: `tf` (terraform), `tfa` (apply), `tfp` (plan), `dc` (docker compose), `nrd` (npm run dev)
 - **Features**: Auto-CD, command correction, case-insensitive completion, shared history
+
+## Feature Branch Documentation Workflow
+
+When working on feature branches, AI-generated documentation (architecture decisions, implementation guides, etc.) should be managed as follows:
+
+1. **Store temporarily in docs/tmp/**: All feature-specific documentation generated during development goes in the `docs/tmp/` directory
+2. **Excluded from git**: The tmp directory is gitignored to prevent cluttering the repository
+3. **Review on merge**: Before merging to dev, review all tmp docs and either:
+   - Delete if no longer relevant
+   - Integrate valuable content into permanent docs
+   - Move polished docs to appropriate category folders
+
+This keeps feature work organized while maintaining clean documentation.
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
