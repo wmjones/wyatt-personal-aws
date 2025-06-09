@@ -1,44 +1,35 @@
 name: Database Migrations (Drizzle)
 
 # This workflow handles database migrations for all branches:
-# - main/dev: Uses SSM parameters for production databases
-# - feature/bugfix/hotfix: Creates/uses Neon branch databases
-# - Ensures migrations run on the same database as app deployments
+# - main: Requires Terraform apply first (uses SSM parameters)
+# - dev: Requires Terraform apply first (uses SSM parameters)
+# - feature/bugfix/hotfix: Uses Neon branch creation (no Terraform needed)
 #
-# Workflow execution order:
-# 1. Deployment workflow creates Neon branch and deploys to Vercel
-# 2. This workflow runs AFTER deployment completes (via workflow_run)
-# 3. Migrations run on the already-created database branch
-# 4. No race conditions since database is guaranteed to exist
+# Workflow execution triggers:
+# 1. After deployment workflow completes for all branches
+# 2. Manual trigger via workflow_dispatch
+#
+# Infrastructure dependencies:
+# - main/prod: Requires SSM parameters from Terraform
+# - dev: Requires SSM parameters from Terraform
+# - feature branches: Uses Neon branch creation (no infrastructure needed)
 #
 # Note: The neondatabase/create-branch-action@v5 is idempotent -
 # it returns existing branch info if branch already exists
 
 on:
-  # For feature branches, wait for deployment to complete first
+  # For all branches, wait for deployment to complete first
   workflow_run:
     workflows: ["Deploy Next.js to Vercel with Branch-based Neon Setup"]
     types:
       - completed
     branches:
+      - main
+      - dev
       - 'feature/**'
       - 'bugfix/**'
       - 'hotfix/**'
-  # For main/dev branches, run directly on push (they use persistent databases)
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - 'src/frontend/nextjs-app/drizzle/**'
-      - 'src/frontend/nextjs-app/app/db/schema/**'
-      - 'src/frontend/nextjs-app/drizzle.config.ts'
-      - 'src/frontend/nextjs-app/scripts/drizzle-*.ts'
-      - 'src/frontend/nextjs-app/scripts/*-migration*.ts'
-      - 'src/frontend/nextjs-app/app/db/migrate.ts'
-      - 'src/frontend/nextjs-app/package.json'
-      - 'src/frontend/nextjs-app/package-lock.json'
-      - '.github/workflows/drizzle-migrations.yml'
+  # No direct push triggers - main/dev need Terraform, feature branches need deployment workflow
   pull_request:
     paths:
       - 'src/frontend/nextjs-app/drizzle/**'
@@ -135,21 +126,13 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       !cancelled() && (
-        (github.event_name == 'push' && (
-          github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/dev'
-        )) ||
         (github.event_name == 'workflow_run' &&
-          github.event.workflow_run.conclusion == 'success' && (
-          startsWith(github.event.workflow_run.head_branch, 'feature/') ||
-          startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
-          startsWith(github.event.workflow_run.head_branch, 'hotfix/')
-        )) ||
+          github.event.workflow_run.conclusion == 'success') ||
         github.event_name == 'workflow_dispatch'
       )
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && fromJSON('["preview"]')) || (github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.ref == 'refs/heads/dev' && fromJSON('["dev"]')) }}
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.environment)) || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main' && fromJSON('["prod"]')) || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'workflow_run' && (startsWith(github.event.workflow_run.head_branch, 'feature/') || startsWith(github.event.workflow_run.head_branch, 'bugfix/') || startsWith(github.event.workflow_run.head_branch, 'hotfix/')) && fromJSON('["preview"]')) }}
     environment: ${{ matrix.environment }}
     steps:
       - name: Checkout code
