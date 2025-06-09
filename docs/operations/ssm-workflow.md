@@ -1,13 +1,16 @@
-# SSM Parameter Management and Frontend Deployment Workflow
+# SSM Parameter Management Workflow
 
-This document describes the automated SSM parameter management system and robust frontend deployment workflow for the Wyatt Personal AWS project.
+**Last Updated**: 2025-01-06
+**Category**: Deployment & CI/CD
+**Status**: Current
+
+This document describes the automated SSM parameter management system for syncing Terraform outputs to AWS Systems Manager Parameter Store.
 
 ## Overview
 
-The new workflow consists of two main components:
+The SSM parameter management workflow automatically syncs Terraform outputs to AWS Systems Manager Parameter Store, making infrastructure configuration values available to applications and deployment pipelines.
 
-1. **SSM Parameter Management**: Automatically syncs Terraform outputs to AWS Systems Manager Parameter Store
-2. **Frontend Deployment**: Robust deployment script that reads SSM parameters and deploys with proper error handling and rollback capabilities
+> **Note**: The frontend is now deployed via Vercel. The previous S3/CloudFront deployment has been deprecated.
 
 ## SSM Parameter Management
 
@@ -27,8 +30,7 @@ module "ssm_parameters" {
     websocket_api_url    = module.websocket_api.websocket_url
     cognito_user_pool_id = module.cognito.user_pool_id
     cognito_client_id    = module.cognito.client_id
-    s3_static_bucket     = module.frontend.static_bucket_name
-    cloudfront_url       = module.frontend.cloudfront_distribution_url
+    # Frontend parameters are now managed in Vercel
   }
 }
 ```
@@ -54,50 +56,33 @@ Parameters follow a hierarchical naming convention:
 - `/{project}/{environment}/{parameter_name}`
 - Example: `/wyatt-personal-aws/dev/api_gateway_url`
 
-## Frontend Deployment
+## Integration with Vercel
 
-### Deployment Script
+While the frontend is now deployed through Vercel, the SSM parameters are still used for:
 
-The `deploy-frontend.sh` script provides a robust deployment solution:
+1. **Backend Configuration**: API Gateway URLs, Cognito settings
+2. **CI/CD Pipelines**: GitHub Actions workflows read parameters for testing and validation
+3. **Infrastructure Management**: Terraform state and configuration values
 
-```bash
-# Deploy with auto-detected environment
-./scripts/deploy-frontend.sh
+### Available Parameters
 
-# Deploy to specific environment
-./scripts/deploy-frontend.sh --env prod
+The following parameters are typically stored in SSM:
 
-# Deploy React app instead of Next.js
-./scripts/deploy-frontend.sh --env dev --app react
+- `/{project}/{environment}/api_gateway_url`: HTTP API endpoint
+- `/{project}/{environment}/websocket_api_url`: WebSocket API endpoint
+- `/{project}/{environment}/cognito_user_pool_id`: Cognito User Pool ID
+- `/{project}/{environment}/cognito_client_id`: Cognito App Client ID
 
-# Dry run
-./scripts/deploy-frontend.sh --env prod --dry-run
-```
+## Usage Examples
 
-### Features
-
-1. **Environment Detection**
-   - Automatically detects environment from Terraform workspace or Git branch
-   - Can be overridden with `--env` flag
-
-2. **SSM Parameter Integration**
-   - Fetches configuration from SSM Parameter Store
-   - Validates all required parameters exist
-   - Creates proper environment files (.env.production)
-
-3. **Rollback Capabilities**
-   - Creates deployment backups before each deployment
-   - Maintains rollback history (last 5 deployments)
-   - Easy rollback with deployment ID
-
-4. **Health Checks**
-   - Performs post-deployment health checks
-   - Suggests rollback command if health check fails
-
-### Rollback Operations
+### Reading Parameters
 
 ```bash
-# List available rollback points
+# Get a specific parameter
+aws ssm get-parameter --name "/wyatt-personal-aws/dev/api_gateway_url" --query 'Parameter.Value' --output text
+
+# List all parameters for an environment
+aws ssm get-parameters-by-path --path "/wyatt-personal-aws/dev" --recursive
 ./scripts/deploy-frontend.sh --list
 
 # Rollback to specific deployment
