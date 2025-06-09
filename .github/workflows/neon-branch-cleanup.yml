@@ -2,10 +2,12 @@ name: Neon Branch Cleanup
 
 # This workflow manages Neon database branch cleanup to prevent hitting branch limits
 # It runs on:
-# 1. PR close/merge - deletes preview branches
-# 2. Branch deletion - deletes corresponding Neon branches
-# 3. Schedule - weekly cleanup of old deployment branches
-# 4. Manual trigger - for on-demand cleanup
+# 1. PR close/merge - deletes preview branches (excludes main/dev)
+# 2. Branch deletion - deletes corresponding Neon branches (excludes main/dev)
+# 3. Schedule - weekly cleanup of old deployment branches (protects main/dev)
+# 4. Manual trigger - for on-demand cleanup (prevents deletion of main/dev)
+#
+# Protected branches: main, dev (and their Neon equivalents: branch/main, branch/dev)
 
 on:
   # Trigger on PR events
@@ -288,6 +290,7 @@ jobs:
           echo "📋 Cleaning orphaned preview and branch deployments..."
           echo "$BRANCHES" | jq -r --argjson cutoff "$SEVEN_DAYS_AGO" \
             '.[] | select(.name | test("^(preview/|branch/)")) |
+            select(.name != "branch/main" and .name != "branch/dev") |
             select((.created_at | fromdateiso8601) < $cutoff) | .name' | while read -r branch; do
             if [ ! -z "$branch" ]; then
               echo "🗑️ Deleting orphaned branch: $branch"
@@ -314,9 +317,10 @@ jobs:
 
           case "$CLEANUP_TYPE" in
             "all-preview")
-              echo "🧹 Cleaning up ALL preview and branch deployments..."
+              echo "🧹 Cleaning up ALL preview and branch deployments (excluding main/dev)..."
               neonctl branches list --project-id "$NEON_PROJECT_ID" --output json | \
-                jq -r '.[] | select(.name | test("^(preview/|branch/)")) | .name' | while read -r branch; do
+                jq -r '.[] | select(.name | test("^(preview/|branch/)")) |
+                select(.name != "branch/main" and .name != "branch/dev") | .name' | while read -r branch; do
                 if [ ! -z "$branch" ]; then
                   echo "🗑️ Deleting branch: $branch"
                   neonctl branches delete "$branch" --project-id "$NEON_PROJECT_ID" --force || true
@@ -327,6 +331,11 @@ jobs:
             "specific-branch")
               BRANCH_NAME="${{ github.event.inputs.branch_name }}"
               if [ ! -z "$BRANCH_NAME" ]; then
+                # Prevent deletion of protected branches
+                if [ "$BRANCH_NAME" = "branch/main" ] || [ "$BRANCH_NAME" = "branch/dev" ] || [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "dev" ]; then
+                  echo "❌ Cannot delete protected branch: $BRANCH_NAME"
+                  exit 1
+                fi
                 echo "🗑️ Deleting specific branch: $BRANCH_NAME"
                 neonctl branches delete "$BRANCH_NAME" --project-id "$NEON_PROJECT_ID" --force || \
                   echo "⚠️ Branch not found or already deleted"
