@@ -112,9 +112,9 @@ describe('AdjustmentHistory', () => {
       expect(screen.getByText('-3.2%')).toBeInTheDocument();
       expect(screen.getByText('+2.1%')).toBeInTheDocument();
 
-      // Check user attribution (there are multiple adjustments from Test User)
-      expect(screen.getAllByText('By: Test User (test@example.com)')).toHaveLength(2);
-      expect(screen.getByText('By: Other User (other@example.com)')).toBeInTheDocument();
+      // Check user attribution (updated format without email in main display)
+      expect(screen.getAllByText('By: Test User')).toHaveLength(2);
+      expect(screen.getByText('By: Other User')).toBeInTheDocument();
 
       // Check item names
       expect(screen.getByText(/Test Item/)).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe('AdjustmentHistory', () => {
 
       expect(screen.getByText('Show all users')).toBeInTheDocument();
       const toggleButton = screen.getByRole('button');
-      expect(toggleButton).toHaveClass('bg-blue-600'); // Active state
+      expect(toggleButton).toHaveClass('bg-dp-cfa-red'); // Active state
     });
 
     it('should call toggle handler when clicked', async () => {
@@ -192,7 +192,7 @@ describe('AdjustmentHistory', () => {
       );
 
       const toggleButton = screen.getByRole('button');
-      expect(toggleButton).toHaveClass('bg-gray-200'); // Inactive state
+      expect(toggleButton).toHaveClass('bg-dp-background-tertiary'); // Inactive state
     });
   });
 

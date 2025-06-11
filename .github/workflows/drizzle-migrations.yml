@@ -199,6 +199,8 @@ jobs:
           username: neondb_owner
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        # Note: This action is idempotent - if branch already exists from deployment
+        # workflow, it will return the existing branch info
 
       - name: Configure AWS credentials
         if: matrix.environment != 'preview'

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import MultiSelectFilter from './MultiSelectFilter';
 import SingleSelectFilter from './SingleSelectFilter';
 import DateRangeFilter from './DateRangeFilter';
+import SidebarAdjustmentPanel from './SidebarAdjustmentPanel';
 import {
   useStateOptions,
   useDMAOptions,
@@ -26,12 +27,19 @@ interface FilterSidebarProps {
   selections: FilterSelections;
   onSelectionChange: (selections: FilterSelections) => void;
   className?: string;
+  // Adjustment panel props
+  onAdjustmentChange?: (value: number) => void;
+  onSaveAdjustment?: (value: number, filterContext: FilterSelections) => Promise<void>;
+  showAdjustmentPanel?: boolean;
 }
 
 export default function FilterSidebar({
   selections,
   onSelectionChange,
-  className = ''
+  className = '',
+  onAdjustmentChange,
+  onSaveAdjustment,
+  showAdjustmentPanel = true
 }: FilterSidebarProps) {
   const [localSelections, setLocalSelections] = useState<FilterSelections>(selections);
 
@@ -111,13 +119,13 @@ export default function FilterSidebar({
   }
 
   return (
-    <aside className={`filter-sidebar w-64 bg-white shadow-md p-6 ${className}`}>
-      <h2 className="text-lg font-semibold mb-6">Filters</h2>
+    <aside className={`filter-sidebar bg-[#FAFAFA] p-dp-lg ${className}`}>
+      <h2 className="text-heading font-semibold mb-dp-lg">Filters</h2>
 
-      <div className="space-y-6">
+      <div className="flex flex-col gap-dp-md">
         {/* Inventory Item Selection */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Inventory Item</h3>
+        <div className="flex flex-col gap-dp-xs">
+          <h3 className="text-caption font-medium text-dp-text-secondary">Inventory Item</h3>
           <SingleSelectFilter
             title=""
             options={inventoryOptions}
@@ -129,8 +137,8 @@ export default function FilterSidebar({
         </div>
 
         {/* State Selection */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">States</h3>
+        <div className="flex flex-col gap-dp-xs">
+          <h3 className="text-caption font-medium text-dp-text-secondary">States</h3>
           <MultiSelectFilter
             title=""
             options={stateOptions}
@@ -141,8 +149,8 @@ export default function FilterSidebar({
         </div>
 
         {/* DMA Selection */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">DMAs</h3>
+        <div className="flex flex-col gap-dp-xs">
+          <h3 className="text-caption font-medium text-dp-text-secondary">DMAs</h3>
           <MultiSelectFilter
             title=""
             options={dmaOptions}
@@ -153,8 +161,8 @@ export default function FilterSidebar({
         </div>
 
         {/* DC Selection */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Distribution Centers</h3>
+        <div className="flex flex-col gap-dp-xs">
+          <h3 className="text-caption font-medium text-dp-text-secondary">Distribution Centers</h3>
           <MultiSelectFilter
             title=""
             options={dcOptions}
@@ -165,8 +173,8 @@ export default function FilterSidebar({
         </div>
 
         {/* Date Range Filter */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Date Range</h3>
+        <div className="flex flex-col gap-dp-xs">
+          <h3 className="text-caption font-medium text-dp-text-secondary">Date Range</h3>
           <DateRangeFilter
             value={{
               startDate: localSelections.dateRange?.startDate ? new Date(localSelections.dateRange.startDate) : null,
@@ -190,8 +198,22 @@ export default function FilterSidebar({
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="mt-4 text-sm text-gray-500">
+        <div className="mt-dp-md text-caption text-dp-text-tertiary">
           Loading filter options...
+        </div>
+      )}
+
+      {/* Adjustment Panel */}
+      {showAdjustmentPanel && onAdjustmentChange && onSaveAdjustment && (
+        <div className="mt-dp-lg">
+          <SidebarAdjustmentPanel
+            filterSelections={localSelections}
+            onAdjustmentChange={onAdjustmentChange}
+            onSaveAdjustment={onSaveAdjustment}
+            inventoryItemName={
+              inventoryOptions.find(opt => opt.value === localSelections.inventoryItemId)?.label
+            }
+          />
         </div>
       )}
     </aside>

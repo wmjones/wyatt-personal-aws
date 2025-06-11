@@ -75,13 +75,13 @@ export const SingleSelectDropdown: React.FC<SingleSelectDropdownProps> = ({
           <button
             {...getTriggerProps()}
             className={cn(
-              'w-full px-3 py-2 text-left',
-              'border border-dp-frame-border rounded-md',
+              'w-full h-10 px-3 text-left text-body',
+              'border border-dp-frame-border rounded-sm',
               'bg-white text-dp-text-primary',
-              'hover:border-dp-frame-border focus:outline-none',
+              'hover:bg-[#F9FAFB] hover:border-dp-border-medium focus:outline-none',
               'focus:ring-2 focus:ring-dp-cfa-red focus:border-dp-cfa-red',
               'disabled:opacity-50 disabled:cursor-not-allowed',
-              'transition-all duration-200',
+              'transition-all duration-150',
               'flex items-center justify-between',
               error && 'border-red-500'
             )}
