@@ -74,14 +74,14 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           <button
             {...getTriggerProps()}
             className={cn(
-              'w-full px-3 py-2 text-left',
-              'border border-dp-frame-border rounded-md',
+              'w-full px-3 py-2 text-left text-body',
+              'border border-dp-frame-border rounded-sm',
               'bg-white text-dp-text-primary',
-              'hover:border-dp-frame-border focus:outline-none',
+              'hover:bg-[#F9FAFB] hover:border-dp-border-medium focus:outline-none',
               'focus:ring-2 focus:ring-dp-cfa-red focus:border-dp-cfa-red',
               'disabled:opacity-50 disabled:cursor-not-allowed',
-              'transition-all duration-200',
-              'min-h-[42px]',
+              'transition-all duration-150',
+              'min-h-[40px]',
               error && 'border-red-500'
             )}
           >

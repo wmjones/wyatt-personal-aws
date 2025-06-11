@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/* Typography system */
+:root {
+  /* Font families */
+  --font-primary: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'SF Mono', Consolas, Monaco, monospace;
+
+  /* Font sizes and line heights */
+  --text-display: 2rem; /* 32px */
+  --text-heading: 1.25rem; /* 20px */
+  --text-body: 0.875rem; /* 14px */
+  --text-caption: 0.75rem; /* 12px */
+  --text-micro: 0.6875rem; /* 11px */
+
+  /* Line heights */
+  --leading-display: 2.5rem; /* 40px */
+  --leading-heading: 1.75rem; /* 28px */
+  --leading-body: 1.25rem; /* 20px */
+  --leading-caption: 1rem; /* 16px */
+  --leading-micro: 0.875rem; /* 14px */
+}
+
 /* Single theme mode - using colors from colors.md */
 :root {
   /* Base colors from colors.md */
@@ -39,10 +60,11 @@
   --dp-surface-secondary: #FFFFFF;
   --dp-chart-background: #FFFFFF;
   --dp-frame-border: #EEEDEB;
-  --dp-header-height: 100px;
+  --dp-header-height: 64px;
   --dp-tab-height: 48px;
-  --dp-sidebar-width: 340px;
+  --dp-sidebar-width: 320px;
   --dp-footer-height: 60px;
+  --dp-history-feed-height: 240px;
 
   /* Enhanced design principles variables */
   --dp-cfa-red: #e83b45;
@@ -104,20 +126,21 @@
   --color-error: var(--error);
   --color-success: var(--success);
 
-  /* Spacing */
+  /* Spacing - 8px base unit system */
   --spacing-0: 0px;
-  --spacing-1: 0.25rem;
-  --spacing-2: 0.5rem;
-  --spacing-3: 0.75rem;
-  --spacing-4: 1rem;
-  --spacing-5: 1.25rem;
-  --spacing-6: 1.5rem;
-  --spacing-8: 2rem;
-  --spacing-10: 2.5rem;
-  --spacing-12: 3rem;
-  --spacing-16: 4rem;
-  --spacing-20: 5rem;
-  --spacing-24: 6rem;
+  --spacing-xs: 4px;    /* Internal component spacing */
+  --spacing-1: 8px;     /* Related elements */
+  --spacing-2: 16px;    /* Component padding */
+  --spacing-3: 24px;    /* Section spacing */
+  --spacing-4: 32px;    /* Major sections */
+  --spacing-5: 40px;
+  --spacing-6: 48px;    /* Page-level spacing */
+  --spacing-8: 64px;
+  --spacing-10: 80px;
+  --spacing-12: 96px;
+  --spacing-16: 128px;
+  --spacing-20: 160px;
+  --spacing-24: 192px;
 
   /* Border radius */
   --radius-none: 0px;
@@ -130,8 +153,8 @@
   --radius-full: 9999px;
 
   /* Fonts */
-  --font-sans: var(--font-geist-sans, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-  --font-mono: var(--font-geist-mono, 'Menlo', 'Monaco', 'Lucida Console', monospace);
+  --font-sans: var(--font-inter, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-mono: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
 
   /* Font sizes */
   --font-size-xs: 0.75rem;
@@ -504,4 +527,156 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* ========================================
+   TYPOGRAPHY SYSTEM
+   ======================================== */
+
+/* Global typography styles */
+html {
+  font-family: var(--font-sans);
+  font-size: 16px; /* Base font size for rem calculations */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: 400;
+  color: var(--dp-text-primary);
+}
+
+/* Heading styles */
+h1, .text-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  font-weight: 700;
+}
+
+h2, .text-heading {
+  font-size: var(--text-heading);
+  line-height: var(--leading-heading);
+  font-weight: 600;
+}
+
+h3, h4, h5, h6 {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: 600;
+}
+
+/* Typography utility classes */
+.text-body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.text-caption {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}
+
+.text-micro {
+  font-size: var(--text-micro);
+  line-height: var(--leading-micro);
+  font-weight: 500;
+}
+
+/* Font weight utilities */
+.font-regular {
+  font-weight: 400;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* Monospace for data values */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ========================================
+   SPACING SYSTEM
+   ======================================== */
+
+/* Spacing utility classes for common patterns */
+.space-component {
+  padding: var(--spacing-2); /* 16px component padding */
+}
+
+.space-section {
+  padding: var(--spacing-3); /* 24px section spacing */
+}
+
+.space-page {
+  padding: var(--spacing-4); /* 32px major sections */
+}
+
+/* Gap utilities for flex/grid */
+.gap-xs {
+  gap: var(--spacing-xs); /* 4px */
+}
+
+.gap-sm {
+  gap: var(--spacing-1); /* 8px */
+}
+
+.gap-md {
+  gap: var(--spacing-2); /* 16px */
+}
+
+.gap-lg {
+  gap: var(--spacing-3); /* 24px */
+}
+
+.gap-xl {
+  gap: var(--spacing-4); /* 32px */
+}
+
+/* Component-specific spacing patterns */
+.card-padding {
+  padding: var(--spacing-3); /* 24px */
+}
+
+.button-padding {
+  padding: var(--spacing-1) var(--spacing-2); /* 8px 16px */
+}
+
+.input-padding {
+  padding: var(--spacing-1) var(--spacing-2); /* 8px 16px */
+}
+
+.modal-padding {
+  padding: var(--spacing-4); /* 32px */
+}
+
+.section-margin {
+  margin-bottom: var(--spacing-4); /* 32px between sections */
+}
+
+/* Animations for desktop interactions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
 }

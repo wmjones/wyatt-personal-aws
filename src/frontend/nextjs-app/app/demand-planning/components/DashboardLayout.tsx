@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import DemandPlanningHeader from './DemandPlanningHeader';
 import FilterSidebar, { FilterSelections } from './FilterSidebar';
 import IntegratedControlPanel from './IntegratedControlPanel';
@@ -22,6 +22,7 @@ interface DashboardLayoutProps {
   onAdjustmentChange?: (adjustmentValue: number) => void;
   onSaveAdjustment?: (adjustmentValue: number, filterContext: FilterSelections) => Promise<void>;
   useIntegratedPanel?: boolean; // Flag to enable new integrated panel
+  historyFeedContent?: React.ReactNode; // Content for the history feed area
 }
 
 const DashboardLayout = memo(function DashboardLayout({
@@ -34,20 +35,15 @@ const DashboardLayout = memo(function DashboardLayout({
   currentAdjustmentValue = 0,
   onAdjustmentChange,
   onSaveAdjustment,
-  useIntegratedPanel = true // Default to true to use the new integrated panel
+  useIntegratedPanel = true, // Default to true to use the new integrated panel
+  historyFeedContent
 }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
   const handleFilterSelectionChange = useCallback((selections: FilterSelections) => {
     // Pass the selections up to the parent component if the callback is provided
     if (onFilterSelectionChange) {
       onFilterSelectionChange(selections);
     }
   }, [onFilterSelectionChange]);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen(!sidebarOpen);
-  }, [sidebarOpen]);
 
   // Mock refresh data function that would be implemented in a real application
   const refreshData = async () => {
@@ -59,53 +55,18 @@ const DashboardLayout = memo(function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-dp-background-primary">
+    <div className="min-h-screen min-w-[1280px] flex flex-col bg-dp-background-primary">
+      {/* Header Bar - Fixed 64px height */}
       <DemandPlanningHeader
         refreshData={refreshData}
         activeTab={activeTab}
         onTabChange={onTabChange}
       />
 
-      <div className="flex flex-1">
-        {/* Mobile sidebar toggle */}
-        <div className="md:hidden fixed bottom-4 left-4 z-10">
-          <button
-            onClick={toggleSidebar}
-            className="dp-btn dp-btn-primary h-12 w-12 rounded-full flex items-center justify-center"
-            aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              className="h-6 w-6"
-            >
-              {sidebarOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
-
-        {/* Sidebar */}
-        <div
-          className={`fixed md:relative z-20 md:z-auto w-[var(--dp-sidebar-width)] h-[calc(100vh-var(--dp-header-height))] transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-        >
+      {/* Main Layout Grid - Desktop only */}
+      <div className="flex-1 grid grid-cols-[var(--dp-sidebar-width)_1fr] grid-rows-[1fr_var(--dp-history-feed-height)] h-[calc(100vh-var(--dp-header-height))]">
+        {/* Sidebar - Fixed 320px width */}
+        <div className="row-span-1 bg-dp-surface-secondary border-r border-dp-frame-border overflow-y-auto">
           {useIntegratedPanel && onAdjustmentChange && onSaveAdjustment ? (
             <ErrorBoundary
               resetKeys={[
@@ -136,27 +97,24 @@ const DashboardLayout = memo(function DashboardLayout({
               <FilterSidebar
                 selections={filterSelections}
                 onSelectionChange={handleFilterSelectionChange}
+                onAdjustmentChange={onAdjustmentChange}
+                onSaveAdjustment={onSaveAdjustment}
+                showAdjustmentPanel={true}
               />
             </ErrorBoundary>
           )}
         </div>
 
-        {/* Backdrop for mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {/* Main Content Area - Fluid width */}
+        <main className="bg-dp-background-primary p-8 overflow-auto">
+          {children}
+        </main>
 
-        {/* Main content */}
-        <div className={`flex-1 flex flex-col ${sidebarOpen ? 'md:ml-[var(--dp-sidebar-width)]' : ''}`}>
-          <main className="flex-1 px-6 py-5 overflow-auto bg-dp-background-primary">
-            {children}
-          </main>
+        {/* History Feed - Fixed 240px height, spans full width */}
+        <div className="col-span-2 bg-dp-background-secondary border-t border-dp-frame-border p-6 overflow-x-auto">
+          {historyFeedContent}
         </div>
       </div>
-
     </div>
   );
 });

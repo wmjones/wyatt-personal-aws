@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from 'react';
 import { ForecastSeries } from '@/app/types/demand-planning';
-import TimeSeriesChart from './charts/TimeSeriesChart';
+import TimeSeriesChartWithTransitions from './charts/TimeSeriesChartWithTransitions';
 // ComparisonChart is imported but not used yet
 // import ComparisonChart from './charts/ComparisonChart';
 import ResponsiveChartWrapper from './charts/ResponsiveChartWrapper';
@@ -72,18 +72,18 @@ const ForecastCharts = memo(function ForecastCharts({
 
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg shadow-dp-medium ${className}`}>
+    <div className={`bg-white border border-dp-frame-border rounded-lg shadow-dp-medium ${className}`}>
 
 
       {/* Chart display */}
-      <div className="p-4">
+      <div>
         <ResponsiveChartWrapper aspectRatio={2.75}>
           {(width, height) => {
             console.log('ForecastCharts - Passing to TimeSeriesChart:');
             console.log('- Baseline data points:', filteredBaselineData.length);
             console.log('- Adjusted data points:', filteredAdjustedData.length);
             return (
-              <TimeSeriesChart
+              <TimeSeriesChartWithTransitions
                 width={width}
                 height={height}
                 baselineData={filteredBaselineData}

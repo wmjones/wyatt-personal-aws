@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FilterSelections } from './FilterSidebar';
 import { formatFilterContext } from '../lib/adjustment-utils';
+import AdjustmentContextMenu from './AdjustmentContextMenu';
 
 interface AdjustmentEntry {
   id: string;
@@ -42,6 +43,15 @@ export default function AdjustmentHistory({
   onToggleShowAllUsers
 }: AdjustmentHistoryProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    entry: AdjustmentEntry | null;
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    entry: null
+  });
 
   // Format timestamp
   const formatTimestamp = (timestamp: string) => {
@@ -78,16 +88,30 @@ export default function AdjustmentHistory({
     }
   };
 
+  // Handle context menu
+  const handleContextMenu = (e: React.MouseEvent, entry: AdjustmentEntry) => {
+    e.preventDefault();
+    setContextMenu({
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+      entry
+    });
+  };
+
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Adjustments</h3>
-        <div className="flex items-center justify-center py-8">
-          <svg className="animate-spin h-8 w-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span className="ml-2 text-gray-500">Loading adjustment history...</span>
+      <div className="h-full flex flex-col bg-white border-t border-dp-frame-border">
+        <div className="flex justify-between items-center px-6 py-3 border-b border-dp-frame-border flex-shrink-0">
+          <h3 className="text-heading font-semibold text-dp-text-primary">Recent Adjustments</h3>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <svg className="animate-spin h-6 w-6 text-dp-text-tertiary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-body text-dp-text-tertiary">Loading adjustment history...</span>
+          </div>
         </div>
       </div>
     );
@@ -95,31 +119,35 @@ export default function AdjustmentHistory({
 
   if (entries.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Adjustments</h3>
-        <div className="text-gray-500 text-center py-8">
-          No adjustments have been made yet.
+      <div className="h-full flex flex-col bg-white border-t border-dp-frame-border">
+        <div className="flex justify-between items-center px-6 py-3 border-b border-dp-frame-border flex-shrink-0">
+          <h3 className="text-heading font-semibold text-dp-text-primary">Recent Adjustments</h3>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-body text-dp-text-tertiary">
+            No adjustments have been made yet.
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Recent Adjustments</h3>
+    <div className="h-full flex flex-col bg-white border-t border-dp-frame-border">
+      <div className="flex justify-between items-center px-6 py-3 border-b border-dp-frame-border flex-shrink-0">
+        <h3 className="text-heading font-semibold text-dp-text-primary">Recent Adjustments</h3>
         {onToggleShowAllUsers && (
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Show all users</span>
+          <div className="flex items-center gap-2">
+            <span className="text-caption text-dp-text-tertiary">Show all users</span>
             <button
               onClick={() => onToggleShowAllUsers(!showAllUsers)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                showAllUsers ? 'bg-blue-600' : 'bg-gray-200'
+              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                showAllUsers ? 'bg-dp-cfa-red' : 'bg-dp-background-tertiary'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  showAllUsers ? 'translate-x-6' : 'translate-x-1'
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  showAllUsers ? 'translate-x-5' : 'translate-x-1'
                 }`}
               />
             </button>
@@ -127,96 +155,150 @@ export default function AdjustmentHistory({
         )}
       </div>
 
-      <div className="space-y-3">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className={`border rounded-md p-4 transition-colors ${
-              entry.isActive !== false
-                ? 'border-gray-200 hover:bg-gray-50'
-                : 'border-gray-300 bg-gray-100 opacity-60'
-            }`}
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    entry.adjustmentValue > 0
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {entry.adjustmentValue > 0 ? '+' : ''}{entry.adjustmentValue}%
-                </span>
-                <span className="text-sm text-gray-600">
-                  {formatFilterContext(entry.filterContext, entry.inventoryItemName)}
-                </span>
-                {entry.isActive === false && (
-                  <span className="text-xs text-gray-500 italic">(Inactive)</span>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs text-gray-500">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-4">
+        <div className="flex gap-4 h-full">
+          {entries.map((entry) => (
+            <div
+              key={entry.id}
+              className={`flex-shrink-0 w-80 border rounded-sm p-4 transition-all cursor-pointer ${
+                entry.isActive !== false
+                  ? 'border-dp-frame-border bg-white hover:border-dp-border-medium hover:shadow-dp-light'
+                  : 'border-dp-frame-border bg-dp-background-secondary opacity-60'
+              }`}
+              onContextMenu={(e) => handleContextMenu(e, entry)}
+            >
+            <div className="flex flex-col h-full">
+              {/* Header with adjustment value and timestamp */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center px-2 py-1 rounded-sm text-caption font-medium ${
+                      entry.adjustmentValue > 0
+                        ? 'bg-dp-status-success-bg text-dp-status-success'
+                        : 'bg-dp-status-error-bg text-dp-status-error'
+                    }`}
+                  >
+                    {entry.adjustmentValue > 0 ? '+' : ''}{entry.adjustmentValue}%
+                  </span>
+                  {entry.isActive === false && (
+                    <span className="text-micro text-dp-text-tertiary italic">(Inactive)</span>
+                  )}
+                </div>
+                <span className="text-micro text-dp-text-tertiary">
                   {formatTimestamp(entry.timestamp)}
                 </span>
               </div>
-            </div>
 
-            {/* User info and period info */}
-            <div className="flex justify-between items-end">
-              <div className="space-y-1">
-                {/* Period info if available */}
-                {entry.filterContext.dateRange.startDate && entry.filterContext.dateRange.endDate && (
-                  <div className="text-xs text-gray-500">
-                    Period: {entry.filterContext.dateRange.startDate} to {entry.filterContext.dateRange.endDate}
-                  </div>
-                )}
-                {/* Time window indicator if adjustment has specific date range */}
-                {(entry.adjustmentStartDate || entry.filterContext.adjustmentDateRange?.startDate) && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-yellow-700 font-medium">
-                      Time window: {entry.adjustmentStartDate || entry.filterContext.adjustmentDateRange?.startDate} to {entry.adjustmentEndDate || entry.filterContext.adjustmentDateRange?.endDate}
-                    </span>
-                  </div>
-                )}
-                {/* User info */}
-                {entry.userName && (
-                  <div className="text-xs text-gray-500">
-                    By: {entry.userName} {entry.userEmail && `(${entry.userEmail})`}
-                  </div>
-                )}
+              {/* Filter context */}
+              <div className="text-body text-dp-text-secondary mb-3 line-clamp-2">
+                {formatFilterContext(entry.filterContext, entry.inventoryItemName)}
               </div>
 
-              {/* Actions for own adjustments */}
-              {entry.isOwn && (onToggleActive || onDelete) && (
-                <div className="flex items-center space-x-2">
-                  {onToggleActive && (
-                    <button
-                      onClick={() => handleToggleActive(entry)}
-                      disabled={actionLoading === entry.id}
-                      className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                    >
-                      {actionLoading === entry.id ? 'Loading...' : (entry.isActive !== false ? 'Deactivate' : 'Activate')}
-                    </button>
+              {/* Footer with user info and actions */}
+              <div className="mt-auto">
+                {/* Period and time window info */}
+                <div className="space-y-1 mb-3">
+                  {entry.filterContext.dateRange.startDate && entry.filterContext.dateRange.endDate && (
+                    <div className="text-micro text-dp-text-tertiary">
+                      Period: {entry.filterContext.dateRange.startDate} to {entry.filterContext.dateRange.endDate}
+                    </div>
                   )}
-                  {onDelete && (
-                    <button
-                      onClick={() => handleDelete(entry)}
-                      disabled={actionLoading === entry.id}
-                      className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
+                  {(entry.adjustmentStartDate || entry.filterContext.adjustmentDateRange?.startDate) && (
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3 text-dp-status-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-micro text-dp-status-warning font-medium">
+                        Window: {entry.adjustmentStartDate || entry.filterContext.adjustmentDateRange?.startDate} to {entry.adjustmentEndDate || entry.filterContext.adjustmentDateRange?.endDate}
+                      </span>
+                    </div>
                   )}
                 </div>
-              )}
+
+                {/* User info and actions row */}
+                <div className="flex justify-between items-end">
+                  {entry.userName && (
+                    <div className="text-micro text-dp-text-tertiary truncate mr-2">
+                      By: {entry.userName}
+                    </div>
+                  )}
+
+                  {/* Actions for own adjustments */}
+                  {entry.isOwn && (onToggleActive || onDelete) && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {onToggleActive && (
+                        <button
+                          onClick={() => handleToggleActive(entry)}
+                          disabled={actionLoading === entry.id}
+                          className="text-micro text-dp-cfa-red hover:text-dp-cfa-red-primary disabled:opacity-50 font-medium"
+                        >
+                          {actionLoading === entry.id ? 'Loading...' : (entry.isActive !== false ? 'Deactivate' : 'Activate')}
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          onClick={() => handleDelete(entry)}
+                          disabled={actionLoading === entry.id}
+                          className="text-micro text-dp-status-error hover:text-red-700 disabled:opacity-50 font-medium"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ))}
+        </div>
       </div>
+
+      {/* Context Menu */}
+      <AdjustmentContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        onClose={() => setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, entry: null })}
+        items={
+          contextMenu.entry ? [
+            {
+              label: 'Copy adjustment details',
+              action: () => {
+                if (contextMenu.entry) {
+                  const details = `${contextMenu.entry.adjustmentValue}% adjustment - ${formatFilterContext(contextMenu.entry.filterContext, contextMenu.entry.inventoryItemName)}`;
+                  navigator.clipboard.writeText(details);
+                }
+              },
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+              )
+            },
+            ...(contextMenu.entry.isOwn && onToggleActive ? [{
+              label: contextMenu.entry.isActive !== false ? 'Deactivate' : 'Activate',
+              action: () => contextMenu.entry && handleToggleActive(contextMenu.entry),
+              disabled: actionLoading === contextMenu.entry.id,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={contextMenu.entry.isActive !== false ? "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"} />
+                </svg>
+              )
+            }] : []),
+            ...(contextMenu.entry.isOwn && onDelete ? [{
+              label: 'Delete',
+              action: () => contextMenu.entry && handleDelete(contextMenu.entry),
+              disabled: actionLoading === contextMenu.entry.id,
+              variant: 'danger' as const,
+              icon: (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              )
+            }] : [])
+          ] : []
+        }
+      />
     </div>
   );
 }

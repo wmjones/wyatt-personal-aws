@@ -8,7 +8,7 @@ import CacheStatus from './components/CacheStatus';
 import AdjustmentHistory from './components/AdjustmentHistory';
 import useAdjustmentHistory from './hooks/useAdjustmentHistory';
 import AdjustmentDebugPanel from './components/AdjustmentDebugPanel';
-import FloatingAdjustmentToolbar from './components/FloatingAdjustmentToolbar';
+// import FloatingAdjustmentToolbar from './components/FloatingAdjustmentToolbar';
 import { FilterPillContainer, FilterDropdown } from './components/FilterPills';
 import { useInventoryItemOptions } from '@/app/hooks/useDropdownOptions';
 
@@ -155,14 +155,26 @@ export default function DemandPlanningPage() {
       onAdjustmentChange={handleAdjustmentChange}
       onSaveAdjustment={handleSaveAdjustment}
       useIntegratedPanel={false} // Disable integrated panel to use floating toolbar
+      historyFeedContent={
+        activeTab === 'forecast' ? (
+          <AdjustmentHistory
+            entries={adjustmentHistory}
+            isLoading={isLoadingHistory}
+            onToggleActive={toggleAdjustmentActive}
+            onDelete={deleteAdjustment}
+            showAllUsers={showAllUsers}
+            onToggleShowAllUsers={setShowAllUsers}
+          />
+        ) : null
+      }
     >
-      {/* Floating Adjustment Toolbar - shows when filters are selected */}
-      <FloatingAdjustmentToolbar
+      {/* Floating Adjustment Toolbar - disabled in favor of sidebar integration */}
+      {/* <FloatingAdjustmentToolbar
         isVisible={activeTab === 'forecast' && !!filterSelections.inventoryItemId}
         onAdjustmentChange={handleAdjustmentChange}
         onSaveAdjustment={handleSaveAdjustment}
         filterSelections={filterSelections}
-      />
+      /> */}
 
       {/* Main content area based on active tab */}
       {activeTab === 'forecast' && (
@@ -227,39 +239,20 @@ export default function DemandPlanningPage() {
           </div>
 
 
-          {/* Adjustment History */}
+          {/* Adjustment History Error (if any) */}
           {historyError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
               Error loading adjustment history: {historyError}
             </div>
           )}
-          <AdjustmentHistory
-            entries={adjustmentHistory}
-            isLoading={isLoadingHistory}
-            onToggleActive={toggleAdjustmentActive}
-            onDelete={deleteAdjustment}
-            showAllUsers={showAllUsers}
-            onToggleShowAllUsers={setShowAllUsers}
-          />
         </div>
       )}
 
       {activeTab === 'history' && (
-        <>
-          {historyError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-              Error loading adjustment history: {historyError}
-            </div>
-          )}
-          <AdjustmentHistory
-            entries={adjustmentHistory}
-            isLoading={isLoadingHistory}
-            onToggleActive={toggleAdjustmentActive}
-            onDelete={deleteAdjustment}
-            showAllUsers={showAllUsers}
-            onToggleShowAllUsers={setShowAllUsers}
-          />
-        </>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">History View</h2>
+          <p className="text-gray-600">The adjustment history is now displayed in the bottom feed area.</p>
+        </div>
       )}
 
       {activeTab === 'settings' && (
