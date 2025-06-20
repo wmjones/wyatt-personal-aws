@@ -1,6 +1,10 @@
 # Testing the Automated SSM Workflow
 
-This document outlines how to test the new automated SSM parameters workflow that runs after Terraform apply.
+**Last Updated**: 2025-01-06
+**Category**: Testing & Quality
+**Status**: Current
+
+This document outlines how to test the automated SSM parameters workflow that runs after Terraform apply.
 
 ## Overview
 

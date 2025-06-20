@@ -97,6 +97,10 @@ node_modules/
 .DS_Store
 # Task files
 tasks.json
+
+# Temporary feature branch documentation
+docs/tmp/
+!docs/tmp/.gitkeep
 tasks/
 tasks_old/
 **/.claude/settings.local.json

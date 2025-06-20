@@ -1,23 +1,27 @@
 # Deployment Workflow Checklist
 
+**Last Updated**: 2025-01-06
+**Category**: Deployment & CI/CD
+**Status**: Current
+
 ## Pre-Testing Checklist
 
-- [ ] ✅ **OIDC Role exists**: `github-actions-oidc-role-dev`
+- [ ] ✅ **OIDC Role exists**: `github-actions-role`
 - [ ] ✅ **GitHub Secret set**: `AWS_ACCOUNT_ID = 761551243560`
-- [ ] ✅ **Branch pushed**: `feature/automated-ssm-after-terraform`
+- [ ] ✅ **Branch pushed**: Your feature branch
 
 ## Testing Checklist
 
 ### Manual Test
 - [ ] **Test manual SSM workflow trigger**
   - Go to GitHub Actions → "Configure SSM Parameters for Deployment"
-  - Branch: `feature/automated-ssm-after-terraform`
+  - Branch: Your feature branch
   - Environment: `dev`
   - ✅ Should complete successfully with OIDC auth
 
 ### Automation Test
 - [ ] **Create Pull Request**
-  - From: `feature/automated-ssm-after-terraform`
+  - From: Your feature branch
   - To: `dev`
 
 - [ ] **Merge and trigger automation**
